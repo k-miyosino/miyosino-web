@@ -33,7 +33,7 @@ jobs:
           NEXT_PUBLIC_CONTACT_API_URL: ${{ secrets.NEXT_PUBLIC_CONTACT_API_URL }}
           NEXT_PUBLIC_CONTENTS_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_CONTENTS_API_ENDPOINT }}
           NEXT_PUBLIC_PHOTOS_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_PHOTOS_API_ENDPOINT }}
-          BASE_PATH_OVERRIDE: /miyosino-web/v2
+          BASE_PATH_OVERRIDE: /v2
         run: npm run build
 
       - name: Deploy to Sakura Internet /v2 via SCP
