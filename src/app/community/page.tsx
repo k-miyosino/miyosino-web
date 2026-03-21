@@ -18,8 +18,6 @@ export default function CommunityPage() {
         </div>
       </section>
 
-      <TableOfContents />
-
       {/* コミュニティ活動セクション */}
       <CommunitySection />
     </div>

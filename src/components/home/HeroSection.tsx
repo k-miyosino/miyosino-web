@@ -64,26 +64,32 @@ export default function HeroSection() {
         );
 
         console.log(
-          `[ServicesSection] フィルタリング後のデータ数: ${filteredContents.length}`
+          `[HeroSection] フィルタリング後のデータ数: ${filteredContents.length}`
         );
 
+        // APIは photo で返す場合と image で返す場合があるので両方対応
         const fetchedPhotos: Photo[] = data.contents
-          .filter(
-            (content: MicroCMSCommonTopImage) => content.image !== undefined
-          )
-          .map((content: MicroCMSCommonTopImage) => ({
-            id: content.id,
-            createdAt: new Date(content.createdAt),
-            updatedAt: new Date(content.updatedAt),
-            title: content.title,
-            description: content.description,
-            image: content.image ?? {
+          .filter((content: MicroCMSCommonTopImage) => {
+            const img = content.photo ?? content.image;
+            return img !== undefined;
+          })
+          .map((content: MicroCMSCommonTopImage) => {
+            const fallback = {
               url: '/fallback.jpg',
               width: 0,
               height: 0,
-            },
-            order: content.order ?? 0,
-          }));
+            };
+            const img = content.photo ?? content.image ?? fallback;
+            return {
+              id: content.id,
+              createdAt: new Date(content.createdAt),
+              updatedAt: new Date(content.updatedAt),
+              title: content.title,
+              description: content.description,
+              image: img,
+              order: content.order ?? 0,
+            };
+          });
 
         // orderが最小の写真のみを設定
         if (fetchedPhotos.length > 0) {

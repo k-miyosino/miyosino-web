@@ -1,8 +1,10 @@
 # Node.jsのLTSバージョンを使用
-FROM node:20-alpine
+# FROM node:20-alpine
+FROM node:20-slim
 
 # Alpineのパッケージマネージャ(apk)を使ってbashをインストールします
-RUN apk update && apk add bash git docker
+# RUN apk update && apk add bash git docker
+RUN apt-get update && apt-get install -y git sudo && rm -rf /var/lib/apt/lists/*
 
 # 作業ディレクトリを設定
 WORKDIR /app

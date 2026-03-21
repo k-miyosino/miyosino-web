@@ -12,7 +12,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
-        "ms-vscode.vscode-typescript-next"
+        "ms-vscode.vscode-typescript-next",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",

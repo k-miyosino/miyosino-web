@@ -31,7 +31,14 @@ export interface MicroCMSCommonTopImage {
   body: string; // HTML（features、capacity、reservationを含む）
   icon?: string; // アイコン（1行テキスト）
   order?: number;
+  /** MicroCMS / Cloudflare Workers API が返す画像（実際のAPIは photo を使用） */
   image?: {
+    url: string;
+    width?: number;
+    height?: number;
+  };
+  /** トップ画像用APIが返す画像（photo で返る場合あり） */
+  photo?: {
     url: string;
     width?: number;
     height?: number;

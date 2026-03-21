@@ -13,568 +13,570 @@
  */
 
 interface Env {
-    KINTONE_DOMAIN: string; // 例: your-subdomain.cybozu.com
-    KINTONE_CLIENT_ID: string;
-    KINTONE_CLIENT_SECRET: string;
-    JWT_SECRET: string;
+  KINTONE_DOMAIN: string; // 例: your-subdomain.cybozu.com
+  KINTONE_CLIENT_ID: string;
+  KINTONE_CLIENT_SECRET: string;
+  JWT_SECRET: string;
 }
 
 interface KintoneTokenResponse {
-    access_token: string;
-    token_type: string;
-    expires_in: number;
-    scope: string;
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  scope: string;
 }
 
 interface KintoneUserResponse {
-    id: string;
-    code: string;
-    name: string;
-    email: string;
-    valid: boolean;
+  id: string;
+  code: string;
+  name: string;
+  email: string;
+  valid: boolean;
 }
 
 interface JWTPayload {
-    sub: string; // ユーザーID
-    name: string; // ユーザー名
-    email: string;
-    iat: number; // 発行時刻
-    exp: number; // 有効期限
+  sub: string; // ユーザーID
+  name: string; // ユーザー名
+  email: string;
+  iat: number; // 発行時刻
+  exp: number; // 有効期限
 }
 
 // JWT関連のヘルパー関数
 async function generateJWT(
-    payload: JWTPayload,
-    secret: string
+  payload: JWTPayload,
+  secret: string
 ): Promise<string> {
-    const header = {
-        alg: 'HS256',
-        typ: 'JWT',
-    };
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
 
-    const encodedHeader = btoa(JSON.stringify(header))
-        .replace(/=/g, '')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_');
-    const encodedPayload = btoa(JSON.stringify(payload))
-        .replace(/=/g, '')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_');
+  const encodedHeader = btoa(JSON.stringify(header))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  const encodedPayload = btoa(JSON.stringify(payload))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
-    const data = `${encodedHeader}.${encodedPayload}`;
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
+  const data = `${encodedHeader}.${encodedPayload}`;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
 
-    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-    const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-        .replace(/=/g, '')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_');
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+  const encodedSignature = btoa(
+    String.fromCharCode(...new Uint8Array(signature))
+  )
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
-    return `${data}.${encodedSignature}`;
+  return `${data}.${encodedSignature}`;
 }
 
 async function verifyJWT(
-    token: string,
-    secret: string
+  token: string,
+  secret: string
 ): Promise<JWTPayload | null> {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-            return null;
-        }
-
-        const [encodedHeader, encodedPayload, encodedSignature] = parts;
-        const data = `${encodedHeader}.${encodedPayload}`;
-
-        const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-            'raw',
-            encoder.encode(secret),
-            { name: 'HMAC', hash: 'SHA-256' },
-            false,
-            ['verify']
-        );
-
-        const signature = Uint8Array.from(
-            atob(encodedSignature.replace(/-/g, '+').replace(/_/g, '/')),
-            (c) => c.charCodeAt(0)
-        );
-
-        const valid = await crypto.subtle.verify(
-            'HMAC',
-            key,
-            signature,
-            encoder.encode(data)
-        );
-
-        if (!valid) {
-            return null;
-        }
-
-        const payload = JSON.parse(
-            atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'))
-        ) as JWTPayload;
-
-        // 有効期限チェック
-        if (payload.exp < Date.now() / 1000) {
-            return null;
-        }
-
-        return payload;
-    } catch (error) {
-        console.error('[Auth] JWT verification error:', error);
-        return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
     }
+
+    const [encodedHeader, encodedPayload, encodedSignature] = parts;
+    const data = `${encodedHeader}.${encodedPayload}`;
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    const signature = Uint8Array.from(
+      atob(encodedSignature.replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0)
+    );
+
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signature,
+      encoder.encode(data)
+    );
+
+    if (!valid) {
+      return null;
+    }
+
+    const payload = JSON.parse(
+      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'))
+    ) as JWTPayload;
+
+    // 有効期限チェック
+    if (payload.exp < Date.now() / 1000) {
+      return null;
+    }
+
+    return payload;
+  } catch (error) {
+    console.error('[Auth] JWT verification error:', error);
+    return null;
+  }
 }
 
 // CORS ヘッダーを追加
 function corsHeaders(origin?: string): Record<string, string> {
-    // 本番環境では特定のオリジンのみ許可することを推奨
-    const allowedOrigins = [
-        'http://localhost:3000',
-        'https://anorimura-miyosino.github.io',
-        // 本番環境ドメイン
-        'https://www.k-miyosino.com',
-    ];
+  // 本番環境では特定のオリジンのみ許可することを推奨
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://k-miyosino.github.io',
+    // 本番環境ドメイン
+    'https://www.k-miyosino.com',
+  ];
 
-    console.log('[CORS] Received origin:', origin);
-    console.log('[CORS] Allowed origins:', allowedOrigins);
-    console.log('[CORS] Origin in allowed list:', origin && allowedOrigins.includes(origin));
+  console.log('[CORS] Received origin:', origin);
+  console.log('[CORS] Allowed origins:', allowedOrigins);
+  console.log(
+    '[CORS] Origin in allowed list:',
+    origin && allowedOrigins.includes(origin)
+  );
 
-    const allowOrigin =
-        origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-    
-    console.log('[CORS] Selected origin:', allowOrigin);
+  const allowOrigin =
+    origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 
-    return {
-        'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Cookie, Authorization',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-    };
+  console.log('[CORS] Selected origin:', allowOrigin);
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Cookie, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+  };
 }
 
 export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
-        const url = new URL(request.url);
-        const origin = request.headers.get('Origin') || undefined;
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const origin = request.headers.get('Origin') || undefined;
 
-        console.log('[Auth] Request:', request.method, url.pathname);
-        console.log('[Auth] Origin header:', origin);
+    console.log('[Auth] Request:', request.method, url.pathname);
+    console.log('[Auth] Origin header:', origin);
 
-        // CORSプリフライトリクエストの処理
-        if (request.method === 'OPTIONS') {
-            console.log('[Auth] Handling OPTIONS preflight request');
-            return new Response(null, {
-                headers: corsHeaders(origin),
-            });
+    // CORSプリフライトリクエストの処理
+    if (request.method === 'OPTIONS') {
+      console.log('[Auth] Handling OPTIONS preflight request');
+      return new Response(null, {
+        headers: corsHeaders(origin),
+      });
+    }
+
+    // 環境変数チェック
+    if (
+      !env.KINTONE_DOMAIN ||
+      !env.KINTONE_CLIENT_ID ||
+      !env.KINTONE_CLIENT_SECRET ||
+      !env.JWT_SECRET
+    ) {
+      console.error('[Auth] Required environment variables are not set');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(origin),
+          },
         }
+      );
+    }
 
-        // 環境変数チェック
-        if (
-            !env.KINTONE_DOMAIN ||
-            !env.KINTONE_CLIENT_ID ||
-            !env.KINTONE_CLIENT_SECRET ||
-            !env.JWT_SECRET
-        ) {
-            console.error('[Auth] Required environment variables are not set');
-            return new Response(
-                JSON.stringify({ error: 'Server configuration error' }),
-                {
-                    status: 500,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...corsHeaders(origin),
-                    },
-                }
-            );
+    const path = url.pathname;
+
+    try {
+      // ルーティング
+      if (path === '/login') {
+        return handleLogin(url, env, origin);
+      } else if (path === '/callback') {
+        return handleCallback(request, env, origin);
+      } else if (path === '/verify') {
+        return handleVerify(request, env, origin);
+      } else if (path === '/logout') {
+        return handleLogout(origin);
+      } else if (path === '/user') {
+        return handleGetUser(request, env, origin);
+      } else {
+        return new Response(JSON.stringify({ error: 'Not found' }), {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(origin),
+          },
+        });
+      }
+    } catch (error) {
+      console.error('[Auth] Error:', error);
+      return new Response(
+        JSON.stringify({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(origin),
+          },
         }
-
-        const path = url.pathname;
-
-        try {
-            // ルーティング
-            if (path === '/login') {
-                return handleLogin(url, env, origin);
-            } else if (path === '/callback') {
-                return handleCallback(request, env, origin);
-            } else if (path === '/verify') {
-                return handleVerify(request, env, origin);
-            } else if (path === '/logout') {
-                return handleLogout(origin);
-            } else if (path === '/user') {
-                return handleGetUser(request, env, origin);
-            } else {
-                return new Response(JSON.stringify({ error: 'Not found' }), {
-                    status: 404,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...corsHeaders(origin),
-                    },
-                });
-            }
-        } catch (error) {
-            console.error('[Auth] Error:', error);
-            return new Response(
-                JSON.stringify({
-                    error: 'Internal server error',
-                    message: error instanceof Error ? error.message : 'Unknown error',
-                }),
-                {
-                    status: 500,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...corsHeaders(origin),
-                    },
-                }
-            );
-        }
-    },
+      );
+    }
+  },
 };
 
 // OAuth認証フロー開始
 async function handleLogin(
-    url: URL,
-    env: Env,
-    origin?: string
+  url: URL,
+  env: Env,
+  origin?: string
 ): Promise<Response> {
-    let redirectUri = url.searchParams.get('redirect_uri') || '/member/';
-    
-    // redirectUriが相対パスの場合、絶対URLに変換
-    try {
-        new URL(redirectUri);
-        // 既に絶対URLの場合はそのまま
-    } catch {
-        // 相対パスの場合、originを使って絶対URLに変換
-        const baseOrigin = origin || url.origin;
-        redirectUri = new URL(redirectUri, baseOrigin).toString();
-    }
-    
-    const state = crypto.randomUUID();
+  let redirectUri = url.searchParams.get('redirect_uri') || '/member/';
 
-    // Kintone OAuth認証URLを構築
-    const authUrl = new URL(`https://${env.KINTONE_DOMAIN}/oauth2/authorization`);
-    authUrl.searchParams.append('client_id', env.KINTONE_CLIENT_ID);
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append(
-        'redirect_uri',
-        `${url.origin}/callback`
-    );
-    authUrl.searchParams.append('state', state);
-    // ユーザー情報を取得するAPIが権限エラーになるため、
-    // 最小限のスコープ（レコード閲覧）を指定し、
-    // トークン取得の成功をもって認証成功とみなします。
-    authUrl.searchParams.append('scope', 'k:app_record:read');
+  // redirectUriが相対パスの場合、絶対URLに変換
+  try {
+    new URL(redirectUri);
+    // 既に絶対URLの場合はそのまま
+  } catch {
+    // 相対パスの場合、originを使って絶対URLに変換
+    const baseOrigin = origin || url.origin;
+    redirectUri = new URL(redirectUri, baseOrigin).toString();
+  }
 
-    // stateとredirect_uriをCookieに保存（CSRF対策）
-    const headers = new Headers({
-        Location: authUrl.toString(),
-        ...corsHeaders(origin),
-    });
+  const state = crypto.randomUUID();
 
-    // state Cookie（短期間のみ有効）
-    headers.append(
-        'Set-Cookie',
-        `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
-    );
+  // Kintone OAuth認証URLを構築
+  const authUrl = new URL(`https://${env.KINTONE_DOMAIN}/oauth2/authorization`);
+  authUrl.searchParams.append('client_id', env.KINTONE_CLIENT_ID);
+  authUrl.searchParams.append('response_type', 'code');
+  authUrl.searchParams.append('redirect_uri', `${url.origin}/callback`);
+  authUrl.searchParams.append('state', state);
+  // ユーザー情報を取得するAPIが権限エラーになるため、
+  // 最小限のスコープ（レコード閲覧）を指定し、
+  // トークン取得の成功をもって認証成功とみなします。
+  authUrl.searchParams.append('scope', 'k:app_record:read');
 
-    // redirect_uri Cookie
-    headers.append(
-        'Set-Cookie',
-        `oauth_redirect=${encodeURIComponent(redirectUri)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
-    );
+  // stateとredirect_uriをCookieに保存（CSRF対策）
+  const headers = new Headers({
+    Location: authUrl.toString(),
+    ...corsHeaders(origin),
+  });
 
-    return new Response(null, {
-        status: 302,
-        headers,
-    });
+  // state Cookie（短期間のみ有効）
+  headers.append(
+    'Set-Cookie',
+    `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
+  );
+
+  // redirect_uri Cookie
+  headers.append(
+    'Set-Cookie',
+    `oauth_redirect=${encodeURIComponent(redirectUri)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
+  );
+
+  return new Response(null, {
+    status: 302,
+    headers,
+  });
 }
 
 // OAuth認証コールバック
 async function handleCallback(
-    request: Request,
-    env: Env,
-    origin?: string
+  request: Request,
+  env: Env,
+  origin?: string
 ): Promise<Response> {
-    const url = new URL(request.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
 
-    if (!code || !state) {
-        return new Response(JSON.stringify({ error: 'Invalid callback' }), {
-            status: 400,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
+  if (!code || !state) {
+    return new Response(JSON.stringify({ error: 'Invalid callback' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  // Cookieからstateとredirect_uriを取得
+  const cookies = parseCookies(request.headers.get('Cookie') || '');
+  const savedState = cookies.oauth_state;
+  const redirectUri = decodeURIComponent(cookies.oauth_redirect || '/member/');
+
+  // CSRF対策: stateの検証
+  if (state !== savedState) {
+    return new Response(JSON.stringify({ error: 'Invalid state' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  try {
+    // アクセストークンを取得
+    const tokenResponse = await fetch(
+      `https://${env.KINTONE_DOMAIN}/oauth2/token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          client_id: env.KINTONE_CLIENT_ID,
+          client_secret: env.KINTONE_CLIENT_SECRET,
+          redirect_uri: `${url.origin}/callback`,
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      console.error(
+        '[Auth] Token request failed:',
+        tokenResponse.status,
+        await tokenResponse.text()
+      );
+      return new Response(JSON.stringify({ error: 'Token request failed' }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders(origin),
+        },
+      });
     }
 
-    // Cookieからstateとredirect_uriを取得
-    const cookies = parseCookies(request.headers.get('Cookie') || '');
-    const savedState = cookies.oauth_state;
-    const redirectUri = decodeURIComponent(cookies.oauth_redirect || '/member/');
+    const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // CSRF対策: stateの検証
-    if (state !== savedState) {
-        return new Response(JSON.stringify({ error: 'Invalid state' }), {
-            status: 400,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
-    }
+    // ユーザー情報を取得するAPI（/v1/users.json）は権限エラー（CB_OA01）になりやすいため、
+    // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなします。
+    // KintoneのOAuthでは、標準で「現在のユーザー」を取得するAPIが提供されていないため、
+    // このアプローチが最も確実です。
 
+    const userData = {
+      id: 'kintone-user',
+      name: 'Kintone Member',
+      email: 'member@example.com',
+      valid: true,
+    };
+
+    // JWTを生成
+    const now = Math.floor(Date.now() / 1000);
+    const jwtPayload: JWTPayload = {
+      sub: userData.id,
+      name: userData.name,
+      email: userData.email,
+      iat: now,
+      exp: now + 60 * 60 * 24 * 7, // 7日間有効
+    };
+
+    const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
+
+    // JWTをURLパラメータとして渡す（クロスドメインCookie問題の回避）
+    // redirectUriが相対パスの場合、originを使って絶対URLに変換
+    let redirectUrl: URL;
     try {
-        // アクセストークンを取得
-        const tokenResponse = await fetch(
-            `https://${env.KINTONE_DOMAIN}/oauth2/token`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    grant_type: 'authorization_code',
-                    code,
-                    client_id: env.KINTONE_CLIENT_ID,
-                    client_secret: env.KINTONE_CLIENT_SECRET,
-                    redirect_uri: `${url.origin}/callback`,
-                }),
-            }
-        );
-
-        if (!tokenResponse.ok) {
-            console.error(
-                '[Auth] Token request failed:',
-                tokenResponse.status,
-                await tokenResponse.text()
-            );
-            return new Response(JSON.stringify({ error: 'Token request failed' }), {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...corsHeaders(origin),
-                },
-            });
-        }
-
-        const tokenData =
-            (await tokenResponse.json()) as KintoneTokenResponse;
-
-
-
-        // ユーザー情報を取得するAPI（/v1/users.json）は権限エラー（CB_OA01）になりやすいため、
-        // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなします。
-        // KintoneのOAuthでは、標準で「現在のユーザー」を取得するAPIが提供されていないため、
-        // このアプローチが最も確実です。
-
-        const userData = {
-            id: 'kintone-user',
-            name: 'Kintone Member',
-            email: 'member@example.com',
-            valid: true
-        };
-
-        // JWTを生成
-        const now = Math.floor(Date.now() / 1000);
-        const jwtPayload: JWTPayload = {
-            sub: userData.id,
-            name: userData.name,
-            email: userData.email,
-            iat: now,
-            exp: now + 60 * 60 * 24 * 7, // 7日間有効
-        };
-
-        const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
-
-        // JWTをURLパラメータとして渡す（クロスドメインCookie問題の回避）
-        // redirectUriが相対パスの場合、originを使って絶対URLに変換
-        let redirectUrl: URL;
-        try {
-            // 既に絶対URLの場合はそのまま使う
-            redirectUrl = new URL(redirectUri);
-        } catch {
-            // 相対パスの場合、originを使って絶対URLに変換
-            // originが指定されている場合はそれを使い、なければRefererヘッダーから取得
-            const baseOrigin = origin || request.headers.get('Origin') || request.headers.get('Referer')?.match(/^https?:\/\/[^/]+/)?.[0];
-            if (!baseOrigin) {
-                throw new Error('Cannot determine base URL for redirect');
-            }
-            redirectUrl = new URL(redirectUri, baseOrigin);
-        }
-        redirectUrl.searchParams.set('token', jwt);
-
-        console.log('[Auth] Redirecting to:', redirectUrl.toString());
-
-        const headers = new Headers({
-            Location: redirectUrl.toString(),
-            ...corsHeaders(origin),
-        });
-
-        // 一時的なCookieを削除
-        headers.append(
-            'Set-Cookie',
-            'oauth_state=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
-        );
-        headers.append(
-            'Set-Cookie',
-            'oauth_redirect=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
-        );
-
-        return new Response(null, {
-            status: 302,
-            headers,
-        });
-    } catch (error) {
-        console.error('[Auth] Callback error:', error);
-        return new Response(
-            JSON.stringify({
-                error: 'Authentication failed',
-                message: error instanceof Error ? error.message : 'Unknown error',
-            }),
-            {
-                status: 500,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...corsHeaders(origin),
-                },
-            }
-        );
+      // 既に絶対URLの場合はそのまま使う
+      redirectUrl = new URL(redirectUri);
+    } catch {
+      // 相対パスの場合、originを使って絶対URLに変換
+      // originが指定されている場合はそれを使い、なければRefererヘッダーから取得
+      const baseOrigin =
+        origin ||
+        request.headers.get('Origin') ||
+        request.headers.get('Referer')?.match(/^https?:\/\/[^/]+/)?.[0];
+      if (!baseOrigin) {
+        throw new Error('Cannot determine base URL for redirect');
+      }
+      redirectUrl = new URL(redirectUri, baseOrigin);
     }
+    redirectUrl.searchParams.set('token', jwt);
+
+    console.log('[Auth] Redirecting to:', redirectUrl.toString());
+
+    const headers = new Headers({
+      Location: redirectUrl.toString(),
+      ...corsHeaders(origin),
+    });
+
+    // 一時的なCookieを削除
+    headers.append(
+      'Set-Cookie',
+      'oauth_state=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
+    );
+    headers.append(
+      'Set-Cookie',
+      'oauth_redirect=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
+    );
+
+    return new Response(null, {
+      status: 302,
+      headers,
+    });
+  } catch (error) {
+    console.error('[Auth] Callback error:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Authentication failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders(origin),
+        },
+      }
+    );
+  }
 }
 
 // セッション検証
 async function handleVerify(
-    request: Request,
-    env: Env,
-    origin?: string
+  request: Request,
+  env: Env,
+  origin?: string
 ): Promise<Response> {
-    // Authorization ヘッダーからトークンを取得（localStorage方式）
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ')
-        ? authHeader.substring(7)
-        : null;
+  // Authorization ヘッダーからトークンを取得（localStorage方式）
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : null;
 
-    if (!token) {
-        return new Response(JSON.stringify({ authenticated: false }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
+  if (!token) {
+    return new Response(JSON.stringify({ authenticated: false }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  const payload = await verifyJWT(token, env.JWT_SECRET);
+
+  if (!payload) {
+    return new Response(JSON.stringify({ authenticated: false }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      authenticated: true,
+      user: {
+        id: payload.sub,
+        name: payload.name,
+        email: payload.email,
+      },
+    }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
     }
-
-    const payload = await verifyJWT(token, env.JWT_SECRET);
-
-    if (!payload) {
-        return new Response(JSON.stringify({ authenticated: false }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
-    }
-
-    return new Response(
-        JSON.stringify({
-            authenticated: true,
-            user: {
-                id: payload.sub,
-                name: payload.name,
-                email: payload.email,
-            },
-        }),
-        {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        }
-    );
+  );
 }
 
 // ログアウト（localStorage方式ではクライアント側で削除）
 async function handleLogout(origin?: string): Promise<Response> {
-    return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders(origin),
-        },
-    });
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders(origin),
+    },
+  });
 }
 
 // ログインユーザー情報取得
 async function handleGetUser(
-    request: Request,
-    env: Env,
-    origin?: string
+  request: Request,
+  env: Env,
+  origin?: string
 ): Promise<Response> {
-    // Authorization ヘッダーからトークンを取得（localStorage方式）
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.startsWith('Bearer ')
-        ? authHeader.substring(7)
-        : null;
+  // Authorization ヘッダーからトークンを取得（localStorage方式）
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : null;
 
-    if (!token) {
-        return new Response(JSON.stringify({ error: 'Not authenticated' }), {
-            status: 401,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  const payload = await verifyJWT(token, env.JWT_SECRET);
+
+  if (!payload) {
+    return new Response(JSON.stringify({ error: 'Invalid token' }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      id: payload.sub,
+      name: payload.name,
+      email: payload.email,
+    }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
     }
-
-    const payload = await verifyJWT(token, env.JWT_SECRET);
-
-    if (!payload) {
-        return new Response(JSON.stringify({ error: 'Invalid token' }), {
-            status: 401,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        });
-    }
-
-    return new Response(
-        JSON.stringify({
-            id: payload.sub,
-            name: payload.name,
-            email: payload.email,
-        }),
-        {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-            },
-        }
-    );
+  );
 }
 
 // Cookie解析ヘルパー
 function parseCookies(cookieHeader: string): Record<string, string> {
-    const cookies: Record<string, string> = {};
-    cookieHeader.split(';').forEach((cookie) => {
-        const [name, ...rest] = cookie.split('=');
-        if (name && rest.length > 0) {
-            cookies[name.trim()] = rest.join('=').trim();
-        }
-    });
-    return cookies;
+  const cookies: Record<string, string> = {};
+  cookieHeader.split(';').forEach((cookie) => {
+    const [name, ...rest] = cookie.split('=');
+    if (name && rest.length > 0) {
+      cookies[name.trim()] = rest.join('=').trim();
+    }
+  });
+  return cookies;
 }
