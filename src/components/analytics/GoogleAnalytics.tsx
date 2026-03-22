@@ -39,7 +39,7 @@ function PageViewTracker() {
  * Tracks page views on initial load and on client-side navigation.
  */
 export function GoogleAnalytics() {
-  if (!measurementId || process.env.NODE_ENV !== 'production') {
+  if (!measurementId) {
     return null;
   }
 
