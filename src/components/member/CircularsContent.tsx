@@ -174,7 +174,7 @@ export default function CircularsContent() {
   useEffect(() => {
     if (selectedYear && months.length > 0) {
       // 選択された年に対応する月が存在する場合、最初の月を選択
-      if (!months.includes(parseInt(selectedMonth))) {
+      if (selectedMonth && !months.includes(parseInt(selectedMonth))) {
         setSelectedMonth(months[0].toString());
       }
     } else {
