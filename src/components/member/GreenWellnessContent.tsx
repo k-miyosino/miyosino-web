@@ -104,7 +104,7 @@ export default function GreenWellnessContent() {
                               fileName: file.file!.name || 'ファイル',
                             })
                           }
-                          className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                          className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
                         >
                           閲覧
                         </button>

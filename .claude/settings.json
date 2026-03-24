@@ -22,7 +22,8 @@
       "Bash(find /app/src -name GoogleAnalytics* -o -name analytics*)",
       "Bash(docker-compose down:*)",
       "Bash(docker compose:*)",
-      "Bash(ls /app/.env*)"
+      "Bash(ls /app/.env*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }
