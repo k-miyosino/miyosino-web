@@ -54,9 +54,9 @@ jobs:
           # コンテンツ取得用Workerのエンドポイント（お知らせなど）
           # 例: https://miyosino-contents-api.your-subdomain.workers.dev
           NEXT_PUBLIC_CONTENTS_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_CONTENTS_API_ENDPOINT }}
-          # 写真データ取得用Workerのエンドポイント（フォールバック用）
-          # 例: https://miyosino-photos-api.your-subdomain.workers.dev
-          NEXT_PUBLIC_PHOTOS_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_PHOTOS_API_ENDPOINT }}
+          # 履歴データ取得用Workerのエンドポイント（あゆみ・大規模修繕工事履歴）
+          # 例: https://miyosino-histories-api.your-subdomain.workers.dev
+          NEXT_PUBLIC_HISTORIES_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_HISTORIES_API_ENDPOINT }}
           # Cloudflare Turnstileのサイトキー（オプション、サーバーサイドAPI経由で取得するため不要）
           # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
         run: npm run build
@@ -93,7 +93,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     # mainブランチの場合のみ実行
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
+    # 本番デプロイ一時停止中
+    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,7 +115,7 @@ jobs:
           port: 22
           source: './out/*'
           target: ${{ secrets.SAKURA_DEPLOY_PATH }}
-          strip_components: 0
+          strip_components: 1
           rm: true
 
       - name: Set file permissions

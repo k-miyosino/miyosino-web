@@ -4,7 +4,15 @@ import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
-const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+// DEBUG: 一時的にハードコード（シークレット設定確認後に元に戻す）
+const measurementId = 'G-CF38V5SRBT';
+const envMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
+console.log('[GA Debug] measurementId (hardcoded):', measurementId);
+console.log(
+  '[GA Debug] NEXT_PUBLIC_GA_MEASUREMENT_ID (env):',
+  envMeasurementId || '(empty/undefined)'
+);
 
 /**
  * Sends page_view to GA4 on client-side navigation (pathname change).
@@ -35,11 +43,17 @@ function PageViewTracker() {
 }
 
 /**
- * Loads gtag.js and configures GA4. Runs only in production when NEXT_PUBLIC_GA_MEASUREMENT_ID is set.
- * Tracks page views on initial load and on client-side navigation.
+ * Loads gtag.js and configures GA4.
+ * DEBUG: measurementId is temporarily hardcoded.
  */
 export function GoogleAnalytics() {
-  if (!measurementId || process.env.NODE_ENV !== 'production') {
+  console.log(
+    '[GA Debug] GoogleAnalytics component rendering, measurementId:',
+    measurementId
+  );
+
+  if (!measurementId) {
+    console.log('[GA Debug] measurementId is empty, returning null');
     return null;
   }
 
@@ -48,13 +62,22 @@ export function GoogleAnalytics() {
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
         strategy="afterInteractive"
+        onLoad={() =>
+          console.log('[GA Debug] gtag.js script loaded successfully')
+        }
+        onError={() =>
+          console.error('[GA Debug] gtag.js script failed to load')
+        }
       />
       <Script id="ga-config" strategy="afterInteractive">
         {`
+          console.log('[GA Debug] ga-config script executing');
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', '${measurementId}');
+          console.log('[GA Debug] GA4 configured with ID: ${measurementId}');
+          console.log('[GA Debug] window.dataLayer:', window.dataLayer);
         `}
       </Script>
       <PageViewTracker />

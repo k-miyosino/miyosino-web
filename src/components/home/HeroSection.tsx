@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type {
-  Photo,
-  MicroCMSCommonTopImage,
-  MicroCMSTopImageListResponse,
-} from '@/types/media';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { Photo } from '@/types/media';
+import { fetchTopImages } from '@/repositories/microcms/contentRepository';
 
 export default function HeroSection() {
   const [heroPhoto, setHeroPhoto] = useState<Photo | null>(null);
@@ -15,85 +11,13 @@ export default function HeroSection() {
   const [imageError, setImageError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから写真データを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchPhotos = async () => {
+    const loadPhotos = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const apiEndpoint = process.env.NEXT_PUBLIC_PHOTOS_API_ENDPOINT;
-
-        if (!apiEndpoint) {
-          console.error(
-            '[HeroSection] API endpoint is not set. Please configure NEXT_PUBLIC_PHOTOS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(apiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.TOP_IMAGE); // カテゴリIDでフィルタ
-        url.searchParams.append('orders', 'order'); // 表示順でソート
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch photos: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSTopImageListResponse = await response.json();
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.TOP_IMAGEのもののみ）
-        const filteredContents = data.contents.filter(
-          (topImage: MicroCMSCommonTopImage) => {
-            if (!Array.isArray(topImage.category)) {
-              return false;
-            }
-            return topImage.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.TOP_IMAGE
-            );
-          }
-        );
-
-        console.log(
-          `[HeroSection] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        // APIは photo で返す場合と image で返す場合があるので両方対応
-        const fetchedPhotos: Photo[] = data.contents
-          .filter((content: MicroCMSCommonTopImage) => {
-            const img = content.photo ?? content.image;
-            return img !== undefined;
-          })
-          .map((content: MicroCMSCommonTopImage) => {
-            const fallback = {
-              url: '/fallback.jpg',
-              width: 0,
-              height: 0,
-            };
-            const img = content.photo ?? content.image ?? fallback;
-            return {
-              id: content.id,
-              createdAt: new Date(content.createdAt),
-              updatedAt: new Date(content.updatedAt),
-              title: content.title,
-              description: content.description,
-              image: img,
-              order: content.order ?? 0,
-            };
-          });
-
-        // orderが最小の写真のみを設定
-        if (fetchedPhotos.length > 0) {
-          const minOrderPhoto = fetchedPhotos.reduce((prev, current) =>
+        const photos = await fetchTopImages();
+        if (photos.length > 0) {
+          const minOrderPhoto = photos.reduce((prev, current) =>
             prev.order <= current.order ? prev : current
           );
           setHeroPhoto(minOrderPhoto);
@@ -105,7 +29,7 @@ export default function HeroSection() {
       }
     };
 
-    fetchPhotos();
+    loadPhotos();
   }, []);
 
   // ローディング中または写真が空の場合、または画像読み込みエラーの場合のフォールバック

@@ -13,7 +13,6 @@ services:
       - .:/app
       # node_modulesはコンテナ内のものを使用
       - /app/node_modules
-      - /app/.next
       # 💡 ホストのDockerソケットをコンテナ内にマウント
       - /var/run/docker.sock:/var/run/docker.sock
     # 開発サーバーの起動コマンド

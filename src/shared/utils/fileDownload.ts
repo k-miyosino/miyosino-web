@@ -43,6 +43,52 @@ function getApiEndpoint(endpoint: FileDownloadEndpoint): string {
 }
 
 /**
+ * ファイルをBlobとして取得する（プレビュー用）
+ *
+ * @param fileKey - Kintoneのファイルキー
+ * @param endpoint - エンドポイントタイプ
+ * @returns blob と contentType
+ * @throws エラーが発生した場合
+ */
+export async function fetchFileBlob(
+  fileKey: string,
+  endpoint: FileDownloadEndpoint
+): Promise<{ blob: Blob; contentType: string }> {
+  const token = getToken();
+  if (!token) {
+    throw new Error('認証トークンがありません');
+  }
+
+  const apiEndpoint = getApiEndpoint(endpoint);
+  const url = `${apiEndpoint}/${endpoint}/file?fileKey=${encodeURIComponent(fileKey)}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+      }
+      redirectToLogin();
+      throw new Error('認証に失敗しました');
+    }
+    throw new Error(`ファイルの取得に失敗しました: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const contentType =
+    response.headers.get('Content-Type') ||
+    blob.type ||
+    'application/octet-stream';
+  return { blob, contentType };
+}
+
+/**
  * ファイルをダウンロードする
  *
  * @param fileKey - Kintoneのファイルキー

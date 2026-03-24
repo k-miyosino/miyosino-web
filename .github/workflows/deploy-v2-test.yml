@@ -1,0 +1,61 @@
+name: Deploy v2 Test (Sakura)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'デプロイするブランチ'
+        required: true
+        default: 'develop'
+        type: string
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_API_ENDPOINT }}
+          NEXT_PUBLIC_CONTACT_API_URL: ${{ secrets.NEXT_PUBLIC_CONTACT_API_URL }}
+          NEXT_PUBLIC_CONTENTS_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_CONTENTS_API_ENDPOINT }}
+          NEXT_PUBLIC_HISTORIES_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_HISTORIES_API_ENDPOINT }}
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
+          BASE_PATH_OVERRIDE: /v2
+        run: npm run build
+
+      - name: Deploy to Sakura Internet /v2 via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SAKURA_SSH_HOST }}
+          username: ${{ secrets.SAKURA_SSH_USERNAME }}
+          key: ${{ secrets.SAKURA_SSH_KEY }}
+          port: 22
+          source: './out/*'
+          target: ${{ secrets.SAKURA_DEPLOY_PATH }}/v2
+          strip_components: 1
+          rm: true
+
+      - name: Set file permissions on /v2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SAKURA_SSH_HOST }}
+          username: ${{ secrets.SAKURA_SSH_USERNAME }}
+          key: ${{ secrets.SAKURA_SSH_KEY }}
+          port: 22
+          script: |
+            chmod -R 755 ${{ secrets.SAKURA_DEPLOY_PATH }}/v2
+            echo "Deployed to: ${{ secrets.SAKURA_DEPLOY_PATH }}/v2"

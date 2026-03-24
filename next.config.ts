@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
-const basePath = process.env.NODE_ENV === 'production' ? '/miyosino-web' : '';
+const basePath = process.env.BASE_PATH_OVERRIDE
+  ?? (process.env.NODE_ENV === 'production' ? '/miyosino-web' : '');
 
 // 環境変数として公開（クライアント側で使用可能）
 process.env.NEXT_PUBLIC_BASE_PATH = basePath;
