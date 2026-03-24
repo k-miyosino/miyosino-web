@@ -131,7 +131,7 @@ export default function FilePreviewModal({
 
       {/* Modal */}
       <div
-        className={`relative bg-white rounded-lg shadow-xl flex flex-col w-full max-w-4xl transition-transform duration-300 ${
+        className={`relative bg-white rounded-lg shadow-xl flex flex-col w-full max-w-[90vw] transition-transform duration-300 ${
           isVisible ? 'scale-100' : 'scale-95'
         }`}
         style={{ maxHeight: '90vh' }}
