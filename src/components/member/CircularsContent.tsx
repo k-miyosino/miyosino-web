@@ -9,6 +9,7 @@ import {
 } from '@/shared/utils/kintone';
 import { getToken, redirectToLogin } from '@/shared/utils/auth';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 // 日付をフォーマットする関数
 function formatDate(dateString: string): string {
@@ -21,6 +22,11 @@ export default function CircularsContent() {
   const [yearMonths, setYearMonths] = useState<YearMonth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    fileKey: string;
+    fileName: string;
+    contentType?: string;
+  } | null>(null);
 
   // 現在月を取得
   const getCurrentYearMonth = (): YearMonth => {
@@ -177,6 +183,16 @@ export default function CircularsContent() {
   }, [selectedYear, months, selectedMonth]);
 
   return (
+    <>
+    {previewFile && (
+      <FilePreviewModal
+        fileKey={previewFile.fileKey}
+        fileName={previewFile.fileName}
+        endpoint="circulars"
+        contentType={previewFile.contentType}
+        onClose={() => setPreviewFile(null)}
+      />
+    )}
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">資料一覧</h2>
@@ -317,17 +333,37 @@ export default function CircularsContent() {
                         {circular.title}
                       </h3>
                       {circular.file?.fileKey ? (
-                        <div className="w-full md:w-64 mt-4 md:mt-0">
-                          <FileDownloadButton
-                            fileKey={circular.file.fileKey}
-                            fileName={circular.file.name || 'download'}
-                            endpoint="circulars"
-                            fileSize={
-                              circular.file.size
-                                ? circular.file.size.toString()
-                                : undefined
+                        <div className="flex gap-2 mt-4 md:mt-0 md:ml-4 flex-shrink-0">
+                          <button
+                            onClick={() =>
+                              setPreviewFile({
+                                fileKey: circular.file!.fileKey!,
+                                fileName: circular.file!.name || 'ファイル',
+                                contentType: circular.file!.contentType,
+                              })
                             }
-                          />
+                            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            閲覧
+                          </button>
+                          <div className="w-56">
+                            <FileDownloadButton
+                              fileKey={circular.file.fileKey}
+                              fileName={circular.file.name || 'download'}
+                              endpoint="circulars"
+                              fileSize={
+                                circular.file.size
+                                  ? circular.file.size.toString()
+                                  : undefined
+                              }
+                            />
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -339,5 +375,6 @@ export default function CircularsContent() {
         </div>
       </div>
     </div>
+    </>
   );
 }
