@@ -10,6 +10,7 @@ import {
 import { getToken } from '@/shared/utils/auth';
 import { downloadFile as downloadFileUtil } from '@/shared/utils/fileDownload';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 // 音声プレーヤーコンポーネント
 function AudioPlayer({
@@ -238,6 +239,11 @@ export default function MinutesContent() {
   // 選択されたカテゴリ（全カテゴリは空文字列）
   const [selectedCategory, setSelectedCategory] = useState<string>('');
 
+  const [previewFile, setPreviewFile] = useState<{
+    fileKey: string;
+    fileName: string;
+  } | null>(null);
+
   // 年と月の一覧を取得
   const years = useMemo(() => {
     const yearSet = new Set<number>();
@@ -362,7 +368,7 @@ export default function MinutesContent() {
   useEffect(() => {
     if (selectedYear && months.length > 0) {
       // 選択された年に対応する月が存在する場合、最初の月を選択
-      if (!months.includes(parseInt(selectedMonth))) {
+      if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
         setSelectedMonth(months[0].toString());
       }
     } else {
@@ -371,320 +377,358 @@ export default function MinutesContent() {
   }, [selectedYear, months, selectedMonth]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">会議一覧</h2>
+    <>
+      {previewFile && (
+        <FilePreviewModal
+          fileKey={previewFile.fileKey}
+          fileName={previewFile.fileName}
+          endpoint="minutes"
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">会議一覧</h2>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* フィルタ（左側） */}
-          {(yearMonths.length > 0 || categories.length > 0) && (
-            <div className="lg:w-64 flex-shrink-0">
-              <div className="bg-gray-50 rounded-lg p-4 sticky top-4 space-y-6">
-                {/* カテゴリフィルタ */}
-                {categories.length > 0 && (
-                  <div>
-                    <label
-                      htmlFor="category-filter"
-                      className="text-sm font-semibold text-gray-700 mb-2 block"
-                    >
-                      カテゴリで絞り込み
-                    </label>
-                    <select
-                      id="category-filter"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">すべて</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* フィルタ（左側） */}
+            {(yearMonths.length > 0 || categories.length > 0) && (
+              <div className="lg:w-64 flex-shrink-0">
+                <div className="bg-gray-50 rounded-lg p-4 sticky top-4 space-y-6">
+                  {/* カテゴリフィルタ */}
+                  {categories.length > 0 && (
+                    <div>
+                      <label
+                        htmlFor="category-filter"
+                        className="text-sm font-semibold text-gray-700 mb-2 block"
+                      >
+                        カテゴリで絞り込み
+                      </label>
+                      <select
+                        id="category-filter"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">すべて</option>
+                        {categories.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-                {/* 年月フィルタ */}
-                {years.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                      年月で絞り込み
-                    </h3>
-                    <div className="space-y-3">
-                      {/* 年フィルター */}
-                      <div>
-                        <label
-                          htmlFor="year-filter"
-                          className="text-sm text-gray-700 mb-1 block"
-                        >
-                          年
-                        </label>
-                        <select
-                          id="year-filter"
-                          value={selectedYear}
-                          onChange={(e) => setSelectedYear(e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="">すべて</option>
-                          {years.map((year) => (
-                            <option key={year} value={year.toString()}>
-                              {year}年
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* 月フィルター（年が選択されている場合のみ表示） */}
-                      {selectedYear && (
+                  {/* 年月フィルタ */}
+                  {years.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        年月で絞り込み
+                      </h3>
+                      <div className="space-y-3">
+                        {/* 年フィルター */}
                         <div>
                           <label
-                            htmlFor="month-filter"
+                            htmlFor="year-filter"
                             className="text-sm text-gray-700 mb-1 block"
                           >
-                            月
+                            年
                           </label>
                           <select
-                            id="month-filter"
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            id="year-filter"
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           >
                             <option value="">すべて</option>
-                            {months.map((month) => (
-                              <option key={month} value={month.toString()}>
-                                {month}月
+                            {years.map((year) => (
+                              <option key={year} value={year.toString()}>
+                                {year}年
                               </option>
                             ))}
                           </select>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* 会議情報一覧（右側） */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-                <p className="text-gray-500 text-sm">読み込み中...</p>
-              </div>
-            ) : error ? (
-              <div className="bg-red-50 rounded-lg p-8 text-center">
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            ) : filteredMeetings.length === 0 ? (
-              <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <p className="text-gray-500 text-sm">
-                  {selectedYear && selectedMonth
-                    ? `${selectedYear}年${selectedMonth}月の会議情報はありません。`
-                    : '現在、会議情報はありません。'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {filteredMeetings.map((meeting) => {
-                  const minutesTitleId = `minutes-title-${meeting.id}`;
-                  const audioTitleId = `audio-title-${meeting.id}`;
-
-                  return (
-                    <div
-                      key={meeting.id}
-                      className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="mb-4">
-                        {meeting.category && (
-                          <div className="mb-2">
-                            <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">
-                              {meeting.category}
-                            </span>
+                        {/* 月フィルター（年が選択されている場合のみ表示） */}
+                        {selectedYear && (
+                          <div>
+                            <label
+                              htmlFor="month-filter"
+                              className="text-sm text-gray-700 mb-1 block"
+                            >
+                              月
+                            </label>
+                            <select
+                              id="month-filter"
+                              value={selectedMonth}
+                              onChange={(e) => setSelectedMonth(e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              <option value="">すべて</option>
+                              {months.map((month) => (
+                                <option key={month} value={month.toString()}>
+                                  {month}月
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         )}
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          {meeting.title}
-                        </h3>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-                      {/* 会議情報 */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">日時</p>
-                          <p className="text-gray-900 font-medium">
-                            {formatDateTime(meeting.StartDateTime).date}{' '}
-                            {formatDateTime(meeting.StartDateTime).time}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">場所</p>
-                          <p className="text-gray-900 font-medium">
-                            {meeting.venue}
-                          </p>
-                        </div>
-                      </div>
+            {/* 会議情報一覧（右側） */}
+            <div className="flex-1 min-w-0">
+              {loading ? (
+                <div className="bg-gray-50 rounded-lg p-8 text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-500 text-sm">読み込み中...</p>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 rounded-lg p-8 text-center">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              ) : filteredMeetings.length === 0 ? (
+                <div className="bg-gray-50 rounded-lg p-8 text-center">
+                  <p className="text-gray-500 text-sm">
+                    {selectedYear && selectedMonth
+                      ? `${selectedYear}年${selectedMonth}月の会議情報はありません。`
+                      : '現在、会議情報はありません。'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {filteredMeetings.map((meeting) => {
+                    const minutesTitleId = `minutes-title-${meeting.id}`;
+                    const audioTitleId = `audio-title-${meeting.id}`;
 
-                      {/* 資料・議事録・音声ファイル */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-1 gap-4">
-                          {/* 資料 */}
-                          {meeting.materials &&
-                            Array.isArray(meeting.materials) &&
-                            meeting.materials.length > 0 && (
-                              <div className="bg-gray-100 rounded-lg p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <svg
-                                    className="w-5 h-5 text-gray-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
-                                  </svg>
-                                  <h4 className="text-sm font-semibold text-gray-700">
-                                    資料
-                                  </h4>
-                                  <span className="text-xs text-gray-500">
-                                    ({meeting.materials.length}件)
-                                  </span>
-                                </div>
-                                <div className="space-y-2">
-                                  {meeting.materials.map(
-                                    (
-                                      material: {
-                                        fileKey: string;
-                                        name: string;
-                                        title?: string;
-                                        size?: string;
-                                      },
-                                      index: number
-                                    ) => {
-                                      const materialTitleId = `material-title-${meeting.id}-${index}`;
-                                      return (
-                                        <div
-                                          key={index}
-                                          className="flex flex-col md:flex-row md:items-center md:justify-between rounded-md px-3 py-2 transition-colors hover:bg-gray-200 focus-within:bg-gray-200"
-                                        >
-                                          <h3
-                                            id={materialTitleId}
-                                            className="font-semibold text-gray-900 flex-1"
+                    return (
+                      <div
+                        key={meeting.id}
+                        className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="mb-4">
+                          {meeting.category && (
+                            <div className="mb-2">
+                              <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">
+                                {meeting.category}
+                              </span>
+                            </div>
+                          )}
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            {meeting.title}
+                          </h3>
+                        </div>
+
+                        {/* 会議情報 */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">日時</p>
+                            <p className="text-gray-900 font-medium">
+                              {formatDateTime(meeting.StartDateTime).date}{' '}
+                              {formatDateTime(meeting.StartDateTime).time}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">場所</p>
+                            <p className="text-gray-900 font-medium">
+                              {meeting.venue}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 資料・議事録・音声ファイル */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="grid grid-cols-1 gap-4">
+                            {/* 資料 */}
+                            {meeting.materials &&
+                              Array.isArray(meeting.materials) &&
+                              meeting.materials.length > 0 && (
+                                <div className="bg-gray-100 rounded-lg p-4">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <svg
+                                      className="w-5 h-5 text-gray-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                    <h4 className="text-sm font-semibold text-gray-700">
+                                      資料
+                                    </h4>
+                                    <span className="text-xs text-gray-500">
+                                      ({meeting.materials.length}件)
+                                    </span>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {meeting.materials.map(
+                                      (
+                                        material: {
+                                          fileKey: string;
+                                          name: string;
+                                          title?: string;
+                                          size?: string;
+                                        },
+                                        index: number
+                                      ) => {
+                                        const materialTitleId = `material-title-${meeting.id}-${index}`;
+                                        return (
+                                          <div
+                                            key={index}
+                                            className="flex flex-col md:flex-row md:items-center md:justify-between rounded-md px-3 py-2 transition-colors hover:bg-gray-200 focus-within:bg-gray-200"
                                           >
-                                            {material.title || material.name}
-                                          </h3>
-                                          <div className="w-full md:w-64 mt-4 md:mt-0">
-                                            <FileDownloadButton
-                                              fileKey={material.fileKey}
-                                              fileName={material.name}
-                                              endpoint="minutes"
-                                              fileSize={material.size}
-                                              ariaDescribedby={materialTitleId}
-                                            />
+                                            <h3
+                                              id={materialTitleId}
+                                              className="font-semibold text-gray-900 flex-1"
+                                            >
+                                              {material.title || material.name}
+                                            </h3>
+                                            <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
+                                              <button
+                                                onClick={() =>
+                                                  setPreviewFile({
+                                                    fileKey: material.fileKey,
+                                                    fileName: material.name,
+                                                  })
+                                                }
+                                                className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                                              >
+                                                閲覧
+                                              </button>
+                                              <div className="w-full md:w-48">
+                                                <FileDownloadButton
+                                                  fileKey={material.fileKey}
+                                                  fileName={material.name}
+                                                  endpoint="minutes"
+                                                  fileSize={material.size}
+                                                  ariaDescribedby={
+                                                    materialTitleId
+                                                  }
+                                                />
+                                              </div>
+                                            </div>
                                           </div>
-                                        </div>
-                                      );
-                                    }
-                                  )}
+                                        );
+                                      }
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* 議事録 */}
+                            {meeting.minutes && (
+                              <div className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <svg
+                                      className="w-5 h-5 text-gray-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                    <h4
+                                      id={minutesTitleId}
+                                      className="text-sm font-semibold text-gray-700"
+                                    >
+                                      議事録
+                                    </h4>
+                                  </div>
+                                  <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
+                                    <button
+                                      onClick={() =>
+                                        setPreviewFile({
+                                          fileKey: meeting.minutes!.fileKey,
+                                          fileName: meeting.minutes!.name,
+                                        })
+                                      }
+                                      className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                                    >
+                                      閲覧
+                                    </button>
+                                    <div className="w-full md:w-48">
+                                      <FileDownloadButton
+                                        fileKey={meeting.minutes.fileKey}
+                                        fileName={meeting.minutes.name}
+                                        endpoint="minutes"
+                                        fileSize={meeting.minutes.size}
+                                        ariaDescribedby={minutesTitleId}
+                                      />
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             )}
 
-                          {/* 議事録 */}
-                          {meeting.minutes && (
-                            <div className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200">
-                              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                                <div className="flex items-center gap-2">
-                                  <svg
-                                    className="w-5 h-5 text-gray-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            {/* 音声ファイル */}
+                            {meeting.audio && (
+                              <div className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <svg
+                                      className="w-5 h-5 text-gray-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                                      />
+                                    </svg>
+                                    <h4
+                                      id={audioTitleId}
+                                      className="text-sm font-semibold text-gray-700"
+                                    >
+                                      音声ファイル
+                                    </h4>
+                                  </div>
+                                  <div className="w-full md:w-64 mt-4 md:mt-0">
+                                    <FileDownloadButton
+                                      fileKey={meeting.audio.fileKey}
+                                      fileName={meeting.audio.name}
+                                      endpoint="minutes"
+                                      fileSize={meeting.audio.size}
+                                      ariaDescribedby={audioTitleId}
                                     />
-                                  </svg>
-                                  <h4
-                                    id={minutesTitleId}
-                                    className="text-sm font-semibold text-gray-700"
-                                  >
-                                    議事録
-                                  </h4>
+                                  </div>
                                 </div>
-                                <div className="w-full md:w-64 mt-4 md:mt-0">
-                                  <FileDownloadButton
-                                    fileKey={meeting.minutes.fileKey}
-                                    fileName={meeting.minutes.name}
-                                    endpoint="minutes"
-                                    fileSize={meeting.minutes.size}
-                                    ariaDescribedby={minutesTitleId}
-                                  />
-                                </div>
+                                <AudioPlayer
+                                  fileKey={meeting.audio.fileKey}
+                                  fileName={meeting.audio.name}
+                                  hideDownloadButton={true}
+                                />
                               </div>
-                            </div>
-                          )}
-
-                          {/* 音声ファイル */}
-                          {meeting.audio && (
-                            <div className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200">
-                              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <svg
-                                    className="w-5 h-5 text-gray-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                                    />
-                                  </svg>
-                                  <h4
-                                    id={audioTitleId}
-                                    className="text-sm font-semibold text-gray-700"
-                                  >
-                                    音声ファイル
-                                  </h4>
-                                </div>
-                                <div className="w-full md:w-64 mt-4 md:mt-0">
-                                  <FileDownloadButton
-                                    fileKey={meeting.audio.fileKey}
-                                    fileName={meeting.audio.name}
-                                    endpoint="minutes"
-                                    fileSize={meeting.audio.size}
-                                    ariaDescribedby={audioTitleId}
-                                  />
-                                </div>
-                              </div>
-                              <AudioPlayer
-                                fileKey={meeting.audio.fileKey}
-                                fileName={meeting.audio.name}
-                                hideDownloadButton={true}
-                              />
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

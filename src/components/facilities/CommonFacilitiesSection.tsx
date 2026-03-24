@@ -2,89 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type {
-  CommonFacility,
-  MicroCMSCommonFacility,
-  MicroCMSCommonFacilityListResponse,
-} from '@/types/facilities';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { CommonFacility } from '@/types/facilities';
+import { fetchCommonFacilities } from '@/repositories/microcms/contentRepository';
 import { facilitiesSections } from './data';
 
 export default function CommonFacilitiesSection() {
   const [facilities, setFacilities] = useState<CommonFacility[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから共用施設データを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchFacilities = async () => {
+    const loadFacilities = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
-
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.FACILITY); // カテゴリIDでフィルタ
-        url.searchParams.append('orders', 'order'); // 表示順でソート
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch facilities: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSCommonFacilityListResponse = await response.json();
-
-        console.log(
-          `[CommonFacilitiesSection] 取得した全データ数: ${data.contents.length}`
-        );
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.FACILITYのもののみ）
-        const filteredContents = data.contents.filter(
-          (facility: MicroCMSCommonFacility) => {
-            if (!Array.isArray(facility.category)) {
-              return false;
-            }
-            return facility.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.FACILITY
-            );
-          }
-        );
-
-        console.log(
-          `[CommonFacilitiesSection] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        const fetchedFacilities: CommonFacility[] = filteredContents.map(
-          (facility: MicroCMSCommonFacility) => ({
-            id: facility.id,
-            createdAt: new Date(facility.createdAt),
-            updatedAt: new Date(facility.updatedAt),
-            title: facility.title,
-            description: facility.description,
-            body: facility.body,
-            icon: facility.icon,
-            image: facility.image,
-          })
-        );
-
-        setFacilities(fetchedFacilities);
+        const data = await fetchCommonFacilities();
+        setFacilities(data);
       } catch (error) {
         console.error(
           '[CommonFacilitiesSection] 共用施設データ取得エラー:',
@@ -95,7 +26,7 @@ export default function CommonFacilitiesSection() {
       }
     };
 
-    fetchFacilities();
+    loadFacilities();
   }, []);
 
   if (loading) {

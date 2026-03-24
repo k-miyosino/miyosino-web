@@ -2,89 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type {
-  Service,
-  MicroCMSService,
-  MicroCMSServiceListResponse,
-} from '@/types/facilities';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { Service } from '@/types/facilities';
+import { fetchServices } from '@/repositories/microcms/contentRepository';
 import { facilitiesSections } from './data';
 
 export default function ServicesSection() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSからサービスデータを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchServices = async () => {
+    const loadServices = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
-
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.SERVICE); // カテゴリIDでフィルタ
-        url.searchParams.append('orders', 'order'); // 表示順でソート
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch services: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSServiceListResponse = await response.json();
-
-        console.log(
-          `[ServicesSection] 取得した全データ数: ${data.contents.length}`
-        );
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.SERVICEのもののみ）
-        const filteredContents = data.contents.filter(
-          (service: MicroCMSService) => {
-            if (!Array.isArray(service.category)) {
-              return false;
-            }
-            return service.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.SERVICE
-            );
-          }
-        );
-
-        console.log(
-          `[ServicesSection] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        const fetchedServices: Service[] = filteredContents.map(
-          (service: MicroCMSService) => ({
-            id: service.id,
-            createdAt: new Date(service.createdAt),
-            updatedAt: new Date(service.updatedAt),
-            title: service.title,
-            description: service.description,
-            body: service.body,
-            icon: service.icon,
-            image: service.image,
-          })
-        );
-
-        setServices(fetchedServices);
+        const data = await fetchServices();
+        setServices(data);
       } catch (error) {
         console.error('[ServicesSection] サービスデータ取得エラー:', error);
       } finally {
@@ -92,7 +23,7 @@ export default function ServicesSection() {
       }
     };
 
-    fetchServices();
+    loadServices();
   }, []);
 
   if (loading) {

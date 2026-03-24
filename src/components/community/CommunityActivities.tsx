@@ -2,92 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type {
-  CommunityActivity,
-  MicroCMSCommunityActivity,
-  MicroCMSCommunityActivityListResponse,
-} from '@/types/community';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { CommunityActivity } from '@/types/community';
+import { fetchCommunityActivities } from '@/repositories/microcms/contentRepository';
 import { communitySections } from './data';
 
 export default function CommunityActivities() {
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから自治会活動データを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchActivities = async () => {
+    const loadActivities = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
-
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append(
-          'category',
-          CONTENT_CATEGORIES.COMMUNITY_ACTIVITIES
-        ); // カテゴリIDでフィルタ
-        url.searchParams.append('orders', 'order'); // 表示順でソート
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch activities: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSCommunityActivityListResponse =
-          await response.json();
-
-        console.log(
-          `[CommunityActivities] 取得した全データ数: ${data.contents.length}`
-        );
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.COMMUNITY_ACTIVITIESのもののみ）
-        const filteredContents = data.contents.filter(
-          (activity: MicroCMSCommunityActivity) => {
-            if (!Array.isArray(activity.category)) {
-              return false;
-            }
-            return activity.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.COMMUNITY_ACTIVITIES
-            );
-          }
-        );
-
-        console.log(
-          `[CommunityActivities] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        const fetchedActivities: CommunityActivity[] = filteredContents.map(
-          (activity: MicroCMSCommunityActivity) => ({
-            id: activity.id,
-            createdAt: new Date(activity.createdAt),
-            updatedAt: new Date(activity.updatedAt),
-            title: activity.title,
-            body: activity.body,
-            icon: activity.icon,
-            image: activity.image,
-          })
-        );
-
-        setActivities(fetchedActivities);
+        const data = await fetchCommunityActivities();
+        setActivities(data);
       } catch (error) {
         console.error(
           '[CommunityActivities] 自治会活動データ取得エラー:',
@@ -98,7 +26,7 @@ export default function CommunityActivities() {
       }
     };
 
-    fetchActivities();
+    loadActivities();
   }, []);
 
   if (loading) {

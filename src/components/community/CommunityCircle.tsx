@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type {
-  ResidentCircle,
-  MicroCMSResidentCircle,
-  MicroCMSResidentCircleListResponse,
-} from '@/types/community';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { ResidentCircle } from '@/types/community';
+import {
+  fetchSportsCircles,
+  fetchCultureCircles,
+} from '@/repositories/microcms/contentRepository';
 import { communitySections } from './data';
 
 export default function CommunityCircle() {
@@ -14,125 +13,16 @@ export default function CommunityCircle() {
   const [cultureCircles, setCultureCircles] = useState<ResidentCircle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから住民サークルデータを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchCircles = async () => {
+    const loadCircles = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
-
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // スポーツ・運動カテゴリから取得
-        const sportsUrl = new URL(contentsApiEndpoint);
-        sportsUrl.searchParams.append(
-          'category',
-          CONTENT_CATEGORIES.COMMUNITY_CIRCLE_SPORTS
-        );
-        sportsUrl.searchParams.append('orders', 'order');
-        sportsUrl.searchParams.append('getAll', 'true');
-
-        const sportsResponse = await fetch(sportsUrl.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!sportsResponse.ok) {
-          throw new Error(
-            `Failed to fetch sports circles: ${sportsResponse.status} ${sportsResponse.statusText}`
-          );
-        }
-
-        const sportsData: MicroCMSResidentCircleListResponse =
-          await sportsResponse.json();
-
-        // 文化活動カテゴリから取得
-        const cultureUrl = new URL(contentsApiEndpoint);
-        cultureUrl.searchParams.append(
-          'category',
-          CONTENT_CATEGORIES.COMMUNITY_CIRCLE_CULTURE
-        );
-        cultureUrl.searchParams.append('orders', 'order');
-        cultureUrl.searchParams.append('getAll', 'true');
-
-        const cultureResponse = await fetch(cultureUrl.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!cultureResponse.ok) {
-          throw new Error(
-            `Failed to fetch culture circles: ${cultureResponse.status} ${cultureResponse.statusText}`
-          );
-        }
-
-        const cultureData: MicroCMSResidentCircleListResponse =
-          await cultureResponse.json();
-
-        console.log(
-          `[CommunityCircle] スポーツ・運動: ${sportsData.contents.length}件, 文化活動: ${cultureData.contents.length}件`
-        );
-
-        // スポーツ・運動のフィルタリングと変換
-        const filteredSports = sportsData.contents.filter(
-          (circle: MicroCMSResidentCircle) => {
-            if (!Array.isArray(circle.category)) {
-              return false;
-            }
-            return circle.category.some(
-              (cat) =>
-                cat && cat.id === CONTENT_CATEGORIES.COMMUNITY_CIRCLE_SPORTS
-            );
-          }
-        );
-
-        const fetchedSports: ResidentCircle[] = filteredSports.map(
-          (circle: MicroCMSResidentCircle) => ({
-            id: circle.id,
-            createdAt: new Date(circle.createdAt),
-            updatedAt: new Date(circle.updatedAt),
-            name: circle.title || circle.name || '',
-            category: 'スポーツ・運動',
-            body: circle.body,
-            icon: circle.icon,
-          })
-        );
-
-        // 文化活動のフィルタリングと変換
-        const filteredCulture = cultureData.contents.filter(
-          (circle: MicroCMSResidentCircle) => {
-            if (!Array.isArray(circle.category)) {
-              return false;
-            }
-            return circle.category.some(
-              (cat) =>
-                cat && cat.id === CONTENT_CATEGORIES.COMMUNITY_CIRCLE_CULTURE
-            );
-          }
-        );
-
-        const fetchedCulture: ResidentCircle[] = filteredCulture.map(
-          (circle: MicroCMSResidentCircle) => ({
-            id: circle.id,
-            createdAt: new Date(circle.createdAt),
-            updatedAt: new Date(circle.updatedAt),
-            name: circle.title || circle.name || '',
-            category: '文化活動',
-            body: circle.body,
-            icon: circle.icon,
-          })
-        );
-
-        setSportsCircles(fetchedSports);
-        setCultureCircles(fetchedCulture);
+        const [sports, culture] = await Promise.all([
+          fetchSportsCircles(),
+          fetchCultureCircles(),
+        ]);
+        setSportsCircles(sports);
+        setCultureCircles(culture);
       } catch (error) {
         console.error('[CommunityCircle] 住民サークルデータ取得エラー:', error);
       } finally {
@@ -140,7 +30,7 @@ export default function CommunityCircle() {
       }
     };
 
-    fetchCircles();
+    loadCircles();
   }, []);
 
   if (loading) {

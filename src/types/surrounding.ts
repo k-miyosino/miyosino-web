@@ -16,7 +16,7 @@ export interface MicroCMSNearbyFacility {
   updatedAt: string;
   publishedAt?: string;
   revisedAt?: string;
-  name: string;
+  title: string;
   description: string;
   subCategory?:
     | {

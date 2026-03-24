@@ -3,94 +3,20 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { featuresSections } from './data';
-import type {
-  Season,
-  MicroCMSSeason,
-  MicroCMSSeasonListResponse,
-} from '@/types/seasons';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { Season } from '@/types/seasons';
+import { fetchSeasons } from '@/repositories/microcms/contentRepository';
 
 export function SeasonsSection() {
   const [seasonsData, setSeasonsData] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから四季データを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchSeasons = async () => {
+    const loadSeasons = async () => {
       try {
         setLoading(true);
-
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
-
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.SEASON); // カテゴリIDでフィルタ
-        url.searchParams.append('orders', 'order'); // 表示順でソート
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch seasons: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSSeasonListResponse = await response.json();
-
-        console.log(
-          `[SeasonsSection] 取得した全データ数: ${data.contents.length}`
-        );
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.SEASONのもののみ）
-        const filteredContents = data.contents.filter(
-          (season: MicroCMSSeason) => {
-            if (!Array.isArray(season.category)) {
-              return false;
-            }
-            return season.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.SEASON
-            );
-          }
-        );
-
-        console.log(
-          `[SeasonsSection] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        // orderでソート（0=春、1=夏、2=秋、3=冬）
-        const sortedContents = filteredContents.sort(
-          (a, b) => (a.order || 0) - (b.order || 0)
-        );
-
-        const fetchedSeasons: Season[] = sortedContents.map(
-          (season: MicroCMSSeason) => ({
-            id: season.id,
-            createdAt: new Date(season.createdAt),
-            updatedAt: new Date(season.updatedAt),
-            title: season.title,
-            description: season.description,
-            body: season.body,
-            order: season.order,
-            icon: season.icon,
-            image: season.image,
-          })
-        );
-
-        setSeasonsData(fetchedSeasons);
+        const data = await fetchSeasons();
+        const sorted = data.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setSeasonsData(sorted);
       } catch (error) {
         console.error('[SeasonsSection] 四季データ取得エラー:', error);
       } finally {
@@ -98,7 +24,7 @@ export function SeasonsSection() {
       }
     };
 
-    fetchSeasons();
+    loadSeasons();
   }, []);
 
   const sectionMeta = featuresSections.find((s) => s.id === 'seasons');
