@@ -248,7 +248,7 @@ export async function fetchNearbyFacilities(): Promise<NearbyFacility[]> {
     id: facility.id,
     createdAt: new Date(facility.createdAt),
     updatedAt: new Date(facility.updatedAt),
-    name: facility.name,
+    name: facility.title,
     description: facility.description,
     subCategory: resolveSubCategory(facility.subCategory),
     icon: facility.icon ?? '',
