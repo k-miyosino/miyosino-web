@@ -10,6 +10,7 @@ import {
 import { getToken } from '@/shared/utils/auth';
 import { downloadFile as downloadFileUtil } from '@/shared/utils/fileDownload';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 // 音声プレーヤーコンポーネント
 function AudioPlayer({
@@ -238,6 +239,11 @@ export default function MinutesContent() {
   // 選択されたカテゴリ（全カテゴリは空文字列）
   const [selectedCategory, setSelectedCategory] = useState<string>('');
 
+  const [previewFile, setPreviewFile] = useState<{
+    fileKey: string;
+    fileName: string;
+  } | null>(null);
+
   // 年と月の一覧を取得
   const years = useMemo(() => {
     const yearSet = new Set<number>();
@@ -371,7 +377,16 @@ export default function MinutesContent() {
   }, [selectedYear, months, selectedMonth]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <>
+      {previewFile && (
+        <FilePreviewModal
+          fileKey={previewFile.fileKey}
+          fileName={previewFile.fileName}
+          endpoint="minutes"
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">会議一覧</h2>
 
@@ -578,14 +593,27 @@ export default function MinutesContent() {
                                           >
                                             {material.title || material.name}
                                           </h3>
-                                          <div className="w-full md:w-64 mt-4 md:mt-0">
-                                            <FileDownloadButton
-                                              fileKey={material.fileKey}
-                                              fileName={material.name}
-                                              endpoint="minutes"
-                                              fileSize={material.size}
-                                              ariaDescribedby={materialTitleId}
-                                            />
+                                          <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
+                                            <button
+                                              onClick={() =>
+                                                setPreviewFile({
+                                                  fileKey: material.fileKey,
+                                                  fileName: material.name,
+                                                })
+                                              }
+                                              className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                                            >
+                                              閲覧
+                                            </button>
+                                            <div className="w-full md:w-48">
+                                              <FileDownloadButton
+                                                fileKey={material.fileKey}
+                                                fileName={material.name}
+                                                endpoint="minutes"
+                                                fileSize={material.size}
+                                                ariaDescribedby={materialTitleId}
+                                              />
+                                            </div>
                                           </div>
                                         </div>
                                       );
@@ -620,14 +648,27 @@ export default function MinutesContent() {
                                     議事録
                                   </h4>
                                 </div>
-                                <div className="w-full md:w-64 mt-4 md:mt-0">
-                                  <FileDownloadButton
-                                    fileKey={meeting.minutes.fileKey}
-                                    fileName={meeting.minutes.name}
-                                    endpoint="minutes"
-                                    fileSize={meeting.minutes.size}
-                                    ariaDescribedby={minutesTitleId}
-                                  />
+                                <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
+                                  <button
+                                    onClick={() =>
+                                      setPreviewFile({
+                                        fileKey: meeting.minutes.fileKey,
+                                        fileName: meeting.minutes.name,
+                                      })
+                                    }
+                                    className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                                  >
+                                    閲覧
+                                  </button>
+                                  <div className="w-full md:w-48">
+                                    <FileDownloadButton
+                                      fileKey={meeting.minutes.fileKey}
+                                      fileName={meeting.minutes.name}
+                                      endpoint="minutes"
+                                      fileSize={meeting.minutes.size}
+                                      ariaDescribedby={minutesTitleId}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -686,5 +727,6 @@ export default function MinutesContent() {
         </div>
       </div>
     </div>
+    </>
   );
 }
