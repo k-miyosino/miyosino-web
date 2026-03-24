@@ -654,8 +654,8 @@ export default function MinutesContent() {
                                     <button
                                       onClick={() =>
                                         setPreviewFile({
-                                          fileKey: meeting.minutes.fileKey,
-                                          fileName: meeting.minutes.name,
+                                          fileKey: meeting.minutes!.fileKey,
+                                          fileName: meeting.minutes!.name,
                                         })
                                       }
                                       className="hidden md:block px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
