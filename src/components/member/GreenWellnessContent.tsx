@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { GreenWellnessFile } from './data';
 import { fetchGreenWellnessFiles } from '@/shared/utils/kintone';
 import { redirectToLogin } from '@/shared/utils/auth';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 export default function GreenWellnessContent() {
   const [files, setFiles] = useState<GreenWellnessFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    fileKey: string;
+    fileName: string;
+  } | null>(null);
 
   useEffect(() => {
     const loadFiles = async () => {
@@ -44,21 +48,16 @@ export default function GreenWellnessContent() {
   }, []);
 
   return (
+    <>
+      {previewFile && (
+        <FilePreviewModal
+          fileKey={previewFile.fileKey}
+          fileName={previewFile.fileName}
+          endpoint="greenwellness"
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          回覧板・配布資料
-        </h2>
-        <p className="text-gray-600 text-sm mb-4">
-          回覧板や配布資料はこちらからご確認いただけます。
-        </p>
-        <Link
-          href="/member/circulars"
-          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          回覧板・配布資料を閲覧する
-        </Link>
-      </div>
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           ダウンロード資料
@@ -97,13 +96,26 @@ export default function GreenWellnessContent() {
                     )}
                   </div>
                   {file.file?.fileKey ? (
-                    <div className="w-full md:w-64 mt-4 md:mt-0">
-                      <FileDownloadButton
-                        fileKey={file.file.fileKey}
-                        fileName={file.file.name || 'download'}
-                        endpoint="greenwellness"
-                        fileSize={file.file.size}
-                      />
+                    <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
+                      <button
+                        onClick={() =>
+                          setPreviewFile({
+                            fileKey: file.file!.fileKey!,
+                            fileName: file.file!.name || 'ファイル',
+                          })
+                        }
+                        className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                      >
+                        閲覧
+                      </button>
+                      <div className="w-48">
+                        <FileDownloadButton
+                          fileKey={file.file.fileKey}
+                          fileName={file.file.name || 'download'}
+                          endpoint="greenwellness"
+                          fileSize={file.file.size}
+                        />
+                      </div>
                     </div>
                   ) : (
                     <span className="text-gray-400 text-sm mt-4 md:mt-0">
@@ -117,5 +129,6 @@ export default function GreenWellnessContent() {
         )}
       </div>
     </div>
+    </>
   );
 }
