@@ -1,12 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type {
-  NearbyFacility,
-  MicroCMSNearbyFacility,
-  MicroCMSNearbyFacilityListResponse,
-} from '@/types/surrounding';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { NearbyFacility } from '@/types/surrounding';
+import { fetchNearbyFacilities } from '@/repositories/microcms/contentRepository';
 
 type GroupedFacilities = {
   publicFacilities: NearbyFacility[];
@@ -30,169 +26,25 @@ export default function NearbyFacilitiesSection() {
   );
   const [loading, setLoading] = useState(true);
 
-  // Cloudflare Workers経由でMicroCMSから周辺施設データを取得
-  // APIキーはサーバーサイド（Cloudflare Workers）で管理され、クライアントに露出しません
   useEffect(() => {
-    const fetchNearbyFacilities = async () => {
+    const loadFacilities = async () => {
       try {
         setLoading(true);
+        const facilities = await fetchNearbyFacilities();
 
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
+        const sortByOrder = (a: NearbyFacility, b: NearbyFacility) =>
+          a.order - b.order;
+        const filterBy = (key: string) =>
+          facilities.filter((f) => f.subCategory === key).sort(sortByOrder);
 
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[NearbyFacilitiesSection] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.NEARBY); // カテゴリIDでフィルタ
-        url.searchParams.append('getAll', 'true'); // 全件取得
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
+        setGroupedFacilities({
+          publicFacilities: filterBy('publicFacilities'),
+          educationFacilities: filterBy('educationFacilities'),
+          financialInstitutions: filterBy('financialInstitutions'),
+          commercialFacilities: filterBy('commercialFacilities'),
+          medicalFacilities: filterBy('medicalFacilities'),
+          utilities: filterBy('utilities'),
         });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch nearby facilities: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSNearbyFacilityListResponse = await response.json();
-
-        console.log(
-          `[NearbyFacilitiesSection] 取得した全データ数: ${data.contents.length}`
-        );
-
-        // クライアント側でカテゴリフィルタリング（category.idがCONTENT_CATEGORIES.NEARBYのもののみ）
-        const filteredContents = data.contents.filter(
-          (facility: MicroCMSNearbyFacility) => {
-            if (!Array.isArray(facility.category)) {
-              return false;
-            }
-            return facility.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.NEARBY
-            );
-          }
-        );
-
-        console.log(
-          `[NearbyFacilitiesSection] フィルタリング後のデータ数: ${filteredContents.length}`
-        );
-
-        // デバッグ: 最初の数件のデータ構造を確認
-        console.log(
-          '[NearbyFacilitiesSection] サンプルデータ（最初の1件の全フィールド）:',
-          filteredContents[0]
-        );
-
-        // subCategoryの値をマッピング（nearby_xxx形式からxxxFacilities形式へ）
-        const subCategoryMap: Record<string, string> = {
-          nearby_public: 'publicFacilities',
-          nearby_education: 'educationFacilities',
-          nearby_finance: 'financialInstitutions',
-          nearby_commerce: 'commercialFacilities',
-          nearby_medical: 'medicalFacilities',
-          nearby_other: 'utilities',
-        };
-
-        // MicroCMSのレスポンスをNearbyFacility型に変換
-        // subCategoryがオブジェクトの場合はidを取得、文字列の場合はそのまま使用
-        const fetchedFacilities: NearbyFacility[] = filteredContents.map(
-          (facility: MicroCMSNearbyFacility) => {
-            let subCategoryValue = '';
-            if (facility.subCategory) {
-              if (typeof facility.subCategory === 'string') {
-                // nearby_xxx形式をxxxFacilities形式に変換
-                subCategoryValue =
-                  subCategoryMap[facility.subCategory] || facility.subCategory;
-              } else if (
-                typeof facility.subCategory === 'object' &&
-                facility.subCategory.id
-              ) {
-                // オブジェクトの場合も同様にマッピング
-                subCategoryValue =
-                  subCategoryMap[facility.subCategory.id] ||
-                  facility.subCategory.id;
-              }
-            }
-
-            return {
-              id: facility.id,
-              createdAt: new Date(facility.createdAt),
-              updatedAt: new Date(facility.updatedAt),
-              name:
-                facility.name ||
-                (facility as MicroCMSNearbyFacility & { title?: string })
-                  .title ||
-                '',
-              description: facility.description || '',
-              subCategory: subCategoryValue,
-              icon: facility.icon || '',
-              order: facility.order || 0,
-            };
-          }
-        );
-
-        // デバッグ: 変換後のsubCategoryの値を確認
-        console.log(
-          '[NearbyFacilitiesSection] 変換後のsubCategory一覧:',
-          fetchedFacilities.map((f) => ({
-            name: f.name,
-            subCategory: f.subCategory,
-            subCategoryLength: f.subCategory?.length,
-            subCategoryType: typeof f.subCategory,
-          }))
-        );
-
-        // デバッグ: ユニークなsubCategoryの値を確認
-        const uniqueSubCategories = [
-          ...new Set(fetchedFacilities.map((f) => f.subCategory)),
-        ];
-        console.log(
-          '[NearbyFacilitiesSection] ユニークなsubCategoryの値:',
-          uniqueSubCategories
-        );
-
-        // subCategory.idに基づいて分類
-        const grouped: GroupedFacilities = {
-          publicFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'publicFacilities')
-            .sort((a, b) => a.order - b.order),
-          educationFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'educationFacilities')
-            .sort((a, b) => a.order - b.order),
-          financialInstitutions: fetchedFacilities
-            .filter((f) => f.subCategory === 'financialInstitutions')
-            .sort((a, b) => a.order - b.order),
-          commercialFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'commercialFacilities')
-            .sort((a, b) => a.order - b.order),
-          medicalFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'medicalFacilities')
-            .sort((a, b) => a.order - b.order),
-          utilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'utilities')
-            .sort((a, b) => a.order - b.order),
-        };
-
-        // デバッグ: 分類後の各カテゴリのデータ数を確認
-        console.log('[NearbyFacilitiesSection] 分類後のデータ数:', {
-          publicFacilities: grouped.publicFacilities.length,
-          educationFacilities: grouped.educationFacilities.length,
-          financialInstitutions: grouped.financialInstitutions.length,
-          commercialFacilities: grouped.commercialFacilities.length,
-          medicalFacilities: grouped.medicalFacilities.length,
-          utilities: grouped.utilities.length,
-        });
-
-        setGroupedFacilities(grouped);
       } catch (error) {
         console.error(
           '[NearbyFacilitiesSection] 周辺施設データ取得エラー:',
@@ -203,7 +55,7 @@ export default function NearbyFacilitiesSection() {
       }
     };
 
-    fetchNearbyFacilities();
+    loadFacilities();
   }, []);
 
   if (loading) {

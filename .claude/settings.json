@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -la /app/workers/wrangler*.toml)"
+      "Bash(ls -la /app/workers/wrangler*.toml)",
+      "Bash(grep -r photos /app/src/types --include=*.ts)",
+      "Bash(wc -l /app/workers/api/*.ts)",
+      "Bash(grep -r \"from ''@/shared/utils/kintone''\" /app/src --include=\"*.ts\" --include=\"*.tsx\" -n)",
+      "Bash(npx tsc:*)",
+      "Read(//tmp/**)",
+      "Read(//proc/8092/net/**)",
+      "Read(//app/**)",
+      "Read(//proc/55/**)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \":*)",
+      "Bash(node -e \":*)",
+      "Bash(kill -9 55)",
+      "Bash(find /app/src/app -type f -name *.tsx -o -name *.ts -o -name *.jsx -o -name *.js)",
+      "Bash(ls -la /app/.env*)",
+      "Bash(grep -rn BASE_PATH /app --include=*.env* --include=*.yml --include=*.yaml --include=*.json)",
+      "Bash(ls /app/next.config*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:5]\\)\")",
+      "Bash(find /app/src -name GoogleAnalytics* -o -name analytics*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker compose:*)",
+      "Bash(ls /app/.env*)"
     ]
   }
 }

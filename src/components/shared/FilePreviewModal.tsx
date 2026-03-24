@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { fetchFileBlob, downloadFile, FileDownloadEndpoint } from '@/shared/utils/fileDownload';
+import {
+  fetchFileBlob,
+  downloadFile,
+  FileDownloadEndpoint,
+} from '@/shared/utils/fileDownload';
 
 interface FilePreviewModalProps {
   fileKey: string;
@@ -22,7 +26,9 @@ export default function FilePreviewModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [resolvedContentType, setResolvedContentType] = useState<string>(contentTypeHint || '');
+  const [resolvedContentType, setResolvedContentType] = useState<string>(
+    contentTypeHint || ''
+  );
   const [downloading, setDownloading] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -49,7 +55,9 @@ export default function FilePreviewModal({
         setResolvedContentType(contentType);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'ファイルの取得に失敗しました');
+        setError(
+          err instanceof Error ? err.message : 'ファイルの取得に失敗しました'
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,7 +92,9 @@ export default function FilePreviewModal({
   // スクロール禁止
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, []);
 
   function handleClose() {
@@ -98,7 +108,8 @@ export default function FilePreviewModal({
     try {
       await downloadFile(fileKey, fileName, endpoint);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'ダウンロードに失敗しました';
+      const msg =
+        err instanceof Error ? err.message : 'ダウンロードに失敗しました';
       alert(msg);
     } finally {
       setDownloading(false);
@@ -116,10 +127,7 @@ export default function FilePreviewModal({
       }`}
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60"
-        onClick={handleClose}
-      />
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
 
       {/* Modal */}
       <div
@@ -130,14 +138,26 @@ export default function FilePreviewModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-          <h2 className="text-base font-semibold text-gray-900 truncate pr-4">{fileName}</h2>
+          <h2 className="text-base font-semibold text-gray-900 truncate pr-4">
+            {fileName}
+          </h2>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
             aria-label="閉じる"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -162,9 +182,18 @@ export default function FilePreviewModal({
             </div>
           ) : !canPreview ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3 px-6">
-              <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-12 h-12 text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               <p className="text-sm text-gray-500 text-center">
                 このファイル形式はブラウザでプレビューできません
@@ -187,7 +216,11 @@ export default function FilePreviewModal({
           ) : (
             <div className="flex items-center justify-center p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={blobUrl!} alt={fileName} className="max-w-full max-h-[calc(90vh-160px)] object-contain" />
+              <img
+                src={blobUrl!}
+                alt={fileName}
+                className="max-w-full max-h-[calc(90vh-160px)] object-contain"
+              />
             </div>
           )}
         </div>
@@ -203,9 +236,18 @@ export default function FilePreviewModal({
               {downloading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
               )}
               {downloading ? 'ダウンロード中...' : 'ダウンロード'}

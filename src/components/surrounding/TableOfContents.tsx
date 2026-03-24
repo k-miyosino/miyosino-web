@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { surroundingCategories } from './data2';
-import type {
-  NearbyFacility,
-  MicroCMSNearbyFacility,
-  MicroCMSNearbyFacilityListResponse,
-} from '@/types/surrounding';
-import { CONTENT_CATEGORIES } from '@/types/categories';
+import type { NearbyFacility } from '@/types/surrounding';
+import { fetchNearbyFacilities } from '@/repositories/microcms/contentRepository';
 
 type GroupedFacilities = {
   publicFacilities: NearbyFacility[];
@@ -48,119 +44,24 @@ export function TableOfContents() {
 
   // APIからデータを取得して、データが存在するカテゴリのみを表示
   useEffect(() => {
-    const fetchNearbyFacilities = async () => {
+    const loadFacilities = async () => {
       try {
         setLoading(true);
+        const facilities = await fetchNearbyFacilities();
 
-        // Cloudflare Workersのエンドポイントを取得
-        const contentsApiEndpoint =
-          process.env.NEXT_PUBLIC_CONTENTS_API_ENDPOINT;
+        const sortByOrder = (a: NearbyFacility, b: NearbyFacility) =>
+          a.order - b.order;
+        const filterBy = (key: string) =>
+          facilities.filter((f) => f.subCategory === key).sort(sortByOrder);
 
-        if (!contentsApiEndpoint) {
-          console.error(
-            '[TableOfContents] API endpoint is not set. Please configure NEXT_PUBLIC_CONTENTS_API_ENDPOINT environment variable.'
-          );
-          setLoading(false);
-          return;
-        }
-
-        // Cloudflare Workers経由で取得
-        const url = new URL(contentsApiEndpoint);
-        url.searchParams.append('category', CONTENT_CATEGORIES.NEARBY);
-        url.searchParams.append('getAll', 'true');
-
-        const response = await fetch(url.toString(), {
-          cache: 'no-store',
+        setGroupedFacilities({
+          publicFacilities: filterBy('publicFacilities'),
+          educationFacilities: filterBy('educationFacilities'),
+          financialInstitutions: filterBy('financialInstitutions'),
+          commercialFacilities: filterBy('commercialFacilities'),
+          medicalFacilities: filterBy('medicalFacilities'),
+          utilities: filterBy('utilities'),
         });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch nearby facilities: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data: MicroCMSNearbyFacilityListResponse = await response.json();
-
-        // クライアント側でカテゴリフィルタリング
-        const filteredContents = data.contents.filter(
-          (facility: MicroCMSNearbyFacility) => {
-            if (!Array.isArray(facility.category)) {
-              return false;
-            }
-            return facility.category.some(
-              (cat) => cat && cat.id === CONTENT_CATEGORIES.NEARBY
-            );
-          }
-        );
-
-        // subCategoryの値をマッピング（nearby_xxx形式からxxxFacilities形式へ）
-        const subCategoryMap: Record<string, string> = {
-          nearby_public: 'publicFacilities',
-          nearby_education: 'educationFacilities',
-          nearby_finance: 'financialInstitutions',
-          nearby_commerce: 'commercialFacilities',
-          nearby_medical: 'medicalFacilities',
-          nearby_other: 'utilities',
-        };
-
-        // MicroCMSのレスポンスをNearbyFacility型に変換
-        const fetchedFacilities: NearbyFacility[] = filteredContents.map(
-          (facility: MicroCMSNearbyFacility) => {
-            let subCategoryValue = '';
-            if (facility.subCategory) {
-              if (typeof facility.subCategory === 'string') {
-                subCategoryValue =
-                  subCategoryMap[facility.subCategory] || facility.subCategory;
-              } else if (
-                typeof facility.subCategory === 'object' &&
-                facility.subCategory.id
-              ) {
-                subCategoryValue =
-                  subCategoryMap[facility.subCategory.id] ||
-                  facility.subCategory.id;
-              }
-            }
-
-            return {
-              id: facility.id,
-              createdAt: new Date(facility.createdAt),
-              updatedAt: new Date(facility.updatedAt),
-              name:
-                facility.name ||
-                (facility as MicroCMSNearbyFacility & { title?: string })
-                  .title ||
-                '',
-              description: facility.description || '',
-              subCategory: subCategoryValue,
-              icon: facility.icon || '',
-              order: facility.order || 0,
-            };
-          }
-        );
-
-        // subCategoryに基づいて分類
-        const grouped: GroupedFacilities = {
-          publicFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'publicFacilities')
-            .sort((a, b) => a.order - b.order),
-          educationFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'educationFacilities')
-            .sort((a, b) => a.order - b.order),
-          financialInstitutions: fetchedFacilities
-            .filter((f) => f.subCategory === 'financialInstitutions')
-            .sort((a, b) => a.order - b.order),
-          commercialFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'commercialFacilities')
-            .sort((a, b) => a.order - b.order),
-          medicalFacilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'medicalFacilities')
-            .sort((a, b) => a.order - b.order),
-          utilities: fetchedFacilities
-            .filter((f) => f.subCategory === 'utilities')
-            .sort((a, b) => a.order - b.order),
-        };
-
-        setGroupedFacilities(grouped);
       } catch (error) {
         console.error('[TableOfContents] 周辺施設データ取得エラー:', error);
       } finally {
@@ -168,7 +69,7 @@ export function TableOfContents() {
       }
     };
 
-    fetchNearbyFacilities();
+    loadFacilities();
   }, []);
 
   // データがあるカテゴリのみをフィルタリング
