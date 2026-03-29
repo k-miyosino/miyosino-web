@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export function loadEnvLocal(): void {
   const envLocalPath = resolve(process.cwd(), '.env.local');

@@ -123,17 +123,6 @@ const SEARCH_CONFIGS: SearchConfig[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Google Places API で取得できない施設の手動補完リスト
-// ---------------------------------------------------------------------------
-
-type ManualPlaceEntry = Omit<PlaceResult, 'distance'> & {
-  latitude: number;
-  longitude: number;
-};
-
-const MANUAL_PLACES: ManualPlaceEntry[] = [];
-
-// ---------------------------------------------------------------------------
 // 型定義
 // ---------------------------------------------------------------------------
 
@@ -492,23 +481,6 @@ async function main(): Promise<void> {
   for (const place of allPlaces.values()) {
     if ((nameCounts.get(place.nameJa) ?? 0) > 1 && place.address) {
       place.nameJa = `${place.nameJa}（${place.address}）`;
-    }
-  }
-
-  // 手動補完リストをマージ（同一 place_id が既に存在する場合はスキップ）
-  for (const entry of MANUAL_PLACES) {
-    if (!allPlaces.has(entry.placeId)) {
-      const { latitude, longitude, ...rest } = entry;
-      allPlaces.set(entry.placeId, {
-        ...rest,
-        distance: calculateDistance(
-          CENTER.latitude,
-          CENTER.longitude,
-          latitude,
-          longitude
-        ),
-      });
-      console.log(`  手動補完: ${entry.nameJa}`);
     }
   }
 
