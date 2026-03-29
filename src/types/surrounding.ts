@@ -11,6 +11,7 @@ export interface NearbyFacility extends BaseEntity {
   // Kintone データから付与される任意フィールド
   googleMapsUrl?: string;
   phone?: string;
+  website?: string;
 }
 
 // ---- Kintone Places API (アプリ #120) ----

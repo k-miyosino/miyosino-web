@@ -53,6 +53,16 @@ function FacilityRow({ facility }: { facility: NearbyFacility }) {
               地図を見る
             </a>
           )}
+          {facility.website && (
+            <a
+              href={facility.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-700 underline sm:ml-2"
+            >
+              ウェブサイト
+            </a>
+          )}
         </div>
         <span className="text-gray-600 ml-4 whitespace-nowrap">
           {facility.description}
