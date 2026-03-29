@@ -128,5 +128,6 @@ export async function fetchPlaces(): Promise<NearbyFacility[]> {
     order: index, // Worker が距離昇順を保証しているため index = 距離順
     googleMapsUrl: record.googleMapsUrl || undefined,
     phone: record.phone || undefined,
+    website: record.website || undefined,
   }));
 }
