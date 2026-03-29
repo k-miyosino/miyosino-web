@@ -3,21 +3,13 @@
 import { useState, useEffect } from 'react';
 import type { NearbyFacility } from '@/types/surrounding';
 import { fetchPlaces } from '@/repositories/kintone/placesRepository';
+import { surroundingCategories } from './categories';
 
 type GroupedFacilities = {
   medicalFacilities: NearbyFacility[];
   lifeFacilities: NearbyFacility[];
   educationFacilities: NearbyFacility[];
 };
-
-const MEDICAL_SUBSECTIONS = ['総合病院', '医療（診療所）', '薬局', '動物病院'];
-const LIFE_SUBSECTIONS = ['公共', '金融機関', '郵便局'];
-const EDUCATION_SUBSECTIONS = [
-  '幼児教育',
-  '教育（初等）',
-  '教育（中等）',
-  '教育（高等）',
-];
 
 function groupByCategory(
   facilities: NearbyFacility[],
@@ -154,7 +146,62 @@ export default function NearbyFacilitiesSection() {
         </p>
       </div>
 
-      {/* 医療施設セクション */}
+      {/* 生活セクション */}
+      {groupedFacilities.lifeFacilities.length > 0 && (
+        <section
+          id="lifeFacilities"
+          className="bg-gray-50 py-12 sm:py-16 scroll-mt-20"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 px-4 py-2 bg-blue-50 border-l-4 border-blue-500 rounded">
+              生活
+            </h2>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
+              {groupByCategory(
+                groupedFacilities.lifeFacilities,
+                surroundingCategories.find((c) => c.id === 'lifeFacilities')!
+                  .subsections
+              ).map((g) => (
+                <SubsectionGroup
+                  key={g.label}
+                  label={g.label}
+                  facilities={g.items}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 教育セクション */}
+      {groupedFacilities.educationFacilities.length > 0 && (
+        <section
+          id="educationFacilities"
+          className="bg-white py-12 sm:py-16 scroll-mt-20"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 px-4 py-2 bg-green-50 border-l-4 border-green-500 rounded">
+              教育
+            </h2>
+            <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
+              {groupByCategory(
+                groupedFacilities.educationFacilities,
+                surroundingCategories.find(
+                  (c) => c.id === 'educationFacilities'
+                )!.subsections
+              ).map((g) => (
+                <SubsectionGroup
+                  key={g.label}
+                  label={g.label}
+                  facilities={g.items}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 医療セクション */}
       {groupedFacilities.medicalFacilities.length > 0 && (
         <section
           id="medicalFacilities"
@@ -162,64 +209,13 @@ export default function NearbyFacilitiesSection() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 px-4 py-2 bg-red-50 border-l-4 border-red-500 rounded">
-              医療施設
+              医療
             </h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
               {groupByCategory(
                 groupedFacilities.medicalFacilities,
-                MEDICAL_SUBSECTIONS
-              ).map((g) => (
-                <SubsectionGroup
-                  key={g.label}
-                  label={g.label}
-                  facilities={g.items}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 生活セクション */}
-      {groupedFacilities.lifeFacilities.length > 0 && (
-        <section
-          id="lifeFacilities"
-          className="bg-white py-12 sm:py-16 scroll-mt-20"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 px-4 py-2 bg-blue-50 border-l-4 border-blue-500 rounded">
-              生活
-            </h2>
-            <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
-              {groupByCategory(
-                groupedFacilities.lifeFacilities,
-                LIFE_SUBSECTIONS
-              ).map((g) => (
-                <SubsectionGroup
-                  key={g.label}
-                  label={g.label}
-                  facilities={g.items}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 教育施設セクション */}
-      {groupedFacilities.educationFacilities.length > 0 && (
-        <section
-          id="educationFacilities"
-          className="bg-gray-50 py-12 sm:py-16 scroll-mt-20"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-700 mb-4 px-4 py-2 bg-green-50 border-l-4 border-green-500 rounded">
-              教育施設
-            </h2>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-200">
-              {groupByCategory(
-                groupedFacilities.educationFacilities,
-                EDUCATION_SUBSECTIONS
+                surroundingCategories.find((c) => c.id === 'medicalFacilities')!
+                  .subsections
               ).map((g) => (
                 <SubsectionGroup
                   key={g.label}
