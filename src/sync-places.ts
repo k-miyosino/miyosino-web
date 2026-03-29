@@ -11,22 +11,11 @@
  *   KINTONE_API_TOKEN_PLACES - Kintone API トークン
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
 import { KintoneRestAPIClient } from '@kintone/rest-api-client';
+import { loadEnvLocal } from './script-utils';
 
 // ローカル開発用: .env.local を自動ロード（CI では GitHub Secrets が使われるためスキップ）
-const envLocalPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envLocalPath)) {
-  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#\s][^=]*)=(.*)/);
-    if (match) {
-      const key = match[1].trim();
-      const val = match[2].trim().replace(/^["'](.*)["']$/, '$1');
-      if (!process.env[key]) process.env[key] = val;
-    }
-  }
-}
+loadEnvLocal();
 
 // ---------------------------------------------------------------------------
 // 定数・設定
