@@ -10,7 +10,7 @@ type GroupedFacilities = {
   educationFacilities: NearbyFacility[];
 };
 
-const MEDICAL_SUBSECTIONS = ['総合病院', '医療（診療所）', '動物病院'];
+const MEDICAL_SUBSECTIONS = ['総合病院', '医療（診療所）', '薬局', '動物病院'];
 const LIFE_SUBSECTIONS = ['公共', '金融機関', '郵便局'];
 const EDUCATION_SUBSECTIONS = [
   '幼児教育',

@@ -42,6 +42,9 @@ function resolveSubCategory(record: KintonePlaceRecord): string {
 
 function resolveCategory(record: KintonePlaceRecord): string | undefined {
   const { category, primaryType } = record;
+  if (category === '医療（診療所）' && primaryType === 'pharmacy') {
+    return '薬局';
+  }
   if (
     category === '総合病院' ||
     category === '医療（診療所）' ||
