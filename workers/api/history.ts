@@ -8,6 +8,8 @@
  * - GET / — 全イベントを表示順昇順で返す
  */
 
+import { corsHeaders, fetchAllKintoneRecords } from './_kintone';
+
 interface Env {
   KINTONE_DOMAIN: string; // 例: k-miyosino.cybozu.com
   KINTONE_APP_ID_HISTORY: string; // 団地のあゆみ・修繕履歴アプリの ID
@@ -29,57 +31,6 @@ interface KintoneHistoryRecord {
   event: { value: string };
   description: { value: string };
   tag_0: { value: KintoneTagRow[] }; // サブテーブル
-}
-
-interface KintoneRecordsResponse {
-  records: KintoneHistoryRecord[];
-  totalCount?: string;
-}
-
-function corsHeaders(): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400',
-  };
-}
-
-async function fetchAllKintoneRecords(
-  env: Env
-): Promise<KintoneHistoryRecord[]> {
-  const PAGE_SIZE = 500;
-  let offset = 0;
-  const all: KintoneHistoryRecord[] = [];
-
-  while (true) {
-    const url = new URL(`https://${env.KINTONE_DOMAIN}/k/v1/records.json`);
-    url.searchParams.set('app', env.KINTONE_APP_ID_HISTORY);
-    url.searchParams.set('totalCount', 'true');
-    url.searchParams.set('limit', String(PAGE_SIZE));
-    url.searchParams.set('offset', String(offset));
-
-    const response = await fetch(url.toString(), {
-      headers: { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_HISTORY },
-      // @ts-expect-error cf は Cloudflare Workers 固有のプロパティ
-      cf: { cacheTtl: 300, cacheEverything: true },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `Kintone API error: ${response.status} ${response.statusText} - ${text}`
-      );
-    }
-
-    const data = (await response.json()) as KintoneRecordsResponse;
-    all.push(...data.records);
-
-    if (data.records.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-
-  return all;
 }
 
 export default {
@@ -111,7 +62,11 @@ export default {
     }
 
     try {
-      const records = await fetchAllKintoneRecords(env);
+      const records = await fetchAllKintoneRecords<KintoneHistoryRecord>(
+        env.KINTONE_DOMAIN,
+        env.KINTONE_APP_ID_HISTORY,
+        env.KINTONE_API_TOKEN_HISTORY
+      );
 
       // 表示順昇順にソート
       records.sort(
