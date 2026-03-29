@@ -12,10 +12,12 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "worker:dev": "cd workers && wrangler dev",
     "worker:deploy": "cd workers && wrangler deploy",
+    "sync:places": "tsx src/sync-places.ts",
     "prepare": "husky"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@kintone/rest-api-client": "^3.1.14",
     "@marsidev/react-turnstile": "^1.3.1",
     "next": "15.5.4",
     "react": "19.1.0",
@@ -35,6 +37,7 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.3",
     "typescript": "^5",
     "wrangler": "^4.47.0"
   }

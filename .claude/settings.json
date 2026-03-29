@@ -23,7 +23,9 @@
       "Bash(docker-compose down:*)",
       "Bash(docker compose:*)",
       "Bash(ls /app/.env*)",
-      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npm install:*)",
+      "Bash(cat /app/workers/wrangler.*.toml)"
     ]
   }
 }
