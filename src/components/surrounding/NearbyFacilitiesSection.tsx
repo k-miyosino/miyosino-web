@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { NearbyFacility } from '@/types/surrounding';
-import { fetchNearbyFacilities } from '@/repositories/microcms/contentRepository';
+import { fetchPlaces } from '@/repositories/kintone/placesRepository';
 
 type GroupedFacilities = {
   publicFacilities: NearbyFacility[];
@@ -12,6 +12,34 @@ type GroupedFacilities = {
   medicalFacilities: NearbyFacility[];
   utilities: NearbyFacility[];
 };
+
+function FacilityRow({ facility }: { facility: NearbyFacility }) {
+  return (
+    <div className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
+      <div className="text-2xl mr-4">{facility.icon}</div>
+      <div className="flex-1 flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+          <span className="text-lg font-medium text-gray-900">
+            {facility.name}
+          </span>
+          {facility.googleMapsUrl && (
+            <a
+              href={facility.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-700 underline sm:ml-2"
+            >
+              地図を見る
+            </a>
+          )}
+        </div>
+        <span className="text-gray-600 ml-4 whitespace-nowrap">
+          {facility.description}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function NearbyFacilitiesSection() {
   const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>(
@@ -30,7 +58,7 @@ export default function NearbyFacilitiesSection() {
     const loadFacilities = async () => {
       try {
         setLoading(true);
-        const facilities = await fetchNearbyFacilities();
+        const facilities = await fetchPlaces();
 
         const sortByOrder = (a: NearbyFacility, b: NearbyFacility) =>
           a.order - b.order;
@@ -80,20 +108,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.publicFacilities.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
@@ -112,20 +127,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.educationFacilities.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
@@ -144,20 +146,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.financialInstitutions.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
@@ -176,20 +165,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.commercialFacilities.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
@@ -208,20 +184,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.medicalFacilities.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
@@ -240,20 +203,7 @@ export default function NearbyFacilitiesSection() {
             </h2>
             <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {groupedFacilities.utilities.map((facility) => (
-                <div
-                  key={facility.id}
-                  className="flex items-center px-6 py-4 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="text-2xl mr-4">{facility.icon}</div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-lg font-medium text-gray-900">
-                      {facility.name}
-                    </span>
-                    <span className="text-gray-600 ml-4">
-                      {facility.description}
-                    </span>
-                  </div>
-                </div>
+                <FacilityRow key={facility.id} facility={facility} />
               ))}
             </div>
           </div>
