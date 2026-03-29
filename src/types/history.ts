@@ -3,10 +3,10 @@ export interface KintoneHistoryEvent {
   id: string;
   year: string;
   sortOrder: number;
-  type: string;        // "一般" | "修繕"
-  event: string;       // 修繕の場合は "第1回 大規模修繕工事" のように番号込み
+  type: string; // "一般" | "修繕"
+  event: string; // 修繕の場合は "第1回 大規模修繕工事" のように番号込み
   description: string;
-  tag: string[];       // サブテーブル tag_value の配列
+  tag: string[]; // サブテーブル tag_value の配列
 }
 
 export interface KintoneHistoryResponse {
@@ -28,7 +28,7 @@ export interface HistoryYearGroup {
 export interface MaintenanceRepair {
   id: string;
   year: string;
-  event: string;   // "第1回 大規模修繕工事" など
+  event: string; // "第1回 大規模修繕工事" など
   tag: string[];
   description: string;
 }

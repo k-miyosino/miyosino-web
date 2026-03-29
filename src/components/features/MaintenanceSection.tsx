@@ -65,7 +65,9 @@ export function MaintenanceSection() {
             {loading ? (
               <p className="text-sm text-gray-500">修繕履歴を読み込み中...</p>
             ) : repairs.length === 0 ? (
-              <p className="text-sm text-gray-500">修繕履歴の情報はありません。</p>
+              <p className="text-sm text-gray-500">
+                修繕履歴の情報はありません。
+              </p>
             ) : (
               <div className="flow-root">
                 <ul role="list" className="-mb-8">

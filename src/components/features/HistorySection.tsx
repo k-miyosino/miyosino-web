@@ -48,7 +48,9 @@ export function HistorySection() {
           {loading ? (
             <p className="text-sm text-gray-500">団地のあゆみを読み込み中...</p>
           ) : historyData.length === 0 ? (
-            <p className="text-sm text-gray-500">団地のあゆみの情報はありません。</p>
+            <p className="text-sm text-gray-500">
+              団地のあゆみの情報はありません。
+            </p>
           ) : (
             <div className="flow-root">
               <ul role="list" className="-mb-8">
