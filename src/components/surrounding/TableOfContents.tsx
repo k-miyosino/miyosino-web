@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { surroundingCategories } from './data2';
+import { surroundingCategories } from './categories';
 import type { NearbyFacility } from '@/types/surrounding';
 import { fetchPlaces } from '@/repositories/kintone/placesRepository';
 
