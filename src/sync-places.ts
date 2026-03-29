@@ -63,7 +63,12 @@ type SearchConfig = {
 
 const SEARCH_CONFIGS: SearchConfig[] = [
   {
-    includedTypes: ['primary_school', 'preschool', 'child_care_agency'],
+    includedTypes: [
+      'primary_school',
+      'preschool',
+      'child_care_agency',
+      'educational_institution',
+    ],
     radius: 1500,
     category: '教育（初等）',
     useSmartCategory: true,
@@ -76,16 +81,29 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     useSmartCategory: true,
   },
   {
-    includedTypes: ['hospital'],
+    includedTypes: ['hospital', 'general_hospital'],
     radius: 5000,
     category: '総合病院',
     deduplicateByNamePrefix: 4,
     excludedPrimaryTypes: ['veterinary_care', 'dentist', 'dental_clinic'],
   },
   {
-    includedTypes: ['doctor', 'pharmacy', 'dentist', 'dental_clinic'],
+    includedTypes: [
+      'doctor',
+      'medical_clinic',
+      'medical_center',
+      'physiotherapist',
+      'pharmacy',
+      'dentist',
+      'dental_clinic',
+    ],
     radius: 1500,
     category: '医療（診療所）',
+  },
+  {
+    includedTypes: ['drugstore'],
+    radius: 1500,
+    category: 'ドラッグストア',
   },
   {
     includedTypes: ['veterinary_care'],
@@ -113,36 +131,7 @@ type ManualPlaceEntry = Omit<PlaceResult, 'distance'> & {
   longitude: number;
 };
 
-const MANUAL_PLACES: ManualPlaceEntry[] = [
-  {
-    // Google Places が premise タイプとして登録しており近傍検索に引っかからない
-    placeId: 'ChIJLWJt6XXXGGAR1G9cPtlembg',
-    nameJa: '川鶴ひばり幼稚園',
-    nameEn: 'Kawatsuru Hibari Kindergarten',
-    category: '幼児教育',
-    latitude: 35.9216549,
-    longitude: 139.4069932,
-    address: '埼玉県川越市川鶴３丁目１０',
-    phone: '049-233-2588',
-    website: 'https://www.kawagoe-hibari.ed.jp/',
-    googleMapsUrl: 'https://maps.google.com/?cid=13301767261562630100',
-    primaryType: 'premise',
-  },
-  {
-    // Google Places が school タイプだが近傍検索の上限で取得されないことがある
-    placeId: 'ChIJbWFreHjXGGARUWFHAK5uHHo',
-    nameJa: '川越第二ひばり幼稚園',
-    nameEn: 'Kawagoe Daini Hibari Kindergarten',
-    category: '幼児教育',
-    latitude: 35.914069,
-    longitude: 139.40604,
-    address: '埼玉県川越市笠幡１６００−３',
-    phone: '049-232-2413',
-    website: 'https://www.kawagoe-hibari.ed.jp/daini/',
-    googleMapsUrl: 'https://maps.google.com/?cid=8799029465583149393',
-    primaryType: 'school',
-  },
-];
+const MANUAL_PLACES: ManualPlaceEntry[] = [];
 
 // ---------------------------------------------------------------------------
 // 型定義
