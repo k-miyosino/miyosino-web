@@ -5,6 +5,7 @@ export interface NearbyFacility extends BaseEntity {
   name: string;
   description: string;
   subCategory: string;
+  category?: string;
   icon: string;
   order: number;
   // Kintone データから付与される任意フィールド

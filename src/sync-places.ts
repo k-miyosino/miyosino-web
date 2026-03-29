@@ -93,13 +93,12 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     category: '動物病院',
   },
   {
-    includedTypes: [
-      'library',
-      'post_office',
-      'bank',
-      'community_center',
-      'city_hall',
-    ],
+    includedTypes: ['bank'],
+    radius: 1000,
+    category: '金融機関',
+  },
+  {
+    includedTypes: ['library', 'post_office', 'community_center', 'city_hall'],
     radius: 1000,
     category: '公共・生活',
   },

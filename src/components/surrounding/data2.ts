@@ -287,10 +287,7 @@ export const nearbyFacilities = {
 
 // 周辺施設カテゴリ定義
 export const surroundingCategories = [
-  { id: 'publicFacilities', label: '公共施設', icon: '🏛️' },
-  { id: 'educationFacilities', label: '教育施設', icon: '🏫' },
-  { id: 'financialInstitutions', label: '金融機関', icon: '🏦' },
-  { id: 'commercialFacilities', label: '商業施設', icon: '🛒' },
   { id: 'medicalFacilities', label: '医療施設', icon: '🏥' },
-  { id: 'utilities', label: 'その他', icon: '⚡' },
+  { id: 'lifeFacilities', label: '生活', icon: '🏘️' },
+  { id: 'educationFacilities', label: '教育施設', icon: '🏫' },
 ];
