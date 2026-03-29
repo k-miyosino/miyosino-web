@@ -512,7 +512,12 @@ async function main(): Promise<void> {
       const { latitude, longitude, ...rest } = entry;
       allPlaces.set(entry.placeId, {
         ...rest,
-        distance: calculateDistance(CENTER.latitude, CENTER.longitude, latitude, longitude),
+        distance: calculateDistance(
+          CENTER.latitude,
+          CENTER.longitude,
+          latitude,
+          longitude
+        ),
       });
       console.log(`  手動補完: ${entry.nameJa}`);
     }

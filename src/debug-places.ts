@@ -30,8 +30,16 @@ const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 const keyword = process.argv[2] ?? '';
 
 const SEARCH_TARGETS = [
-  { label: '教育（初等）系', includedTypes: ['primary_school', 'preschool', 'child_care_agency'], radius: 1500 },
-  { label: '教育（中等）系', includedTypes: ['secondary_school', 'university', 'school'], radius: 3000 },
+  {
+    label: '教育（初等）系',
+    includedTypes: ['primary_school', 'preschool', 'child_care_agency'],
+    radius: 1500,
+  },
+  {
+    label: '教育（中等）系',
+    includedTypes: ['secondary_school', 'university', 'school'],
+    radius: 3000,
+  },
 ];
 
 async function main() {
@@ -42,14 +50,17 @@ async function main() {
   }
 
   for (const target of SEARCH_TARGETS) {
-    console.log(`\n=== ${target.label} (${target.includedTypes.join(', ')}) ===`);
+    console.log(
+      `\n=== ${target.label} (${target.includedTypes.join(', ')}) ===`
+    );
 
     const res = await fetch(PLACES_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.types,places.primaryType',
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.types,places.primaryType',
       },
       body: JSON.stringify({
         includedTypes: target.includedTypes,
@@ -65,7 +76,14 @@ async function main() {
       continue;
     }
 
-    const data = (await res.json()) as { places?: { id: string; displayName?: { text: string }; types?: string[]; primaryType?: string }[] };
+    const data = (await res.json()) as {
+      places?: {
+        id: string;
+        displayName?: { text: string };
+        types?: string[];
+        primaryType?: string;
+      }[];
+    };
     const places = data.places ?? [];
 
     const filtered = keyword

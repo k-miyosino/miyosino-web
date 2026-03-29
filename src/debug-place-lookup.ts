@@ -33,15 +33,19 @@ if (!apiKey) {
 }
 
 async function main() {
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey!,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.types,places.primaryType,places.location,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri',
-    },
-    body: JSON.stringify({ textQuery: query, languageCode: 'ja' }),
-  });
+  const res = await fetch(
+    'https://places.googleapis.com/v1/places:searchText',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey!,
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.types,places.primaryType,places.location,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri',
+      },
+      body: JSON.stringify({ textQuery: query, languageCode: 'ja' }),
+    }
+  );
 
   if (!res.ok) {
     console.error(`API エラー [${res.status}]:`, await res.text());
@@ -67,7 +71,9 @@ async function main() {
     console.log(`名前        : ${p.displayName?.text}`);
     console.log(`primaryType : ${p.primaryType}`);
     console.log(`types       : ${p.types?.join(', ')}`);
-    console.log(`location    : ${p.location?.latitude}, ${p.location?.longitude}`);
+    console.log(
+      `location    : ${p.location?.latitude}, ${p.location?.longitude}`
+    );
     console.log(`住所        : ${p.formattedAddress}`);
     console.log(`電話        : ${p.nationalPhoneNumber}`);
     console.log(`website     : ${p.websiteUri}`);
@@ -76,4 +82,7 @@ async function main() {
   }
 }
 
-main().catch((err) => { console.error(err?.message ?? err); process.exit(1); });
+main().catch((err) => {
+  console.error(err?.message ?? err);
+  process.exit(1);
+});
