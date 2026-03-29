@@ -63,7 +63,12 @@ type SearchConfig = {
 
 const SEARCH_CONFIGS: SearchConfig[] = [
   {
-    includedTypes: ['primary_school', 'preschool', 'child_care_agency', 'educational_institution'],
+    includedTypes: [
+      'primary_school',
+      'preschool',
+      'child_care_agency',
+      'educational_institution',
+    ],
     radius: 1500,
     category: '教育（初等）',
     useSmartCategory: true,
@@ -83,7 +88,15 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     excludedPrimaryTypes: ['veterinary_care', 'dentist', 'dental_clinic'],
   },
   {
-    includedTypes: ['doctor', 'medical_clinic', 'medical_center', 'physiotherapist', 'pharmacy', 'dentist', 'dental_clinic'],
+    includedTypes: [
+      'doctor',
+      'medical_clinic',
+      'medical_center',
+      'physiotherapist',
+      'pharmacy',
+      'dentist',
+      'dental_clinic',
+    ],
     radius: 1500,
     category: '医療（診療所）',
   },

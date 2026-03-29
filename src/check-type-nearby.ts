@@ -43,21 +43,25 @@ const CENTER = { latitude: 35.922196, longitude: 139.410215 };
 async function main() {
   console.log(`タイプ「${placeType}」を半径 ${radius}m で検索中...\n`);
 
-  const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.primaryType,places.types,places.formattedAddress',
-    },
-    body: JSON.stringify({
-      includedTypes: [placeType],
-      languageCode: 'ja',
-      locationRestriction: {
-        circle: { center: CENTER, radius },
+  const response = await fetch(
+    'https://places.googleapis.com/v1/places:searchNearby',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask':
+          'places.id,places.displayName,places.primaryType,places.types,places.formattedAddress',
       },
-    }),
-  });
+      body: JSON.stringify({
+        includedTypes: [placeType],
+        languageCode: 'ja',
+        locationRestriction: {
+          circle: { center: CENTER, radius },
+        },
+      }),
+    }
+  );
 
   if (!response.ok) {
     const err = await response.text().catch(() => '');
