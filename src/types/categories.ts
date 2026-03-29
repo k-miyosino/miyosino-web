@@ -25,8 +25,6 @@ export const CONTENT_CATEGORIES = {
   FACILITY: 'facility',
   /** サービス */
   SERVICE: 'service',
-  /** 周辺施設 */
-  NEARBY: 'nearby',
 } as const;
 
 /**
@@ -40,8 +38,7 @@ export type ContentCategoryId =
   | typeof CONTENT_CATEGORIES.COMMUNITY_CIRCLE_SPORTS
   | typeof CONTENT_CATEGORIES.COMMUNITY_CIRCLE_CULTURE
   | typeof CONTENT_CATEGORIES.FACILITY
-  | typeof CONTENT_CATEGORIES.SERVICE
-  | typeof CONTENT_CATEGORIES.NEARBY;
+  | typeof CONTENT_CATEGORIES.SERVICE;
 
 /**
  * カテゴリIDの配列（全カテゴリ）

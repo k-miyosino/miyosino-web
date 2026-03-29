@@ -32,11 +32,6 @@ import {
   MicroCMSSeason,
   MicroCMSSeasonListResponse,
 } from '@/types/seasons';
-import {
-  NearbyFacility,
-  MicroCMSNearbyFacility,
-  MicroCMSNearbyFacilityListResponse,
-} from '@/types/surrounding';
 import { CONTENT_CATEGORIES } from '@/types/categories';
 
 // MicroCMS カテゴリ配列の共通型
@@ -217,41 +212,5 @@ export async function fetchServices(): Promise<Service[]> {
     body: service.body,
     icon: service.icon,
     image: service.image,
-  }));
-}
-
-// ---- 周辺施設 ----
-
-// MicroCMS の nearby_xxx 形式を内部の xxxFacilities 形式にマッピング
-const NEARBY_SUBCATEGORY_MAP: Record<string, string> = {
-  nearby_public: 'publicFacilities',
-  nearby_education: 'educationFacilities',
-  nearby_finance: 'financialInstitutions',
-  nearby_commerce: 'commercialFacilities',
-  nearby_medical: 'medicalFacilities',
-  nearby_other: 'utilities',
-};
-
-function resolveSubCategory(
-  subCategory: MicroCMSNearbyFacility['subCategory']
-): string {
-  if (!subCategory) return '';
-  const raw = typeof subCategory === 'string' ? subCategory : subCategory.id;
-  return NEARBY_SUBCATEGORY_MAP[raw] ?? raw;
-}
-
-export async function fetchNearbyFacilities(): Promise<NearbyFacility[]> {
-  const items = await fetchContents<MicroCMSNearbyFacility>(
-    CONTENT_CATEGORIES.NEARBY
-  );
-  return items.map((facility) => ({
-    id: facility.id,
-    createdAt: new Date(facility.createdAt),
-    updatedAt: new Date(facility.updatedAt),
-    name: facility.title,
-    description: facility.description,
-    subCategory: resolveSubCategory(facility.subCategory),
-    icon: facility.icon ?? '',
-    order: facility.order ?? 0,
   }));
 }
