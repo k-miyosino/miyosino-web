@@ -20,13 +20,13 @@ export interface KintonePlaceRecord {
   placeId: string;
   nameJa: string;
   nameEn: string;
-  category: string;     // 例: "教育（初等）", "公共・生活"
-  distance: number;     // メートル
+  category: string; // 例: "教育（初等）", "公共・生活"
+  distance: number; // メートル
   address: string;
   phone: string;
   website: string;
   googleMapsUrl: string;
-  primaryType: string;  // 例: "bank", "library"
+  primaryType: string; // 例: "bank", "library"
 }
 
 export interface KintonePlacesResponse {

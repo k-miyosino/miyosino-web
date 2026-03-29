@@ -30,7 +30,9 @@ function resolveSubCategory(record: KintonePlaceRecord): string {
     return 'medicalFacilities';
   }
   if (category === '公共・生活') {
-    return primaryType === 'bank' ? 'financialInstitutions' : 'publicFacilities';
+    return primaryType === 'bank'
+      ? 'financialInstitutions'
+      : 'publicFacilities';
   }
   return 'publicFacilities';
 }
@@ -45,7 +47,8 @@ function resolveIcon(record: KintonePlaceRecord): string {
   if (category === '動物病院') return '🐾';
   if (category === '医療（診療所）') {
     if (primaryType === 'pharmacy') return '💊';
-    if (primaryType === 'dentist' || primaryType === 'dental_clinic') return '🦷';
+    if (primaryType === 'dentist' || primaryType === 'dental_clinic')
+      return '🦷';
     return '🏥';
   }
   switch (primaryType) {
