@@ -37,6 +37,9 @@
   "exclude": [
     "node_modules",
     "workers",
-    "src/sync-places.ts"
+    "src/sync-places.ts",
+    "src/script-utils.ts",
+    "src/check-place-type.ts",
+    "src/check-type-nearby.ts"
   ]
 }

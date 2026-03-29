@@ -8,20 +8,9 @@
  *   npm run check:place "ウェルパーク川越かわつる店"
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { loadEnvLocal, requireEnv } from './script-utils';
 
-const envLocalPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envLocalPath)) {
-  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#\s][^=]*)=(.*)/);
-    if (match) {
-      const key = match[1].trim();
-      const val = match[2].trim().replace(/^["'](.*)["']$/, '$1');
-      if (!process.env[key]) process.env[key] = val;
-    }
-  }
-}
+loadEnvLocal();
 
 const query = process.argv[2];
 if (!query) {
@@ -29,11 +18,7 @@ if (!query) {
   process.exit(1);
 }
 
-const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-if (!apiKey) {
-  console.error('GOOGLE_PLACES_API_KEY が設定されていません');
-  process.exit(1);
-}
+const apiKey = requireEnv('GOOGLE_PLACES_API_KEY');
 
 async function main() {
   const response = await fetch(
