@@ -214,4 +214,3 @@ export async function fetchServices(): Promise<Service[]> {
     image: service.image,
   }));
 }
-

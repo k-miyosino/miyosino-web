@@ -34,4 +34,3 @@ export interface KintonePlaceRecord {
 export interface KintonePlacesResponse {
   places: KintonePlaceRecord[];
 }
-
