@@ -368,12 +368,6 @@ async function syncToKintone(
     `新規追加: ${toAdd.length} 件 / 更新: ${toUpdate.length} 件 / 削除: ${toDelete.length} 件`
   );
 
-  // デバッグ: Google データと Kintone 送信データを比較
-  console.log('[DEBUG] Google サンプル (places[0]):', JSON.stringify(places[0], null, 2));
-  if (toAdd.length > 0) {
-    console.log('[DEBUG] Kintone 送信サンプル (toAdd[0]):', JSON.stringify(toAdd[0], null, 2));
-  }
-
   // 新規追加（100件チャンク）
   if (toAdd.length > 0) {
     let addedCount = 0;
