@@ -1,0 +1,10 @@
+name = "miyosino-history-api"
+main = "api/history.ts"
+compatibility_date = "2024-01-01"
+# account_id = "your-account-id-here"  # Cloudflare Dashboard > Overview で確認できます
+account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
+
+# Secrets — 以下のコマンドで設定してください:
+# wrangler secret put KINTONE_DOMAIN --config wrangler.history.toml
+# wrangler secret put KINTONE_APP_ID_HISTORY --config wrangler.history.toml
+# wrangler secret put KINTONE_API_TOKEN_HISTORY --config wrangler.history.toml

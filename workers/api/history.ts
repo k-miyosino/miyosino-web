@@ -1,35 +1,38 @@
 /**
- * Cloudflare Workers - Kintone 周辺施設 API プロキシ
+ * Cloudflare Workers - Kintone 団地のあゆみ・修繕履歴 API プロキシ
  *
- * 周辺施設（Google Places連携）データを公開エンドポイントで提供します。
- * 認証不要 — places データは非公開情報を含みません。
+ * 団地の歴史イベントと修繕履歴データを公開エンドポイントで提供します。
+ * 認証不要 — あゆみ・修繕データは非公開情報を含みません。
  *
  * エンドポイント:
- * - GET / — 全施設を距離昇順で返す
+ * - GET / — 全イベントを表示順昇順で返す
  */
 
 interface Env {
-  KINTONE_DOMAIN: string;          // 例: k-miyosino.cybozu.com
-  KINTONE_APP_ID_PLACES: string;   // 周辺施設アプリの ID
-  KINTONE_API_TOKEN_PLACES: string; // 周辺施設アプリ用の API トークン
+  KINTONE_DOMAIN: string; // 例: k-miyosino.cybozu.com
+  KINTONE_APP_ID_HISTORY: string; // 団地のあゆみ・修繕履歴アプリの ID
+  KINTONE_API_TOKEN_HISTORY: string; // 団地のあゆみ・修繕履歴アプリ用の API トークン
 }
 
-interface KintonePlace {
+interface KintoneTagRow {
+  id: string;
+  value: {
+    tag_value: { value: string };
+  };
+}
+
+interface KintoneHistoryRecord {
   $id: { value: string };
-  place_id: { value: string };
-  name_ja: { value: string };
-  name_en: { value: string };
-  category: { value: string };
-  distance: { value: string }; // Kintone の数値フィールドは文字列で返る
-  address: { value: string };
-  phone: { value: string };
-  website: { value: string };
-  google_maps_url: { value: string };
-  primary_type: { value: string };
+  year: { value: string };
+  sort_order: { value: string }; // 数値フィールドは文字列で返る
+  type: { value: string }; // "一般" | "修繕"
+  event: { value: string };
+  description: { value: string };
+  tag: { value: KintoneTagRow[] }; // サブテーブル
 }
 
 interface KintoneRecordsResponse {
-  records: KintonePlace[];
+  records: KintoneHistoryRecord[];
   totalCount?: string;
 }
 
@@ -42,20 +45,22 @@ function corsHeaders(): Record<string, string> {
   };
 }
 
-async function fetchAllKintoneRecords(env: Env): Promise<KintonePlace[]> {
+async function fetchAllKintoneRecords(
+  env: Env
+): Promise<KintoneHistoryRecord[]> {
   const PAGE_SIZE = 500;
   let offset = 0;
-  const all: KintonePlace[] = [];
+  const all: KintoneHistoryRecord[] = [];
 
   while (true) {
     const url = new URL(`https://${env.KINTONE_DOMAIN}/k/v1/records.json`);
-    url.searchParams.set('app', env.KINTONE_APP_ID_PLACES);
+    url.searchParams.set('app', env.KINTONE_APP_ID_HISTORY);
     url.searchParams.set('totalCount', 'true');
     url.searchParams.set('limit', String(PAGE_SIZE));
     url.searchParams.set('offset', String(offset));
 
     const response = await fetch(url.toString(), {
-      headers: { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_PLACES },
+      headers: { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_HISTORY },
       // @ts-expect-error cf は Cloudflare Workers 固有のプロパティ
       cf: { cacheTtl: 300, cacheEverything: true },
     });
@@ -90,8 +95,12 @@ export default {
       });
     }
 
-    if (!env.KINTONE_DOMAIN || !env.KINTONE_APP_ID_PLACES || !env.KINTONE_API_TOKEN_PLACES) {
-      console.error('[Places] Required environment variables are not set');
+    if (
+      !env.KINTONE_DOMAIN ||
+      !env.KINTONE_APP_ID_HISTORY ||
+      !env.KINTONE_API_TOKEN_HISTORY
+    ) {
+      console.error('[History] Required environment variables are not set');
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
         {
@@ -104,28 +113,26 @@ export default {
     try {
       const records = await fetchAllKintoneRecords(env);
 
-      // 距離昇順にソート
+      // 表示順昇順にソート
       records.sort(
-        (a, b) => parseFloat(a.distance.value) - parseFloat(b.distance.value)
+        (a, b) => parseInt(a.sort_order.value) - parseInt(b.sort_order.value)
       );
 
-      const places = records.map((r) => ({
+      const events = records.map((r) => ({
         id: r.$id.value,
-        placeId: r.place_id.value,
-        nameJa: r.name_ja.value,
-        nameEn: r.name_en.value,
-        category: r.category.value,
-        distance: parseFloat(r.distance.value),
-        address: r.address.value,
-        phone: r.phone.value,
-        website: r.website.value,
-        googleMapsUrl: r.google_maps_url.value,
-        primaryType: r.primary_type.value,
+        year: r.year.value,
+        sortOrder: parseInt(r.sort_order.value),
+        type: r.type.value,
+        event: r.event.value,
+        description: r.description.value,
+        tag: r.tag.value
+          .map((row) => row.value.tag_value.value)
+          .filter(Boolean),
       }));
 
-      console.log(`[Places] Returning ${places.length} records`);
+      console.log(`[History] Returning ${events.length} records`);
 
-      return new Response(JSON.stringify({ places }), {
+      return new Response(JSON.stringify({ events }), {
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders(),
@@ -133,7 +140,7 @@ export default {
         },
       });
     } catch (error) {
-      console.error('[Places] Error:', error);
+      console.error('[History] Error:', error);
       return new Response(
         JSON.stringify({
           error: 'Internal server error',

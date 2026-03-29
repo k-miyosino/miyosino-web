@@ -6,9 +6,9 @@
  *
  * 必要な環境変数:
  *   GOOGLE_PLACES_API_KEY    - Google Places API キー
- *   KINTONE_PLACES_DOMAIN    - Kintone ドメイン (例: your-domain.cybozu.com)
- *   KINTONE_PLACES_APP_ID    - Kintone アプリ ID
- *   KINTONE_PLACES_API_TOKEN - Kintone API トークン
+ *   KINTONE_DOMAIN    - Kintone ドメイン (例: your-domain.cybozu.com)
+ *   KINTONE_APP_ID_PLACES    - Kintone アプリ ID
+ *   KINTONE_API_TOKEN_PLACES - Kintone API トークン
  */
 
 import { existsSync, readFileSync } from 'fs';
@@ -451,27 +451,27 @@ async function syncToKintone(
 async function main(): Promise<void> {
   const {
     GOOGLE_PLACES_API_KEY,
-    KINTONE_PLACES_DOMAIN,
-    KINTONE_PLACES_APP_ID,
-    KINTONE_PLACES_API_TOKEN,
+    KINTONE_DOMAIN,
+    KINTONE_APP_ID_PLACES,
+    KINTONE_API_TOKEN_PLACES,
   } = process.env;
 
   if (
     !GOOGLE_PLACES_API_KEY ||
-    !KINTONE_PLACES_DOMAIN ||
-    !KINTONE_PLACES_APP_ID ||
-    !KINTONE_PLACES_API_TOKEN
+    !KINTONE_DOMAIN ||
+    !KINTONE_APP_ID_PLACES ||
+    !KINTONE_API_TOKEN_PLACES
   ) {
     console.error(
-      '環境変数が不足しています。GOOGLE_PLACES_API_KEY / KINTONE_PLACES_DOMAIN / KINTONE_PLACES_APP_ID / KINTONE_PLACES_API_TOKEN を設定してください。'
+      '環境変数が不足しています。GOOGLE_PLACES_API_KEY / KINTONE_DOMAIN / KINTONE_APP_ID_PLACES / KINTONE_API_TOKEN_PLACES を設定してください。'
     );
     process.exit(1);
   }
 
-  const appId = Number(KINTONE_PLACES_APP_ID);
+  const appId = Number(KINTONE_APP_ID_PLACES);
   if (isNaN(appId)) {
     console.error(
-      `KINTONE_PLACES_APP_ID が無効な値です: ${KINTONE_PLACES_APP_ID}`
+      `KINTONE_APP_ID_PLACES が無効な値です: ${KINTONE_APP_ID_PLACES}`
     );
     process.exit(1);
   }
@@ -527,8 +527,8 @@ async function main(): Promise<void> {
 
   // Kintone クライアントを初期化
   const client = new KintoneRestAPIClient({
-    baseUrl: `https://${KINTONE_PLACES_DOMAIN}`,
-    auth: { apiToken: KINTONE_PLACES_API_TOKEN },
+    baseUrl: `https://${KINTONE_DOMAIN}`,
+    auth: { apiToken: KINTONE_API_TOKEN_PLACES },
   });
 
   // Upsert 処理
