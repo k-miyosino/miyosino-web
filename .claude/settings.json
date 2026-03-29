@@ -25,7 +25,9 @@
       "Bash(ls /app/.env*)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(npm install:*)",
-      "Bash(cat /app/workers/wrangler.*.toml)"
+      "Bash(cat /app/workers/wrangler.*.toml)",
+      "Bash(node -e \"const c=require\\(''''./next.config.ts''''\\); console.log\\(JSON.stringify\\(c\\)\\)\")",
+      "Bash(netstat -tlnp)"
     ]
   }
 }

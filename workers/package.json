@@ -21,6 +21,8 @@
     "deploy:events": "wrangler deploy --config wrangler.events.toml",
     "dev:applications": "wrangler dev --config wrangler.applications.toml",
     "deploy:applications": "wrangler deploy --config wrangler.applications.toml",
+    "dev:places": "wrangler dev --config wrangler.places.toml",
+    "deploy:places": "wrangler deploy --config wrangler.places.toml",
     "set-jwt-secret": "bash scripts/set-jwt-secret.sh",
     "generate-jwt-secret": "bash scripts/generate-jwt-secret.sh",
     "build": "tsc",
