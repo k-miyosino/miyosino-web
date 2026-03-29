@@ -18,10 +18,7 @@ const PLACES_API_ENDPOINT =
 // ---- カテゴリ → subCategory マッピング ----
 
 function resolveSubCategory(record: KintonePlaceRecord): string {
-  const { category, primaryType } = record;
-  if (category === '教育（初等）' || category === '教育（中等）') {
-    return 'educationFacilities';
-  }
+  const { category } = record;
   if (
     category === '総合病院' ||
     category === '医療（診療所）' ||
@@ -29,12 +26,40 @@ function resolveSubCategory(record: KintonePlaceRecord): string {
   ) {
     return 'medicalFacilities';
   }
-  if (category === '公共・生活') {
-    return primaryType === 'bank'
-      ? 'financialInstitutions'
-      : 'publicFacilities';
+  if (
+    category === '幼児教育' ||
+    category === '教育（初等）' ||
+    category === '教育（中等）' ||
+    category === '教育（高等）'
+  ) {
+    return 'educationFacilities';
   }
-  return 'publicFacilities';
+  // 金融機関・公共・生活はすべて lifeFacilities
+  return 'lifeFacilities';
+}
+
+// ---- カテゴリ → サブセクション表示ラベル ----
+
+function resolveCategory(record: KintonePlaceRecord): string | undefined {
+  const { category, primaryType } = record;
+  if (
+    category === '総合病院' ||
+    category === '医療（診療所）' ||
+    category === '動物病院' ||
+    category === '幼児教育' ||
+    category === '教育（初等）' ||
+    category === '教育（中等）' ||
+    category === '教育（高等）' ||
+    category === '金融機関'
+  ) {
+    return category;
+  }
+  if (category === '公共・生活') {
+    if (primaryType === 'post_office') return '郵便局';
+    if (primaryType === 'bank') return '金融機関';
+    return '公共';
+  }
+  return undefined;
 }
 
 // ---- アイコン導出 ----
@@ -95,6 +120,7 @@ export async function fetchPlaces(): Promise<NearbyFacility[]> {
     name: record.nameJa,
     description: formatDistance(record.distance),
     subCategory: resolveSubCategory(record),
+    category: resolveCategory(record),
     icon: resolveIcon(record),
     order: index, // Worker が距離昇順を保証しているため index = 距離順
     googleMapsUrl: record.googleMapsUrl || undefined,

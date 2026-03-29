@@ -3,26 +3,20 @@
 import { useState, useEffect } from 'react';
 import { surroundingCategories } from './data2';
 import type { NearbyFacility } from '@/types/surrounding';
-import { fetchNearbyFacilities } from '@/repositories/microcms/contentRepository';
+import { fetchPlaces } from '@/repositories/kintone/placesRepository';
 
 type GroupedFacilities = {
-  publicFacilities: NearbyFacility[];
-  educationFacilities: NearbyFacility[];
-  financialInstitutions: NearbyFacility[];
-  commercialFacilities: NearbyFacility[];
   medicalFacilities: NearbyFacility[];
-  utilities: NearbyFacility[];
+  lifeFacilities: NearbyFacility[];
+  educationFacilities: NearbyFacility[];
 };
 
 export function TableOfContents() {
   const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>(
     {
-      publicFacilities: [],
-      educationFacilities: [],
-      financialInstitutions: [],
-      commercialFacilities: [],
       medicalFacilities: [],
-      utilities: [],
+      lifeFacilities: [],
+      educationFacilities: [],
     }
   );
   const [loading, setLoading] = useState(true);
@@ -47,7 +41,7 @@ export function TableOfContents() {
     const loadFacilities = async () => {
       try {
         setLoading(true);
-        const facilities = await fetchNearbyFacilities();
+        const facilities = await fetchPlaces();
 
         const sortByOrder = (a: NearbyFacility, b: NearbyFacility) =>
           a.order - b.order;
@@ -55,12 +49,9 @@ export function TableOfContents() {
           facilities.filter((f) => f.subCategory === key).sort(sortByOrder);
 
         setGroupedFacilities({
-          publicFacilities: filterBy('publicFacilities'),
-          educationFacilities: filterBy('educationFacilities'),
-          financialInstitutions: filterBy('financialInstitutions'),
-          commercialFacilities: filterBy('commercialFacilities'),
           medicalFacilities: filterBy('medicalFacilities'),
-          utilities: filterBy('utilities'),
+          lifeFacilities: filterBy('lifeFacilities'),
+          educationFacilities: filterBy('educationFacilities'),
         });
       } catch (error) {
         console.error('[TableOfContents] 周辺施設データ取得エラー:', error);
