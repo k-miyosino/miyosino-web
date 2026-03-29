@@ -28,7 +28,7 @@ interface KintoneHistoryRecord {
   type: { value: string }; // "一般" | "修繕"
   event: { value: string };
   description: { value: string };
-  tag: { value: KintoneTagRow[] }; // サブテーブル
+  tag_0: { value: KintoneTagRow[] }; // サブテーブル
 }
 
 interface KintoneRecordsResponse {
@@ -125,7 +125,7 @@ export default {
         type: r.type.value,
         event: r.event.value,
         description: r.description.value,
-        tag: r.tag.value
+        tag: r.tag_0.value
           .map((row) => row.value.tag_value.value)
           .filter(Boolean),
       }));
