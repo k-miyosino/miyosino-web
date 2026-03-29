@@ -143,6 +143,17 @@ export default function NearbyFacilitiesSection() {
 
   return (
     <>
+      {/* データソース注記 */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <p className="text-sm text-gray-500 flex items-center gap-1.5">
+          <span>ℹ️</span>
+          <span>
+            施設情報はGoogle Maps
+            APIから自動取得しています。内容が実際と異なる場合があります。
+          </span>
+        </p>
+      </div>
+
       {/* 医療施設セクション */}
       {groupedFacilities.medicalFacilities.length > 0 && (
         <section
