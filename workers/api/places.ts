@@ -8,6 +8,8 @@
  * - GET / — 全施設を距離昇順で返す
  */
 
+import { corsHeaders, fetchAllKintoneRecords } from './_kintone';
+
 interface Env {
   KINTONE_DOMAIN: string;          // 例: k-miyosino.cybozu.com
   KINTONE_APP_ID_PLACES: string;   // 周辺施設アプリの ID
@@ -26,55 +28,6 @@ interface KintonePlace {
   website: { value: string };
   google_maps_url: { value: string };
   primary_type: { value: string };
-}
-
-interface KintoneRecordsResponse {
-  records: KintonePlace[];
-  totalCount?: string;
-}
-
-function corsHeaders(): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400',
-  };
-}
-
-async function fetchAllKintoneRecords(env: Env): Promise<KintonePlace[]> {
-  const PAGE_SIZE = 500;
-  let offset = 0;
-  const all: KintonePlace[] = [];
-
-  while (true) {
-    const url = new URL(`https://${env.KINTONE_DOMAIN}/k/v1/records.json`);
-    url.searchParams.set('app', env.KINTONE_APP_ID_PLACES);
-    url.searchParams.set('totalCount', 'true');
-    url.searchParams.set('limit', String(PAGE_SIZE));
-    url.searchParams.set('offset', String(offset));
-
-    const response = await fetch(url.toString(), {
-      headers: { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_PLACES },
-      // @ts-expect-error cf は Cloudflare Workers 固有のプロパティ
-      cf: { cacheTtl: 300, cacheEverything: true },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `Kintone API error: ${response.status} ${response.statusText} - ${text}`
-      );
-    }
-
-    const data = (await response.json()) as KintoneRecordsResponse;
-    all.push(...data.records);
-
-    if (data.records.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-
-  return all;
 }
 
 export default {
@@ -102,7 +55,11 @@ export default {
     }
 
     try {
-      const records = await fetchAllKintoneRecords(env);
+      const records = await fetchAllKintoneRecords<KintonePlace>(
+        env.KINTONE_DOMAIN,
+        env.KINTONE_APP_ID_PLACES,
+        env.KINTONE_API_TOKEN_PLACES
+      );
 
       // 距離昇順にソート
       records.sort(
