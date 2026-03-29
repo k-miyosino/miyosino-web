@@ -13,6 +13,7 @@
     "worker:dev": "cd workers && wrangler dev",
     "worker:deploy": "cd workers && wrangler deploy",
     "sync:places": "tsx src/sync-places.ts",
+    "check:place": "tsx src/check-place-type.ts",
     "prepare": "husky"
   },
   "dependencies": {

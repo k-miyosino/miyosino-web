@@ -88,6 +88,11 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     category: '医療（診療所）',
   },
   {
+    includedTypes: ['drugstore'],
+    radius: 1500,
+    category: 'ドラッグストア',
+  },
+  {
     includedTypes: ['veterinary_care'],
     radius: 2000,
     category: '動物病院',
