@@ -22,6 +22,12 @@ export const surroundingCategories: SurroundingCategory[] = [
     id: 'medicalFacilities',
     label: '医療',
     icon: '🏥',
-    subsections: ['総合病院', '医療（診療所）', '薬局', 'ドラッグストア', '動物病院'],
+    subsections: [
+      '総合病院',
+      '医療（診療所）',
+      '薬局',
+      'ドラッグストア',
+      '動物病院',
+    ],
   },
 ];
