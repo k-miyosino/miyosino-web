@@ -11,22 +11,11 @@
  *   KINTONE_API_TOKEN_PLACES - Kintone API トークン
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
 import { KintoneRestAPIClient } from '@kintone/rest-api-client';
+import { loadEnvLocal } from './script-utils';
 
 // ローカル開発用: .env.local を自動ロード（CI では GitHub Secrets が使われるためスキップ）
-const envLocalPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envLocalPath)) {
-  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#\s][^=]*)=(.*)/);
-    if (match) {
-      const key = match[1].trim();
-      const val = match[2].trim().replace(/^["'](.*)["']$/, '$1');
-      if (!process.env[key]) process.env[key] = val;
-    }
-  }
-}
+loadEnvLocal();
 
 // ---------------------------------------------------------------------------
 // 定数・設定
@@ -63,7 +52,12 @@ type SearchConfig = {
 
 const SEARCH_CONFIGS: SearchConfig[] = [
   {
-    includedTypes: ['primary_school', 'preschool', 'child_care_agency'],
+    includedTypes: [
+      'primary_school',
+      'preschool',
+      'child_care_agency',
+      'educational_institution',
+    ],
     radius: 1500,
     category: '教育（初等）',
     useSmartCategory: true,
@@ -76,16 +70,29 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     useSmartCategory: true,
   },
   {
-    includedTypes: ['hospital'],
+    includedTypes: ['hospital', 'general_hospital'],
     radius: 5000,
     category: '総合病院',
     deduplicateByNamePrefix: 4,
     excludedPrimaryTypes: ['veterinary_care', 'dentist', 'dental_clinic'],
   },
   {
-    includedTypes: ['doctor', 'pharmacy', 'dentist', 'dental_clinic'],
+    includedTypes: [
+      'doctor',
+      'medical_clinic',
+      'medical_center',
+      'physiotherapist',
+      'pharmacy',
+      'dentist',
+      'dental_clinic',
+    ],
     radius: 1500,
     category: '医療（診療所）',
+  },
+  {
+    includedTypes: ['drugstore'],
+    radius: 1500,
+    category: 'ドラッグストア',
   },
   {
     includedTypes: ['veterinary_care'],
@@ -101,46 +108,6 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     includedTypes: ['library', 'post_office', 'community_center', 'city_hall'],
     radius: 1000,
     category: '公共・生活',
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Google Places API で取得できない施設の手動補完リスト
-// ---------------------------------------------------------------------------
-
-type ManualPlaceEntry = Omit<PlaceResult, 'distance'> & {
-  latitude: number;
-  longitude: number;
-};
-
-const MANUAL_PLACES: ManualPlaceEntry[] = [
-  {
-    // Google Places が premise タイプとして登録しており近傍検索に引っかからない
-    placeId: 'ChIJLWJt6XXXGGAR1G9cPtlembg',
-    nameJa: '川鶴ひばり幼稚園',
-    nameEn: 'Kawatsuru Hibari Kindergarten',
-    category: '幼児教育',
-    latitude: 35.9216549,
-    longitude: 139.4069932,
-    address: '埼玉県川越市川鶴３丁目１０',
-    phone: '049-233-2588',
-    website: 'https://www.kawagoe-hibari.ed.jp/',
-    googleMapsUrl: 'https://maps.google.com/?cid=13301767261562630100',
-    primaryType: 'premise',
-  },
-  {
-    // Google Places が school タイプだが近傍検索の上限で取得されないことがある
-    placeId: 'ChIJbWFreHjXGGARUWFHAK5uHHo',
-    nameJa: '川越第二ひばり幼稚園',
-    nameEn: 'Kawagoe Daini Hibari Kindergarten',
-    category: '幼児教育',
-    latitude: 35.914069,
-    longitude: 139.40604,
-    address: '埼玉県川越市笠幡１６００−３',
-    phone: '049-232-2413',
-    website: 'https://www.kawagoe-hibari.ed.jp/daini/',
-    googleMapsUrl: 'https://maps.google.com/?cid=8799029465583149393',
-    primaryType: 'school',
   },
 ];
 
@@ -503,23 +470,6 @@ async function main(): Promise<void> {
   for (const place of allPlaces.values()) {
     if ((nameCounts.get(place.nameJa) ?? 0) > 1 && place.address) {
       place.nameJa = `${place.nameJa}（${place.address}）`;
-    }
-  }
-
-  // 手動補完リストをマージ（同一 place_id が既に存在する場合はスキップ）
-  for (const entry of MANUAL_PLACES) {
-    if (!allPlaces.has(entry.placeId)) {
-      const { latitude, longitude, ...rest } = entry;
-      allPlaces.set(entry.placeId, {
-        ...rest,
-        distance: calculateDistance(
-          CENTER.latitude,
-          CENTER.longitude,
-          latitude,
-          longitude
-        ),
-      });
-      console.log(`  手動補完: ${entry.nameJa}`);
     }
   }
 
