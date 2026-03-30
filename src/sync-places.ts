@@ -11,22 +11,11 @@
  *   KINTONE_API_TOKEN_PLACES - Kintone API トークン
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
 import { KintoneRestAPIClient } from '@kintone/rest-api-client';
+import { loadEnvLocal } from './script-utils';
 
 // ローカル開発用: .env.local を自動ロード（CI では GitHub Secrets が使われるためスキップ）
-const envLocalPath = resolve(process.cwd(), '.env.local');
-if (existsSync(envLocalPath)) {
-  for (const line of readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#\s][^=]*)=(.*)/);
-    if (match) {
-      const key = match[1].trim();
-      const val = match[2].trim().replace(/^["'](.*)["']$/, '$1');
-      if (!process.env[key]) process.env[key] = val;
-    }
-  }
-}
+loadEnvLocal();
 
 // ---------------------------------------------------------------------------
 // 定数・設定
@@ -121,17 +110,6 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     category: '公共・生活',
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Google Places API で取得できない施設の手動補完リスト
-// ---------------------------------------------------------------------------
-
-type ManualPlaceEntry = Omit<PlaceResult, 'distance'> & {
-  latitude: number;
-  longitude: number;
-};
-
-const MANUAL_PLACES: ManualPlaceEntry[] = [];
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -492,23 +470,6 @@ async function main(): Promise<void> {
   for (const place of allPlaces.values()) {
     if ((nameCounts.get(place.nameJa) ?? 0) > 1 && place.address) {
       place.nameJa = `${place.nameJa}（${place.address}）`;
-    }
-  }
-
-  // 手動補完リストをマージ（同一 place_id が既に存在する場合はスキップ）
-  for (const entry of MANUAL_PLACES) {
-    if (!allPlaces.has(entry.placeId)) {
-      const { latitude, longitude, ...rest } = entry;
-      allPlaces.set(entry.placeId, {
-        ...rest,
-        distance: calculateDistance(
-          CENTER.latitude,
-          CENTER.longitude,
-          latitude,
-          longitude
-        ),
-      });
-      console.log(`  手動補完: ${entry.nameJa}`);
     }
   }
 
