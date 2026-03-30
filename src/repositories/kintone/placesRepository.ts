@@ -22,6 +22,7 @@ function resolveSubCategory(record: KintonePlaceRecord): string {
   if (
     category === '総合病院' ||
     category === '医療（診療所）' ||
+    category === 'ドラッグストア' ||
     category === '動物病院'
   ) {
     return 'medicalFacilities';
@@ -48,6 +49,7 @@ function resolveCategory(record: KintonePlaceRecord): string | undefined {
   if (
     category === '総合病院' ||
     category === '医療（診療所）' ||
+    category === 'ドラッグストア' ||
     category === '動物病院' ||
     category === '幼児教育' ||
     category === '教育（初等）' ||
@@ -72,6 +74,7 @@ function resolveIcon(record: KintonePlaceRecord): string {
   if (category === '教育（初等）') return '🏫';
   if (category === '教育（中等）') return '🎓';
   if (category === '総合病院') return '🏥';
+  if (category === 'ドラッグストア') return '🛒';
   if (category === '動物病院') return '🐾';
   if (category === '医療（診療所）') {
     if (primaryType === 'pharmacy') return '💊';
