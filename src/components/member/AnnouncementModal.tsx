@@ -155,7 +155,7 @@ export default function AnnouncementModal({
         {/* 本文 */}
         <div className="flex-1 overflow-y-auto p-6">
           <div
-            className="prose prose-sm max-w-none"
+            className="prose prose-sm max-w-none [&_*]:text-gray-900"
             dangerouslySetInnerHTML={{ __html: announcement.description }}
           />
         </div>
