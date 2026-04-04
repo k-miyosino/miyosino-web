@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import type { Photo } from '@/types/media';
 import { fetchTopImages } from '@/repositories/microcms/contentRepository';
 
@@ -103,12 +104,12 @@ function HeroContent() {
             団地の活動と暮らしをご紹介します。
           </p>
           <div className="opacity-0 animate-fade-in-up delay-500">
-            <a
+            <Link
               href="/features"
               className="inline-block bg-white/90 text-green-800 hover:bg-white px-8 py-3 rounded-full font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 backdrop-blur-sm"
             >
               団地の特徴を見る
-            </a>
+            </Link>
           </div>
         </div>
       </div>
