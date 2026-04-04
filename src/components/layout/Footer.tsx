@@ -64,15 +64,14 @@ export default function Footer() {
                   共有施設・サービス
                 </Link>
               </li>
-              {/* TODO: コンテンツの準備ができたら追加 */}
-              {/* <li>
+              <li>
                 <Link
                   href="/surrounding"
                   className="text-gray-300 hover:text-green-600 text-sm transition-colors"
                 >
-                  周辺環境
+                  周辺施設
                 </Link>
-              </li> */}
+              </li>
               <li>
                 <Link
                   href="/access"
