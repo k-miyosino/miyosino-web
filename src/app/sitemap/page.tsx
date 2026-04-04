@@ -43,6 +43,11 @@ const sitemapData: SitemapSection[] = [
         description: '集会所や公園などの施設案内',
       },
       {
+        title: '周辺施設',
+        href: '/surrounding',
+        description: '団地周辺のスーパーや病院などの施設情報',
+      },
+      {
         title: 'アクセス',
         href: '/access',
         description: '団地への交通アクセス',
