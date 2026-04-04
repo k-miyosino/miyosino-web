@@ -139,7 +139,7 @@ export default function Footer() {
         {/* コピーライト */}
         <div className="border-t border-gray-700 mt-8 pt-8 text-center">
           <p className="text-gray-400 text-sm">
-            © 2025 かわつる三芳野団地管理組合法人. All rights reserved.
+            © 2026 かわつる三芳野団地管理組合法人. All rights reserved.
           </p>
         </div>
       </div>
