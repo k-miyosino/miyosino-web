@@ -276,7 +276,11 @@ export async function logout(): Promise<void> {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
   // ユーザーのクリックに直接紐づけてポップアップを先に開く（ブロック回避）
-  const popup = window.open('', 'kintone_logout', 'width=1,height=1,left=-9999,top=-9999');
+  const popup = window.open(
+    '',
+    'kintone_logout',
+    'width=1,height=1,left=-9999,top=-9999'
+  );
 
   try {
     const response = await fetch(`${AUTH_API_ENDPOINT}/logout`, {
