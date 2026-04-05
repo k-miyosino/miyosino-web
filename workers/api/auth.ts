@@ -217,7 +217,7 @@ export default {
       } else if (path === '/refresh') {
         return handleRefresh(request, env, origin);
       } else if (path === '/logout') {
-        return handleLogout(request, env, origin);
+        return handleLogout(env, origin);
       } else if (path === '/user') {
         return handleGetUser(request, env, origin);
       } else {
@@ -640,8 +640,9 @@ async function handleRefresh(
 }
 
 // ログアウト（Kintoneセッションを切るためのログアウトURLを返す）
-async function handleLogout(request: Request, env: Env, origin?: string): Promise<Response> {
-  return new Response(JSON.stringify({ success: true }), {
+async function handleLogout(env: Env, origin?: string): Promise<Response> {
+  const kintoneLogoutUrl = `https://${env.KINTONE_DOMAIN}/logout`;
+  return new Response(JSON.stringify({ success: true, kintoneLogoutUrl }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
