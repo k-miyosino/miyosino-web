@@ -19,6 +19,7 @@ const PLACES_API_ENDPOINT =
 
 function resolveSubCategory(record: KintonePlaceRecord): string {
   const { category } = record;
+  if (category === '公園') return 'parkFacilities';
   if (
     category === '総合病院' ||
     category === '医療（診療所）' ||
