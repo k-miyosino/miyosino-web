@@ -276,27 +276,29 @@ export async function logout(): Promise<void> {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   const kintoneLogoutUrl = process.env.NEXT_PUBLIC_KINTONE_LOGOUT_URL;
 
-  // ブラウザのポップアップブロッカー対策のため、awaitより前（同期コンテキスト内）で開く
-  const popup = kintoneLogoutUrl
-    ? window.open(kintoneLogoutUrl, 'kintone_logout')
-    : null;
+  if (kintoneLogoutUrl) {
+    // ホームページを新しいタブで開く（ユーザーが戻る先を確保）
+    window.open(basePath + '/', '_blank');
 
+    // Workers側のlogoutを非同期で呼ぶ（完了を待たない）
+    if (token) {
+      fetch(`${AUTH_API_ENDPOINT}/logout`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+
+    // メイン画面をKintoneログアウトへ遷移（セッションクッキーを確実に削除）
+    window.location.href = kintoneLogoutUrl;
+    return;
+  }
+
+  // Kintone URLがない場合のフォールバック
   try {
     await fetch(`${AUTH_API_ENDPOINT}/logout`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   } catch (error) {
     console.error('[Auth] Logout failed:', error);
-  }
-
-  if (popup) {
-    // Kintoneのログアウト処理が完了するまで待ってからポップアップを閉じる
-    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
-    try {
-      popup.close();
-    } catch {
-      // ignore
-    }
   }
 
   window.location.href = basePath + '/';
