@@ -57,6 +57,7 @@ jobs:
           # 履歴データ取得用Workerのエンドポイント（あゆみ・大規模修繕工事履歴）
           # 例: https://miyosino-histories-api.your-subdomain.workers.dev
           NEXT_PUBLIC_HISTORIES_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_HISTORIES_API_ENDPOINT }}
+          NEXT_PUBLIC_KINTONE_LOGOUT_URL: ${{ secrets.NEXT_PUBLIC_KINTONE_LOGOUT_URL }}
           # Cloudflare Turnstileのサイトキー（オプション、サーバーサイドAPI経由で取得するため不要）
           # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
         run: npm run build
