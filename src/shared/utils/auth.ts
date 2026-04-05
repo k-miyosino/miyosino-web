@@ -292,15 +292,20 @@ export async function logout(): Promise<void> {
     if (popup && data.kintoneLogoutUrl) {
       // Kintoneのセッション（ブラウザクッキー）を削除するため、
       // 取得したURLをポップアップに設定してKintoneログアウトを実行する。
-      // ポップアップは2秒後に閉じる。
+      // クロスオリジン遷移後はclose()が効かないため、
+      // メインウィンドウの遷移直前（pagehide）にポップアップを閉じる。
       popup.location.href = data.kintoneLogoutUrl;
-      setTimeout(() => {
-        try {
-          popup.close();
-        } catch {
-          // ignore
-        }
-      }, 2000);
+      window.addEventListener(
+        'pagehide',
+        () => {
+          try {
+            popup.close();
+          } catch {
+            // ignore
+          }
+        },
+        { once: true }
+      );
     } else {
       popup?.close();
     }
