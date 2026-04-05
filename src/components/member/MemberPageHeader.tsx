@@ -40,7 +40,7 @@ export default function MemberPageHeader({
               d="M15 19l-7-7 7-7"
             />
           </svg>
-          ダッシュボードに戻る
+          組合員専用ページのトップに戻る
         </Link>
         <h1 className="text-3xl lg:text-4xl font-bold">{title}</h1>
         <p className={`${textColor} text-lg mt-4`}>{description}</p>
