@@ -268,13 +268,13 @@ export function redirectToLogin(redirectUri?: string): void {
  */
 export async function logout(): Promise<void> {
   const token = getToken();
+  const refreshToken = getRefreshToken();
 
   // 1. ローカルトークンを即座に削除
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
   // 2. Workers経由でKintoneセッションをAPI終了（OAuthグラントは維持される）
-  const refreshToken = getRefreshToken();
   try {
     await fetch(`${AUTH_API_ENDPOINT}/logout`, {
       method: 'POST',
