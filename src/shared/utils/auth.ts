@@ -267,12 +267,15 @@ export function redirectToLogin(redirectUri?: string): void {
  * ログアウト
  */
 export async function logout(): Promise<void> {
-  // localStorageからトークンを先に削除
+  const token = getToken();
+
+  // localStorageからトークンを削除
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
   try {
-    const token = getToken();
     const response = await fetch(`${AUTH_API_ENDPOINT}/logout`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
@@ -280,16 +283,26 @@ export async function logout(): Promise<void> {
     const data = (await response.json()) as { kintoneLogoutUrl?: string };
 
     if (data.kintoneLogoutUrl) {
-      // Kintoneのセッション（ブラウザクッキー）を確実に削除するため、
-      // Kintoneのログアウトページへリダイレクトする
-      window.location.href = data.kintoneLogoutUrl;
-      return;
+      // Kintoneのセッション（ブラウザクッキー）を削除するため、
+      // 非表示ポップアップでKintoneのログアウトページを開く。
+      // メインページはそのままホームへ遷移させ、ポップアップは2秒後に閉じる。
+      const popup = window.open(
+        data.kintoneLogoutUrl,
+        'kintone_logout',
+        'width=1,height=1,left=-9999,top=-9999'
+      );
+      setTimeout(() => {
+        try {
+          popup?.close();
+        } catch {
+          // ignore
+        }
+      }, 2000);
     }
   } catch (error) {
     console.error('[Auth] Logout failed:', error);
   }
 
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   window.location.href = basePath + '/';
 }
 
