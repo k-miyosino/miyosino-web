@@ -275,6 +275,13 @@ export async function logout(): Promise<void> {
 
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
+  // ユーザーのクリックに直接紐づけてポップアップを先に開く（ブロック回避）
+  const popup = window.open(
+    '',
+    'kintone_logout',
+    'width=1,height=1,left=-9999,top=-9999'
+  );
+
   try {
     const response = await fetch(`${AUTH_API_ENDPOINT}/logout`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -282,24 +289,23 @@ export async function logout(): Promise<void> {
 
     const data = (await response.json()) as { kintoneLogoutUrl?: string };
 
-    if (data.kintoneLogoutUrl) {
+    if (popup && data.kintoneLogoutUrl) {
       // Kintoneのセッション（ブラウザクッキー）を削除するため、
-      // 非表示ポップアップでKintoneのログアウトページを開く。
-      // メインページはそのままホームへ遷移させ、ポップアップは2秒後に閉じる。
-      const popup = window.open(
-        data.kintoneLogoutUrl,
-        'kintone_logout',
-        'width=1,height=1,left=-9999,top=-9999'
-      );
+      // 取得したURLをポップアップに設定してKintoneログアウトを実行する。
+      // ポップアップは2秒後に閉じる。
+      popup.location.href = data.kintoneLogoutUrl;
       setTimeout(() => {
         try {
-          popup?.close();
+          popup.close();
         } catch {
           // ignore
         }
       }, 2000);
+    } else {
+      popup?.close();
     }
   } catch (error) {
+    popup?.close();
     console.error('[Auth] Logout failed:', error);
   }
 
