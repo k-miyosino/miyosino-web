@@ -1,5 +1,5 @@
 import { Announcement } from '@/components/member/data';
-import { getToken } from '@/shared/utils/auth';
+import { getToken, silentRefresh } from '@/shared/utils/auth';
 
 const ANNOUNCEMENTS_API_ENDPOINT =
   process.env.NEXT_PUBLIC_ANNOUNCEMENTS_API_URL ||
@@ -42,8 +42,14 @@ export async function fetchAnnouncements(
 
   if (!response.ok) {
     if (response.status === 401) {
+      // 401時はリフレッシュトークンで再試行してからトークンを削除する
+      const refreshed = await silentRefresh();
+      if (refreshed) {
+        throw new Error('AUTH_REFRESH_NEEDED'); // 呼び出し元でリトライを促す
+      }
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
       }
       throw new Error('認証に失敗しました');
     }
@@ -78,8 +84,13 @@ export async function fetchAnnouncementYearMonths(): Promise<YearMonth[]> {
 
   if (!response.ok) {
     if (response.status === 401) {
+      const refreshed = await silentRefresh();
+      if (refreshed) {
+        throw new Error('AUTH_REFRESH_NEEDED');
+      }
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_refresh_token');
       }
       throw new Error('認証に失敗しました');
     }
