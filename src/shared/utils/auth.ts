@@ -273,19 +273,22 @@ export async function logout(): Promise<void> {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  // 2. サーバー側のトークン無効化を完了してからリダイレクト
-  if (token) {
-    try {
-      await fetch(`${AUTH_API_ENDPOINT}/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (error) {
-      console.error('[Auth] Logout sync failed:', error);
-    }
+  // 2. Workers経由でKintoneセッションをAPI終了（OAuthグラントは維持される）
+  const refreshToken = getRefreshToken();
+  try {
+    await fetch(`${AUTH_API_ENDPOINT}/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ refresh_token: refreshToken ?? undefined }),
+    });
+  } catch (error) {
+    console.error('[Auth] Logout sync failed:', error);
   }
 
-  // 3. 自社サイトのトップへリダイレクト（Kintoneセッションは保持し、OAuthグラントを維持する）
+  // 3. 自社サイトのトップへリダイレクト
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   window.location.href = basePath + '/';
 }
