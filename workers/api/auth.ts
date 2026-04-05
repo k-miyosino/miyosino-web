@@ -286,6 +286,9 @@ async function handleLogin(
   // 最小限のスコープ（レコード閲覧）を指定し、
   // トークン取得の成功をもって認証成功とみなします。
   authUrl.searchParams.append('scope', 'k:app_record:read');
+  // ログアウト後に再ログインする際、Kintone側のセッションが残っていても
+  // 必ずID/PW入力画面を表示させる
+  authUrl.searchParams.append('prompt', 'login');
 
   // nonceをCookieに保存（CSRF対策: stateのnonce部分と照合する）
   // redirectUriはstate自体に含まれるためCookieは不要
