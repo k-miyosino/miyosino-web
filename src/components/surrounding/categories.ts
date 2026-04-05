@@ -10,7 +10,7 @@ export const surroundingCategories: SurroundingCategory[] = [
     id: 'lifeFacilities',
     label: '生活',
     icon: '🏘️',
-    subsections: ['公共', '金融機関', '郵便局'],
+    subsections: ['公共', '金融機関', '郵便局', '公園'],
   },
   {
     id: 'educationFacilities',
