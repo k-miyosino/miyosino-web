@@ -641,52 +641,6 @@ async function handleRefresh(
 
 // ログアウト（Kintoneセッションを切るためのログアウトURLを返す）
 async function handleLogout(request: Request, env: Env, origin?: string): Promise<Response> {
-  let refreshToken: string | null = null;
-
-  try {
-    const body = await request.json() as { refresh_token?: string };
-    refreshToken = body.refresh_token ?? null;
-  } catch {
-    // ボディなしは無視
-  }
-
-  // リフレッシュトークンがあればKintoneセッションをAPIで終了する
-  console.log('[Auth] Logout: refreshToken present =', !!refreshToken);
-  if (refreshToken) {
-    try {
-      // リフレッシュトークンでKintoneアクセストークンを取得
-      const tokenResponse = await fetch(`https://${env.KINTONE_DOMAIN}/oauth2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: env.KINTONE_CLIENT_ID,
-          client_secret: env.KINTONE_CLIENT_SECRET,
-        }),
-      });
-
-      console.log('[Auth] Token refresh status:', tokenResponse.status);
-
-      if (tokenResponse.ok) {
-        const tokenData = (await tokenResponse.json()) as { access_token: string };
-        console.log('[Auth] Access token obtained, calling /k/v1/logout.json');
-        // Kintoneセッションを終了（OAuthグラントは維持される）
-        const logoutResponse = await fetch(`https://${env.KINTONE_DOMAIN}/k/v1/logout.json`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        });
-        const logoutBody = await logoutResponse.text();
-        console.log('[Auth] Kintone logout.json status:', logoutResponse.status, logoutBody);
-      } else {
-        const errorBody = await tokenResponse.text();
-        console.error('[Auth] Token refresh failed:', errorBody);
-      }
-    } catch (error) {
-      console.error('[Auth] Kintone session logout failed:', error);
-    }
-  }
-
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers: {
