@@ -269,38 +269,24 @@ export function redirectToLogin(redirectUri?: string): void {
 export async function logout(): Promise<void> {
   const token = getToken();
 
-  // localStorageからトークンを削除
+  // 1. ローカルトークンを即座に削除
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-  const kintoneLogoutUrl = process.env.NEXT_PUBLIC_KINTONE_LOGOUT_URL;
-
-  if (kintoneLogoutUrl) {
-    // ホームページを新しいタブで開く（ユーザーが戻る先を確保）
-    window.open(basePath + '/', '_blank');
-
-    // Workers側のlogoutを非同期で呼ぶ（完了を待たない）
-    if (token) {
-      fetch(`${AUTH_API_ENDPOINT}/logout`, {
+  // 2. サーバー側のトークン無効化を完了してからリダイレクト
+  if (token) {
+    try {
+      await fetch(`${AUTH_API_ENDPOINT}/logout`, {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      });
+    } catch (error) {
+      console.error('[Auth] Logout sync failed:', error);
     }
-
-    // メイン画面をKintoneログアウトへ遷移（セッションクッキーを確実に削除）
-    window.location.href = kintoneLogoutUrl;
-    return;
   }
 
-  // Kintone URLがない場合のフォールバック
-  try {
-    await fetch(`${AUTH_API_ENDPOINT}/logout`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-  } catch (error) {
-    console.error('[Auth] Logout failed:', error);
-  }
-
+  // 3. 自社サイトのトップへリダイレクト（Kintoneセッションは保持し、OAuthグラントを維持する）
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   window.location.href = basePath + '/';
 }
 
