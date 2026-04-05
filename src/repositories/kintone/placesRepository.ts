@@ -64,6 +64,7 @@ function resolveCategory(record: KintonePlaceRecord): string | undefined {
     if (primaryType === 'bank') return '金融機関';
     return '公共';
   }
+  if (category === '公園') return '公園';
   return undefined;
 }
 
@@ -71,6 +72,7 @@ function resolveCategory(record: KintonePlaceRecord): string | undefined {
 
 function resolveIcon(record: KintonePlaceRecord): string {
   const { category, primaryType } = record;
+  if (category === '公園') return '🌳';
   if (category === '教育（初等）') return '🏫';
   if (category === '教育（中等）') return '🎓';
   if (category === '総合病院') return '🏥';

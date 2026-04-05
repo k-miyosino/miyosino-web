@@ -109,6 +109,11 @@ const SEARCH_CONFIGS: SearchConfig[] = [
     radius: 1000,
     category: '公共・生活',
   },
+  {
+    includedTypes: ['park', 'national_park', 'playground'],
+    radius: 1500,
+    category: '公園',
+  },
 ];
 
 // ---------------------------------------------------------------------------
