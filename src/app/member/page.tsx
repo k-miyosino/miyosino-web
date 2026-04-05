@@ -28,19 +28,21 @@ export default function MemberPage() {
       const tokenSaved = handleAuthCallback();
       console.log('[Member Page] Token saved from callback:', tokenSaved);
 
-      // トークンが保存された場合、少し待つ
       if (tokenSaved) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       console.log('[Member Page] Checking auth status...');
       const status = await checkAuthStatus();
-      console.log('[Member Page] Auth status:', status);
+      console.log(
+        '[Member Page] Auth status:',
+        status.authenticated ? 'authenticated' : 'not authenticated'
+      );
 
       if (!status.authenticated) {
+        // checkAuthStatus内でsilentRefreshは試みているが、
+        // 念のためここでも確認してからリダイレクト
         console.log('[Member Page] Not authenticated, redirecting to login');
-        // 未認証の場合、ログインページへリダイレクト
-        // 引数なしで呼び出すことで、現在のURL（basePathを含む）がそのまま使われる
         redirectToLogin();
         return;
       }
