@@ -37,10 +37,14 @@ export default function MemberAuthWrapper({
       let token = getToken();
       if (!token) {
         // JWTがない場合、リフレッシュトークンでサイレント更新を試みる
-        console.log('[MemberAuthWrapper] No token, attempting silent refresh...');
+        console.log(
+          '[MemberAuthWrapper] No token, attempting silent refresh...'
+        );
         const refreshed = await silentRefresh();
         if (!refreshed) {
-          console.log('[MemberAuthWrapper] Silent refresh failed, redirecting to login');
+          console.log(
+            '[MemberAuthWrapper] Silent refresh failed, redirecting to login'
+          );
           redirectToLogin();
           return;
         }
@@ -67,12 +71,16 @@ export default function MemberAuthWrapper({
 
         if (!response.ok) {
           if (response.status === 401) {
-            console.log('[MemberAuthWrapper] 401 error, attempting silent refresh...');
+            console.log(
+              '[MemberAuthWrapper] 401 error, attempting silent refresh...'
+            );
             // 401の場合、すぐにトークンを削除せずリフレッシュを試みる
             const refreshed = await silentRefresh();
             if (refreshed) {
               // リフレッシュ成功：認証済みとして続行
-              console.log('[MemberAuthWrapper] Silent refresh successful after 401');
+              console.log(
+                '[MemberAuthWrapper] Silent refresh successful after 401'
+              );
               setIsLoading(false);
               return;
             }

@@ -34,7 +34,10 @@ export default function MemberPage() {
 
       console.log('[Member Page] Checking auth status...');
       const status = await checkAuthStatus();
-      console.log('[Member Page] Auth status:', status.authenticated ? 'authenticated' : 'not authenticated');
+      console.log(
+        '[Member Page] Auth status:',
+        status.authenticated ? 'authenticated' : 'not authenticated'
+      );
 
       if (!status.authenticated) {
         // checkAuthStatus内でsilentRefreshは試みているが、

@@ -27,7 +27,9 @@ export interface AuthStatus {
  * JWTペイロードをクライアント側でデコード（署名検証なし）
  * 有効期限チェックやペイロード参照のみに使用する
  */
-function decodeJwtPayload(token: string): { exp?: number; sub?: string } | null {
+function decodeJwtPayload(
+  token: string
+): { exp?: number; sub?: string } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -66,7 +68,10 @@ export function handleAuthCallback(): boolean {
 
     console.log('[Auth Debug] URL:', window.location.pathname);
     console.log('[Auth Debug] Token from URL:', token ? 'Found' : 'Not found');
-    console.log('[Auth Debug] Refresh token from URL:', refreshToken ? 'Found' : 'Not found');
+    console.log(
+      '[Auth Debug] Refresh token from URL:',
+      refreshToken ? 'Found' : 'Not found'
+    );
 
     if (token) {
       // トークンをlocalStorageに保存
@@ -147,7 +152,10 @@ export async function silentRefresh(): Promise<boolean> {
       return false;
     }
 
-    const data = (await response.json()) as { token: string; refresh_token?: string };
+    const data = (await response.json()) as {
+      token: string;
+      refresh_token?: string;
+    };
 
     if (!data.token) {
       console.error('[Auth] Silent refresh: no token in response');
@@ -196,7 +204,9 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
 
     // クライアント側で期限チェック（無駄なAPI呼び出しを減らす）
     if (isTokenExpired(token)) {
-      console.log('[Auth Debug] Token is expired, attempting silent refresh...');
+      console.log(
+        '[Auth Debug] Token is expired, attempting silent refresh...'
+      );
       localStorage.removeItem(TOKEN_KEY);
       const refreshed = await silentRefresh();
       if (!refreshed) {
@@ -228,7 +238,10 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
     }
 
     const data = (await response.json()) as AuthStatus;
-    console.log('[Auth Debug] Auth status:', data.authenticated ? 'authenticated' : 'not authenticated');
+    console.log(
+      '[Auth Debug] Auth status:',
+      data.authenticated ? 'authenticated' : 'not authenticated'
+    );
     return data;
   } catch (error) {
     console.error('[Auth] Failed to check auth status:', error);
