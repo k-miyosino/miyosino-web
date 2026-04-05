@@ -284,20 +284,15 @@ export async function logout(): Promise<void> {
 
     if (data.kintoneLogoutUrl) {
       // Kintoneのセッション（ブラウザクッキー）を削除するため、
-      // ポップアップでKintoneのログアウトページを開く。
-      // メインページが遷移する直前（pagehide）にポップアップを閉じる。
+      // ポップアップでKintoneのログアウトページを開き、
+      // ログアウト処理が完了するまで2秒待ってからポップアップを閉じる。
       const popup = window.open(data.kintoneLogoutUrl, 'kintone_logout');
-      window.addEventListener(
-        'pagehide',
-        () => {
-          try {
-            popup?.close();
-          } catch {
-            // ignore
-          }
-        },
-        { once: true }
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      try {
+        popup?.close();
+      } catch {
+        // ignore
+      }
     }
   } catch (error) {
     console.error('[Auth] Logout failed:', error);
