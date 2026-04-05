@@ -8,7 +8,9 @@ import { fetchPlaces } from '@/repositories/kintone/placesRepository';
 type GroupedFacilities = Record<string, NearbyFacility[]>;
 
 export function TableOfContents() {
-  const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>({});
+  const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
 
   const scrollToSection = (id: string) => {

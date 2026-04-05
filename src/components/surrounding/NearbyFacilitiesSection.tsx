@@ -8,9 +8,9 @@ import { surroundingCategories } from './categories';
 type GroupedFacilities = Record<string, NearbyFacility[]>;
 
 const colorMap: Record<string, { header: string; card: string }> = {
-  blue:    { header: 'bg-blue-50 border-blue-500',       card: 'bg-white' },
-  green:   { header: 'bg-green-50 border-green-500',     card: 'bg-gray-50' },
-  red:     { header: 'bg-red-50 border-red-500',         card: 'bg-white' },
+  blue: { header: 'bg-blue-50 border-blue-500', card: 'bg-white' },
+  green: { header: 'bg-green-50 border-green-500', card: 'bg-gray-50' },
+  red: { header: 'bg-red-50 border-red-500', card: 'bg-white' },
   emerald: { header: 'bg-emerald-50 border-emerald-500', card: 'bg-white' },
 };
 
@@ -90,7 +90,9 @@ function SubsectionGroup({
 }
 
 export default function NearbyFacilitiesSection() {
-  const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>({});
+  const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
