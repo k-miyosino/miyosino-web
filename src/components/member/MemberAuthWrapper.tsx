@@ -5,6 +5,7 @@ import {
   getToken,
   redirectToLogin,
   handleAuthCallback,
+  silentRefresh,
 } from '@/shared/utils/auth';
 
 interface MemberAuthWrapperProps {
@@ -29,15 +30,29 @@ export default function MemberAuthWrapper({
       // URLからトークンを取得してlocalStorageに保存（認証後のリダイレクト時）
       const tokenSaved = handleAuthCallback();
       if (tokenSaved) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // トークンが存在するか確認
-      const token = getToken();
+      let token = getToken();
       if (!token) {
-        console.log('[MemberAuthWrapper] No token found, redirecting to login');
-        redirectToLogin();
-        return;
+        // JWTがない場合、リフレッシュトークンでサイレント更新を試みる
+        console.log(
+          '[MemberAuthWrapper] No token, attempting silent refresh...'
+        );
+        const refreshed = await silentRefresh();
+        if (!refreshed) {
+          console.log(
+            '[MemberAuthWrapper] Silent refresh failed, redirecting to login'
+          );
+          redirectToLogin();
+          return;
+        }
+        token = getToken();
+        if (!token) {
+          redirectToLogin();
+          return;
+        }
       }
 
       // 実際のAPIエンドポイントで認証を確認（軽量なリクエスト）
@@ -57,11 +72,22 @@ export default function MemberAuthWrapper({
         if (!response.ok) {
           if (response.status === 401) {
             console.log(
-              '[MemberAuthWrapper] 401 error, removing token and redirecting to login'
+              '[MemberAuthWrapper] 401 error, attempting silent refresh...'
             );
-            // トークンを削除
+            // 401の場合、すぐにトークンを削除せずリフレッシュを試みる
+            const refreshed = await silentRefresh();
+            if (refreshed) {
+              // リフレッシュ成功：認証済みとして続行
+              console.log(
+                '[MemberAuthWrapper] Silent refresh successful after 401'
+              );
+              setIsLoading(false);
+              return;
+            }
+            // リフレッシュも失敗した場合のみトークンを削除してログイン画面へ
             if (typeof window !== 'undefined') {
               localStorage.removeItem('auth_token');
+              localStorage.removeItem('auth_refresh_token');
             }
             redirectToLogin();
             return;
@@ -78,7 +104,7 @@ export default function MemberAuthWrapper({
         setIsLoading(false);
       } catch (error) {
         console.error('[MemberAuthWrapper] Auth verification error:', error);
-        // エラーが発生した場合も続行（ネットワークエラーの可能性）
+        // ネットワークエラーの場合も続行（一時的な障害の可能性）
         setIsLoading(false);
       }
     }

@@ -24,6 +24,7 @@ interface KintoneTokenResponse {
   token_type: string;
   expires_in: number;
   scope: string;
+  refresh_token?: string;
 }
 
 interface KintoneUserResponse {
@@ -213,6 +214,8 @@ export default {
         return handleCallback(request, env, origin);
       } else if (path === '/verify') {
         return handleVerify(request, env, origin);
+      } else if (path === '/refresh') {
+        return handleRefresh(request, env, origin);
       } else if (path === '/logout') {
         return handleLogout(origin);
       } else if (path === '/user') {
@@ -263,7 +266,15 @@ async function handleLogin(
     redirectUri = new URL(redirectUri, baseOrigin).toString();
   }
 
-  const state = crypto.randomUUID();
+  const nonce = crypto.randomUUID();
+
+  // redirectUriをstateパラメータに埋め込む（Cookieが送信されない環境でも確実にリダイレクト先を保持する）
+  // state = base64url({ nonce, redirect })
+  const statePayload = JSON.stringify({ nonce, redirect: redirectUri });
+  const state = btoa(statePayload)
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 
   // Kintone OAuth認証URLを構築
   const authUrl = new URL(`https://${env.KINTONE_DOMAIN}/oauth2/authorization`);
@@ -276,22 +287,17 @@ async function handleLogin(
   // トークン取得の成功をもって認証成功とみなします。
   authUrl.searchParams.append('scope', 'k:app_record:read');
 
-  // stateとredirect_uriをCookieに保存（CSRF対策）
+  // nonceをCookieに保存（CSRF対策: stateのnonce部分と照合する）
+  // redirectUriはstate自体に含まれるためCookieは不要
   const headers = new Headers({
     Location: authUrl.toString(),
     ...corsHeaders(origin),
   });
 
-  // state Cookie（短期間のみ有効）
+  // nonce Cookie（短期間のみ有効）
   headers.append(
     'Set-Cookie',
-    `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
-  );
-
-  // redirect_uri Cookie
-  headers.append(
-    'Set-Cookie',
-    `oauth_redirect=${encodeURIComponent(redirectUri)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
+    `oauth_nonce=${nonce}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`
   );
 
   return new Response(null, {
@@ -320,13 +326,27 @@ async function handleCallback(
     });
   }
 
-  // Cookieからstateとredirect_uriを取得
-  const cookies = parseCookies(request.headers.get('Cookie') || '');
-  const savedState = cookies.oauth_state;
-  const redirectUri = decodeURIComponent(cookies.oauth_redirect || '/member/');
+  // stateパラメータからnonceとredirectUriを復元
+  let stateNonce: string;
+  let redirectUri: string;
+  try {
+    const decoded = atob(state.replace(/-/g, '+').replace(/_/g, '/'));
+    const parsed = JSON.parse(decoded) as { nonce: string; redirect: string };
+    stateNonce = parsed.nonce;
+    redirectUri = parsed.redirect;
+  } catch {
+    // 旧形式（plain UUID）のstateへの後方互換: Cookieから取得
+    const cookies = parseCookies(request.headers.get('Cookie') || '');
+    stateNonce = state; // 旧形式ではstateそのものがnonce
+    redirectUri = decodeURIComponent(cookies.oauth_redirect || '');
+    console.warn('[Auth] Legacy state format detected, falling back to cookie');
+  }
 
-  // CSRF対策: stateの検証
-  if (state !== savedState) {
+  // CSRF対策: Cookieのnonceとstateのnonceを照合
+  const cookies = parseCookies(request.headers.get('Cookie') || '');
+  const savedNonce = cookies.oauth_nonce || cookies.oauth_state; // 旧形式も考慮
+  if (stateNonce !== savedNonce) {
+    console.error('[Auth] State mismatch:', { stateNonce, savedNonce });
     return new Response(JSON.stringify({ error: 'Invalid state' }), {
       status: 400,
       headers: {
@@ -334,6 +354,18 @@ async function handleCallback(
         ...corsHeaders(origin),
       },
     });
+  }
+
+  // redirectUriが取得できなかった場合のフォールバック（既知の安全なURL）
+  if (!redirectUri) {
+    const allowedFallbacks: Record<string, string> = {
+      'https://www.k-miyosino.com': 'https://www.k-miyosino.com/member/',
+      'https://k-miyosino.github.io': 'https://k-miyosino.github.io/miyosino-web/member/',
+      'http://localhost:3000': 'http://localhost:3000/member/',
+    };
+    const fallbackOrigin = origin || Object.keys(allowedFallbacks)[0];
+    redirectUri = allowedFallbacks[fallbackOrigin] || 'https://www.k-miyosino.com/member/';
+    console.warn('[Auth] redirectUri not found, using fallback:', redirectUri);
   }
 
   try {
@@ -396,27 +428,24 @@ async function handleCallback(
 
     const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
 
-    // JWTをURLパラメータとして渡す（クロスドメインCookie問題の回避）
-    // redirectUriが相対パスの場合、originを使って絶対URLに変換
+    // JWTとrefresh_tokenをURLパラメータとして渡す（クロスドメインCookie問題の回避）
+    // redirectUriはstate由来なので既に絶対URL
     let redirectUrl: URL;
     try {
-      // 既に絶対URLの場合はそのまま使う
       redirectUrl = new URL(redirectUri);
     } catch {
-      // 相対パスの場合、originを使って絶対URLに変換
-      // originが指定されている場合はそれを使い、なければRefererヘッダーから取得
-      const baseOrigin =
-        origin ||
-        request.headers.get('Origin') ||
-        request.headers.get('Referer')?.match(/^https?:\/\/[^/]+/)?.[0];
-      if (!baseOrigin) {
-        throw new Error('Cannot determine base URL for redirect');
-      }
-      redirectUrl = new URL(redirectUri, baseOrigin);
+      console.error('[Auth] Invalid redirectUri:', redirectUri);
+      throw new Error(`Invalid redirect URI: ${redirectUri}`);
     }
     redirectUrl.searchParams.set('token', jwt);
 
-    console.log('[Auth] Redirecting to:', redirectUrl.toString());
+    // Kintoneのrefresh_tokenが取得できた場合は渡す（クライアント側でサイレント更新に使用）
+    if (tokenData.refresh_token) {
+      redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
+      console.log('[Auth] refresh_token included in redirect');
+    }
+
+    console.log('[Auth] Redirecting to:', redirectUrl.origin + redirectUrl.pathname + '?[params]');
 
     const headers = new Headers({
       Location: redirectUrl.toString(),
@@ -424,6 +453,11 @@ async function handleCallback(
     });
 
     // 一時的なCookieを削除
+    headers.append(
+      'Set-Cookie',
+      'oauth_nonce=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
+    );
+    // 旧形式のCookieも削除
     headers.append(
       'Set-Cookie',
       'oauth_state=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0'
@@ -506,6 +540,100 @@ async function handleVerify(
       },
     }
   );
+}
+
+// リフレッシュトークンを使用してJWTを更新
+async function handleRefresh(
+  request: Request,
+  env: Env,
+  origin?: string
+): Promise<Response> {
+  const url = new URL(request.url);
+  const refreshToken = url.searchParams.get('refresh_token');
+
+  if (!refreshToken) {
+    return new Response(JSON.stringify({ error: 'refresh_token is required' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
+  try {
+    // KintoneのOAuth2トークンエンドポイントでリフレッシュ
+    const tokenResponse = await fetch(
+      `https://${env.KINTONE_DOMAIN}/oauth2/token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: env.KINTONE_CLIENT_ID,
+          client_secret: env.KINTONE_CLIENT_SECRET,
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('[Auth] Refresh token request failed:', tokenResponse.status, errorText);
+      return new Response(JSON.stringify({ error: 'Refresh token expired or invalid' }), {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders(origin),
+        },
+      });
+    }
+
+    const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
+
+    // 新しいJWTを生成
+    const now = Math.floor(Date.now() / 1000);
+    const jwtPayload: JWTPayload = {
+      sub: 'kintone-user',
+      name: 'Kintone Member',
+      email: 'member@example.com',
+      iat: now,
+      exp: now + 60 * 60 * 24 * 7, // 7日間有効
+    };
+
+    const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
+
+    return new Response(
+      JSON.stringify({
+        token: jwt,
+        refresh_token: tokenData.refresh_token || refreshToken, // 新しいrefresh_tokenがなければ既存のものを返す
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders(origin),
+        },
+      }
+    );
+  } catch (error) {
+    console.error('[Auth] Refresh error:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Refresh failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders(origin),
+        },
+      }
+    );
+  }
 }
 
 // ログアウト（localStorage方式ではクライアント側で削除）

@@ -10,6 +10,7 @@ const AUTH_API_ENDPOINT =
   'https://miyosino-auth.anorimura-miyosino.workers.dev';
 
 const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 
 export interface AuthUser {
   id: string;
@@ -23,6 +24,36 @@ export interface AuthStatus {
 }
 
 /**
+ * JWTペイロードをクライアント側でデコード（署名検証なし）
+ * 有効期限チェックやペイロード参照のみに使用する
+ */
+function decodeJwtPayload(
+  token: string
+): { exp?: number; sub?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    );
+    return payload as { exp?: number; sub?: string };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * トークンが期限切れかどうかを確認（クライアント側、署名検証なし）
+ * サーバー検証の代わりには使えないが、無駄なAPI呼び出しを減らすために使用
+ */
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+  // 30秒のバッファを持たせる
+  return payload.exp < Math.floor(Date.now() / 1000) + 30;
+}
+
+/**
  * URLからトークンを取得してlocalStorageに保存
  * 認証後のリダイレクト時に呼び出される
  * @returns トークンが保存された場合true、そうでない場合false
@@ -33,25 +64,35 @@ export function handleAuthCallback(): boolean {
   try {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const refreshToken = params.get('refresh_token');
 
-    console.log('[Auth Debug] URL:', window.location.href);
+    console.log('[Auth Debug] URL:', window.location.pathname);
     console.log('[Auth Debug] Token from URL:', token ? 'Found' : 'Not found');
+    console.log(
+      '[Auth Debug] Refresh token from URL:',
+      refreshToken ? 'Found' : 'Not found'
+    );
 
     if (token) {
       // トークンをlocalStorageに保存
       localStorage.setItem(TOKEN_KEY, token);
-      console.log('[Auth Debug] Token saved to localStorage');
+
+      // リフレッシュトークンが含まれていれば保存
+      if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        console.log('[Auth Debug] Refresh token saved to localStorage');
+      }
 
       // 保存されたことを確認
       const savedToken = localStorage.getItem(TOKEN_KEY);
       console.log(
         '[Auth Debug] Token verification:',
-        savedToken ? 'OK' : 'FAILED'
+        savedToken === token ? 'OK' : 'FAILED'
       );
-      console.log('[Auth Debug] Token match:', savedToken === token);
 
-      // URLからトークンを削除（セキュリティ対策）
+      // URLからトークンを削除（セキュリティ対策: ブラウザ履歴に残さない）
       params.delete('token');
+      params.delete('refresh_token');
       const newUrl =
         window.location.pathname +
         (params.toString() ? '?' + params.toString() : '') +
@@ -69,7 +110,7 @@ export function handleAuthCallback(): boolean {
 }
 
 /**
- * localStorageからトークンを取得
+ * localStorageからJWTトークンを取得
  */
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -77,11 +118,72 @@ export function getToken(): string | null {
 }
 
 /**
+ * localStorageからリフレッシュトークンを取得
+ */
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+/**
+ * Kintoneのリフレッシュトークンを使用してJWTをサイレント更新
+ * ユーザーに認可画面を再表示することなくセッションを延長する
+ * @returns 更新成功の場合true
+ */
+export async function silentRefresh(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    console.log('[Auth] No refresh token available for silent refresh');
+    return false;
+  }
+
+  try {
+    console.log('[Auth] Attempting silent refresh...');
+    const response = await fetch(
+      `${AUTH_API_ENDPOINT}/refresh?refresh_token=${encodeURIComponent(refreshToken)}`
+    );
+
+    if (!response.ok) {
+      console.log('[Auth] Silent refresh failed:', response.status);
+      // リフレッシュトークンが無効ならクリア
+      if (response.status === 401) {
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
+      return false;
+    }
+
+    const data = (await response.json()) as {
+      token: string;
+      refresh_token?: string;
+    };
+
+    if (!data.token) {
+      console.error('[Auth] Silent refresh: no token in response');
+      return false;
+    }
+
+    localStorage.setItem(TOKEN_KEY, data.token);
+    if (data.refresh_token) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+    }
+
+    console.log('[Auth] Silent refresh successful');
+    return true;
+  } catch (error) {
+    console.error('[Auth] Silent refresh error:', error);
+    return false;
+  }
+}
+
+/**
  * 認証状態を確認
+ * 1. localStorageのJWTをチェック
+ * 2. 期限切れならリフレッシュトークンでサイレント更新を試みる
+ * 3. サーバー側でJWTを検証
  */
 export async function checkAuthStatus(): Promise<AuthStatus> {
   try {
-    const token = getToken();
+    let token = getToken();
 
     console.log(
       '[Auth Debug] Token from localStorage:',
@@ -89,9 +191,34 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
     );
 
     if (!token) {
-      return { authenticated: false };
+      // JWTがない場合、リフレッシュトークンでサイレント更新を試みる
+      const refreshed = await silentRefresh();
+      if (!refreshed) {
+        return { authenticated: false };
+      }
+      token = getToken();
+      if (!token) {
+        return { authenticated: false };
+      }
     }
 
+    // クライアント側で期限チェック（無駄なAPI呼び出しを減らす）
+    if (isTokenExpired(token)) {
+      console.log(
+        '[Auth Debug] Token is expired, attempting silent refresh...'
+      );
+      localStorage.removeItem(TOKEN_KEY);
+      const refreshed = await silentRefresh();
+      if (!refreshed) {
+        return { authenticated: false };
+      }
+      token = getToken();
+      if (!token) {
+        return { authenticated: false };
+      }
+    }
+
+    // サーバー側でJWT署名と有効性を検証
     const response = await fetch(`${AUTH_API_ENDPOINT}/verify`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -101,16 +228,24 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
     console.log('[Auth Debug] Verify response status:', response.status);
 
     if (!response.ok) {
-      // トークンが無効な場合は削除
+      // サーバーエラー（5xx）の場合はトークンを消さずにリトライ可能な状態にする
+      if (response.status >= 500) {
+        console.warn('[Auth] Server error during verify, keeping token');
+        return { authenticated: false };
+      }
       localStorage.removeItem(TOKEN_KEY);
       return { authenticated: false };
     }
 
     const data = (await response.json()) as AuthStatus;
-    console.log('[Auth Debug] Auth status:', data);
+    console.log(
+      '[Auth Debug] Auth status:',
+      data.authenticated ? 'authenticated' : 'not authenticated'
+    );
     return data;
   } catch (error) {
     console.error('[Auth] Failed to check auth status:', error);
+    // ネットワークエラー時はトークンを削除しない（一時的な障害の可能性）
     return { authenticated: false };
   }
 }
@@ -143,18 +278,18 @@ export async function logout(): Promise<void> {
       });
     }
 
-    // localStorageからトークンを削除
+    // localStorageからトークンを全て削除
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
 
     // GitHub Pages（デモ環境）ではbasePathを使用、本番環境ではルート
-    // ホスト名がgithub.ioを含む場合はGitHub Pages（デモ環境）
     const isGitHubPages = window.location.hostname.includes('github.io');
     const basePath = isGitHubPages ? '/miyosino-web' : '';
     window.location.href = basePath + '/';
   } catch (error) {
     console.error('[Auth] Logout failed:', error);
-    // エラーが発生してもトークンは削除してトップページへ
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     const isGitHubPages = window.location.hostname.includes('github.io');
     const basePath = isGitHubPages ? '/miyosino-web' : '';
     window.location.href = basePath + '/';
