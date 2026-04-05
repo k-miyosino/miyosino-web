@@ -14,6 +14,7 @@ import { AnnouncementsSection, MemberNavigation } from '@/components/member';
 
 export default function MemberPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasCheckedAuth = useRef(false);
 
   useEffect(() => {
@@ -74,8 +75,12 @@ export default function MemberPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative">
           <div className="absolute top-4 right-4 sm:top-8 sm:right-8">
             <button
-              onClick={() => logout()}
-              className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors flex items-center text-sm shadow-md"
+              onClick={async () => {
+                setIsLoggingOut(true);
+                await logout();
+              }}
+              disabled={isLoggingOut}
+              className="bg-blue-700 hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors flex items-center text-sm shadow-md"
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -90,7 +95,7 @@ export default function MemberPage() {
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              ログアウト
+              {isLoggingOut ? 'ログアウト中...' : 'ログアウト'}
             </button>
           </div>
           <div className="text-center">
