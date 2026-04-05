@@ -5,19 +5,11 @@ import { surroundingCategories } from './categories';
 import type { NearbyFacility } from '@/types/surrounding';
 import { fetchPlaces } from '@/repositories/kintone/placesRepository';
 
-type GroupedFacilities = {
-  medicalFacilities: NearbyFacility[];
-  lifeFacilities: NearbyFacility[];
-  educationFacilities: NearbyFacility[];
-};
+type GroupedFacilities = Record<string, NearbyFacility[]>;
 
 export function TableOfContents() {
   const [groupedFacilities, setGroupedFacilities] = useState<GroupedFacilities>(
-    {
-      medicalFacilities: [],
-      lifeFacilities: [],
-      educationFacilities: [],
-    }
+    {}
   );
   const [loading, setLoading] = useState(true);
 
@@ -48,11 +40,11 @@ export function TableOfContents() {
         const filterBy = (key: string) =>
           facilities.filter((f) => f.subCategory === key).sort(sortByOrder);
 
-        setGroupedFacilities({
-          medicalFacilities: filterBy('medicalFacilities'),
-          lifeFacilities: filterBy('lifeFacilities'),
-          educationFacilities: filterBy('educationFacilities'),
-        });
+        const grouped: GroupedFacilities = {};
+        for (const cat of surroundingCategories) {
+          grouped[cat.id] = filterBy(cat.id);
+        }
+        setGroupedFacilities(grouped);
       } catch (error) {
         console.error('[TableOfContents] 周辺施設データ取得エラー:', error);
       } finally {
@@ -65,8 +57,7 @@ export function TableOfContents() {
 
   // データがあるカテゴリのみをフィルタリング
   const categoriesWithData = surroundingCategories.filter((category) => {
-    const categoryData =
-      groupedFacilities[category.id as keyof GroupedFacilities];
+    const categoryData = groupedFacilities[category.id];
     return Array.isArray(categoryData) && categoryData.length > 0;
   });
 
