@@ -18,20 +18,13 @@ interface YearMonthsResponse {
   yearMonths: YearMonth[];
 }
 
-export async function fetchAnnouncements(
-  year?: number,
-  month?: number
-): Promise<Announcement[]> {
+async function authenticatedFetch(url: string): Promise<Response> {
   const token = getToken();
   if (!token) {
     throw new Error('認証トークンがありません');
   }
 
-  const url = new URL(`${ANNOUNCEMENTS_API_ENDPOINT}/announcements`);
-  if (year) url.searchParams.append('year', year.toString());
-  if (month) url.searchParams.append('month', month.toString());
-
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -40,19 +33,32 @@ export async function fetchAnnouncements(
     cache: 'no-store',
   });
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      // 401時はリフレッシュトークンで再試行してからトークンを削除する
-      const refreshed = await silentRefresh();
-      if (refreshed) {
-        throw new Error('AUTH_REFRESH_NEEDED'); // 呼び出し元でリトライを促す
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_refresh_token');
-      }
-      throw new Error('認証に失敗しました');
+  if (!response.ok && response.status === 401) {
+    const refreshed = await silentRefresh();
+    if (refreshed) {
+      throw new Error('AUTH_REFRESH_NEEDED');
     }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_refresh_token');
+    }
+    throw new Error('認証に失敗しました');
+  }
+
+  return response;
+}
+
+export async function fetchAnnouncements(
+  year?: number,
+  month?: number
+): Promise<Announcement[]> {
+  const url = new URL(`${ANNOUNCEMENTS_API_ENDPOINT}/announcements`);
+  if (year) url.searchParams.append('year', year.toString());
+  if (month) url.searchParams.append('month', month.toString());
+
+  const response = await authenticatedFetch(url.toString());
+
+  if (!response.ok) {
     throw new Error(
       `お知らせの取得に失敗しました: ${response.status} ${response.statusText}`
     );
@@ -66,34 +72,11 @@ export async function fetchAnnouncements(
 }
 
 export async function fetchAnnouncementYearMonths(): Promise<YearMonth[]> {
-  const token = getToken();
-  if (!token) {
-    throw new Error('認証トークンがありません');
-  }
-
   const url = new URL(`${ANNOUNCEMENTS_API_ENDPOINT}/announcements/years`);
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-  });
+  const response = await authenticatedFetch(url.toString());
 
   if (!response.ok) {
-    if (response.status === 401) {
-      const refreshed = await silentRefresh();
-      if (refreshed) {
-        throw new Error('AUTH_REFRESH_NEEDED');
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_refresh_token');
-      }
-      throw new Error('認証に失敗しました');
-    }
     throw new Error(
       `年月一覧の取得に失敗しました: ${response.status} ${response.statusText}`
     );
