@@ -268,28 +268,45 @@ export function redirectToLogin(redirectUri?: string): void {
  */
 export async function logout(): Promise<void> {
   const token = getToken();
-  const refreshToken = getRefreshToken();
 
   // 1. ローカルトークンを即座に削除
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  // 2. Workers経由でKintoneセッションをAPI終了（OAuthグラントは維持される）
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const kintoneLogoutUrl = process.env.NEXT_PUBLIC_KINTONE_LOGOUT_URL;
+
+  if (kintoneLogoutUrl) {
+    // Workers側のlogoutを非同期で呼ぶ（完了を待たない）
+    if (token) {
+      fetch(`${AUTH_API_ENDPOINT}/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+
+    // no-cors + credentials: 'include' でKintoneセッションCookieを付けてログアウトリクエストを送信
+    // レスポンスは読めないがKintone側でセッションが破棄される
+    await fetch(kintoneLogoutUrl, {
+      mode: 'no-cors',
+      credentials: 'include',
+    }).catch(() => {});
+
+    // メイン画面はホームページへ遷移
+    window.location.href = basePath + '/';
+    return;
+  }
+
+  // Kintone URLがない場合のフォールバック
   try {
     await fetch(`${AUTH_API_ENDPOINT}/logout`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ refresh_token: refreshToken ?? undefined }),
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   } catch (error) {
-    console.error('[Auth] Logout sync failed:', error);
+    console.error('[Auth] Logout failed:', error);
   }
 
-  // 3. 自社サイトのトップへリダイレクト
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   window.location.href = basePath + '/';
 }
 
