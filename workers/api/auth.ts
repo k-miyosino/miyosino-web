@@ -217,7 +217,7 @@ export default {
       } else if (path === '/refresh') {
         return handleRefresh(request, env, origin);
       } else if (path === '/logout') {
-        return handleLogout(origin);
+        return handleLogout(env, origin);
       } else if (path === '/user') {
         return handleGetUser(request, env, origin);
       } else {
@@ -286,6 +286,9 @@ async function handleLogin(
   // 最小限のスコープ（レコード閲覧）を指定し、
   // トークン取得の成功をもって認証成功とみなします。
   authUrl.searchParams.append('scope', 'k:app_record:read');
+  // ログアウト後に再ログインする際、Kintone側のセッションが残っていても
+  // 必ずID/PW入力画面を表示させる
+  authUrl.searchParams.append('prompt', 'login');
 
   // nonceをCookieに保存（CSRF対策: stateのnonce部分と照合する）
   // redirectUriはstate自体に含まれるためCookieは不要
@@ -636,9 +639,10 @@ async function handleRefresh(
   }
 }
 
-// ログアウト（localStorage方式ではクライアント側で削除）
-async function handleLogout(origin?: string): Promise<Response> {
-  return new Response(JSON.stringify({ success: true }), {
+// ログアウト（Kintoneセッションを切るためのログアウトURLを返す）
+async function handleLogout(env: Env, origin?: string): Promise<Response> {
+  const kintoneLogoutUrl = `https://${env.KINTONE_DOMAIN}/logout`;
+  return new Response(JSON.stringify({ success: true, kintoneLogoutUrl }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
