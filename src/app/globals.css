@@ -59,6 +59,11 @@ h6 {
   }
 }
 
+/* select要素の文字色をスマホのデフォルトグレー上書き問題に対応 */
+select {
+  color: inherit;
+}
+
 /* メンバーメニューのスクロールバースタイル */
 .member-nav-scroll::-webkit-scrollbar {
   height: 4px;
