@@ -344,7 +344,7 @@ export default function CircularsContent() {
                                   contentType: circular.file!.contentType,
                                 })
                               }
-                              className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
+                              className="hidden md:flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 transition-colors whitespace-nowrap"
                             >
                               <svg
                                 className="w-4 h-4"
