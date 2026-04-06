@@ -59,9 +59,17 @@ h6 {
   }
 }
 
-/* select要素: Androidダークモードのauto dark mode無効化 */
+/* select要素: Androidダークモード・Chromiumのデフォルト視覚バイアス対策 */
 select {
   color-scheme: light;
+  color: #333333;
+  background-color: #ffffff;
+  opacity: 1;
+}
+
+select option {
+  color: #333333;
+  background-color: #ffffff;
 }
 
 /* メンバーメニューのスクロールバースタイル */
