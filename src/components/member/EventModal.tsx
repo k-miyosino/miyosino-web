@@ -258,7 +258,7 @@ export default function EventModal({
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">説明</h3>
               <div
-                className="prose prose-sm max-w-none"
+                className="prose prose-sm max-w-none [&_*]:text-gray-900 [&_a]:text-blue-600 [&_a]:underline [&_a]:font-medium"
                 dangerouslySetInnerHTML={{ __html: event.description }}
               />
             </div>
