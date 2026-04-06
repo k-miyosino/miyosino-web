@@ -59,9 +59,9 @@ h6 {
   }
 }
 
-/* select要素の文字色をスマホのデフォルトグレー上書き問題に対応 */
+/* select要素: Androidダークモードのauto dark mode無効化 */
 select {
-  color: inherit;
+  color-scheme: light;
 }
 
 /* メンバーメニューのスクロールバースタイル */
