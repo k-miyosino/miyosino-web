@@ -144,7 +144,7 @@ function corsHeaders(origin?: string): Record<string, string> {
     'http://localhost:3000',
     'https://k-miyosino.github.io',
     // 本番環境ドメイン
-    'https://www.k-miyosino.com',
+    'https://k-miyosino.com',
   ];
 
   console.log('[CORS] Received origin:', origin);
