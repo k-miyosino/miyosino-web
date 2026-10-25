@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'プライバシーポリシー | かわつる三芳野団地',
@@ -121,12 +122,12 @@ export default function PrivacyPage() {
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
                 プライバシーポリシーに関するお問い合わせは、
-                <a
+                <Link
                   href="/contact"
                   className="text-blue-600 hover:text-blue-800 underline"
                 >
                   お問い合わせページ
-                </a>
+                </Link>
                 よりご連絡ください。
               </p>
             </section>

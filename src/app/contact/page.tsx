@@ -7,7 +7,7 @@ import {
 export const metadata = {
   title: 'お問い合わせ | かわつる三芳野団地',
   description:
-    'かわつる三芳野団地へのお問い合わせはこちら。お電話またはお問い合わせフォームからご連絡いただけます。',
+    'かわつる三芳野団地へのお問い合わせはこちら。お電話でご連絡いただけます。',
 };
 
 export default function ContactPage() {
