@@ -36,6 +36,8 @@ jobs:
           NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
           NEXT_PUBLIC_KINTONE_LOGOUT_URL: ${{ secrets.NEXT_PUBLIC_KINTONE_LOGOUT_URL }}
           BASE_PATH_OVERRIDE: /v2
+          # テスト環境のため検索エンジンにインデックスさせない（.htaccess に反映）
+          SITE_NOINDEX: 'true'
         run: npm run build
 
       - name: Deploy to Sakura Internet /v2 via SCP

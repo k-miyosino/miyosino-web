@@ -58,6 +58,8 @@ jobs:
           # 例: https://miyosino-histories-api.your-subdomain.workers.dev
           NEXT_PUBLIC_HISTORIES_API_ENDPOINT: ${{ secrets.NEXT_PUBLIC_HISTORIES_API_ENDPOINT }}
           NEXT_PUBLIC_KINTONE_LOGOUT_URL: ${{ secrets.NEXT_PUBLIC_KINTONE_LOGOUT_URL }}
+          # Google Analytics 4 の測定ID（未設定の場合は計測しない）
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
           # Cloudflare Turnstileのサイトキー（オプション、サーバーサイドAPI経由で取得するため不要）
           # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
         run: npm run build

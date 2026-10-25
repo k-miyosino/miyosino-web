@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { ContactType, CONTACT_TYPE_LABELS } from '@/types/contact';
 
@@ -441,12 +442,12 @@ export default function ContactFormSection() {
             className="text-sm font-medium text-gray-900"
           >
             <span className="text-red-500">*</span>{' '}
-            <a
+            <Link
               href="/privacy"
               className="text-blue-600 hover:text-blue-800 underline font-semibold"
             >
               プライバシーポリシー
-            </a>
+            </Link>
             に同意します
           </label>
         </div>
