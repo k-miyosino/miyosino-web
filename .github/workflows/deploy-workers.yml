@@ -89,11 +89,12 @@ jobs:
 
       - name: Install dependencies
         working-directory: workers
-        run: npm ci
+        # 依存パッケージのインストールスクリプトは実行しない（デプロイには不要）
+        run: npm ci --ignore-scripts
 
       # シークレット（JWT_SECRET等）はCloudflare側に保存済みのため、デプロイでは上書きされない
       - name: Deploy ${{ matrix.config }}
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: workers

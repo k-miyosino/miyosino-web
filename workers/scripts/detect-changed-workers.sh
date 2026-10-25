@@ -22,10 +22,11 @@ ALL_CONFIGS=$(ls wrangler*.toml)
 
 # 設定ファイル名の一覧をJSON配列に変換
 to_json() {
+  local configs="$1"
   local first=1
   printf '['
-  for config in $1; do
-    if [ $first -eq 0 ]; then printf ','; fi
+  for config in $configs; do
+    if [[ $first -eq 0 ]]; then printf ','; fi
     printf '"%s"' "$config"
     first=0
   done
@@ -34,17 +35,18 @@ to_json() {
 
 # 設定ファイルの main（Workerの本体ファイル）を取得
 main_of() {
-  grep '^main' "$1" | sed 's/.*"\(.*\)".*/\1/'
+  local config="$1"
+  grep '^main' "$config" | sed 's/.*"\(.*\)".*/\1/'
 }
 
 # --select: 指定されたWorkerを対象にする
-if [ "$1" = "--select" ]; then
+if [[ "$1" == "--select" ]]; then
   case "$2" in
     all) to_json "$ALL_CONFIGS"; exit 0 ;;
     photos) config="wrangler.toml" ;;
     *) config="wrangler.$2.toml" ;;
   esac
-  if [ ! -f "$config" ]; then
+  if [[ ! -f "$config" ]]; then
     echo "❌ エラー: 設定ファイルが見つかりません: $config" >&2
     exit 1
   fi
@@ -62,6 +64,7 @@ for file in $CHANGED; do
       to_json "$ALL_CONFIGS"
       exit 0
       ;;
+    *) ;;
   esac
 done
 
@@ -74,13 +77,13 @@ for config in $ALL_CONFIGS; do
 
   for file in $CHANGED; do
     hit=0
-    if [ "$file" = "$config" ] || [ "$file" = "$main" ]; then
+    if [[ "$file" == "$config" || "$file" == "$main" ]]; then
       hit=1
     fi
     for imported in $imports; do
-      if [ "$file" = "$imported" ]; then hit=1; fi
+      if [[ "$file" == "$imported" ]]; then hit=1; fi
     done
-    if [ $hit -eq 1 ]; then
+    if [[ $hit -eq 1 ]]; then
       TARGETS="$TARGETS $config"
       break
     fi
