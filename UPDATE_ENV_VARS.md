@@ -66,6 +66,18 @@ npx wrangler whoami
 
 ## Workerのデプロイ方法
 
+### GitHub Actionsによる自動デプロイ
+
+`.github/workflows/deploy-workers.yml` により、`workers/` 配下の変更が main にマージされると、変更のあったWorkerだけが自動でデプロイされます。
+
+- 共通処理（`api/_kintone.ts` など）を変更した場合は、それを import しているWorkerがすべて対象になります
+- `package.json` / `package-lock.json` / `tsconfig.json` を変更した場合は、すべてのWorkerが対象になります
+- GitHubの Actions 画面から「Deploy Workers」を手動実行すれば、Workerを選んでいつでもデプロイできます（staging で先に試したい場合など）
+- 事前に GitHub Secrets に `CLOUDFLARE_API_TOKEN`（Cloudflareの「Edit Cloudflare Workers」テンプレートで作成）を登録しておく必要があります
+- シークレット（`JWT_SECRET` 等）はデプロイで上書きされないため、変更する場合はこれまでどおり `wrangler secret put` で設定します
+
+以下は手元から手動でデプロイする場合の方法です。
+
 ### 基本的なデプロイコマンド
 
 ```bash

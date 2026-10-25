@@ -173,6 +173,8 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
 
 4. Workerをデプロイ:
 
+   ※ 新しいWorkerの初回作成時やシークレット設定時は以下の手動デプロイが必要です。既存Workerの更新は、main へのマージ時にGitHub Actionsで自動デプロイされます（「6. ビルドとデプロイ」参照）。
+
    ```bash
    cd workers
    # 写真データ取得用Workerをデプロイ
@@ -466,10 +468,28 @@ docker-compose exec web git config --global --add safe.directory /app
 
 ### 6. ビルドとデプロイ
 
-GitHubにpushすると、自動的にビルドとデプロイが実行されます。
+`develop` → `staging` → `main` の順にPRでマージします。各ブランチで GitHub Actions により以下が実行されます。
 
-- `master`ブランチにpushすると自動デプロイ
-- ワークフローは `.github/workflows/deploy.yml` で定義されています
+| ブランチ / 操作 | 実行内容 | ワークフロー |
+| --- | --- | --- |
+| `develop` へのpush | なし | - |
+| `staging` へのマージ | フロントエンドをビルドし GitHub Pages（`https://k-miyosino.github.io/miyosino-web/`）へデプロイ | `deploy.yml` |
+| `main` へのマージ | フロントエンドをビルド（さくらインターネットへのデプロイは現在停止中） | `deploy.yml` |
+| `main` へのマージ（`workers/` に変更がある場合） | 変更のあったCloudflare Workersのみデプロイ | `deploy-workers.yml` |
+| 手動実行 | 指定ブランチをビルドし、さくらインターネットの `/v2` へデプロイ（更改版のテスト用） | `deploy-v2-test.yml` |
+| 手動実行 | Workerを選んでデプロイ | `deploy-workers.yml` |
+| 毎週月曜 3:00（JST） | Google Placesの周辺施設データをKintoneへ同期 | `sync.yml` |
+
+**注意:** Cloudflare Workersは本番・テスト共通の1組のみです。main へのマージ前に staging で新しいWorkerを試したい場合は、「Deploy Workers」を手動実行してください。
+
+**必要なGitHub Secrets:**
+
+- フロントエンドのビルド: `NEXT_PUBLIC_API_ENDPOINT`、`NEXT_PUBLIC_CONTACT_API_URL`、`NEXT_PUBLIC_CONTENTS_API_ENDPOINT`、`NEXT_PUBLIC_HISTORIES_API_ENDPOINT`、`NEXT_PUBLIC_KINTONE_LOGOUT_URL`、`NEXT_PUBLIC_GA_MEASUREMENT_ID`
+- さくらインターネットへのデプロイ: `SAKURA_SSH_HOST`、`SAKURA_SSH_USERNAME`、`SAKURA_SSH_KEY`、`SAKURA_DEPLOY_PATH`
+- Workersのデプロイ: `CLOUDFLARE_API_TOKEN`（Cloudflareの「Edit Cloudflare Workers」テンプレートで作成）
+- 周辺施設データの同期: `GOOGLE_PLACES_API_KEY`、`KINTONE_DOMAIN`、`KINTONE_APP_ID_PLACES`、`KINTONE_API_TOKEN_PLACES`
+
+Workersの自動デプロイの対象判定やシークレットの扱いについては [UPDATE_ENV_VARS.md](./UPDATE_ENV_VARS.md) を参照してください。
 
 ### トラブルシューティング
 

@@ -143,8 +143,9 @@ function corsHeaders(origin?: string): Record<string, string> {
   const allowedOrigins = [
     'http://localhost:3000',
     'https://k-miyosino.github.io',
-    // 本番環境ドメイン
+    // 本番環境ドメイン（www付きでも同じサイトが表示されるため両方許可）
     'https://k-miyosino.com',
+    'https://www.k-miyosino.com',
   ];
 
   console.log('[CORS] Received origin:', origin);
@@ -362,12 +363,13 @@ async function handleCallback(
   // redirectUriが取得できなかった場合のフォールバック（既知の安全なURL）
   if (!redirectUri) {
     const allowedFallbacks: Record<string, string> = {
+      'https://k-miyosino.com': 'https://k-miyosino.com/member/',
       'https://www.k-miyosino.com': 'https://www.k-miyosino.com/member/',
       'https://k-miyosino.github.io': 'https://k-miyosino.github.io/miyosino-web/member/',
       'http://localhost:3000': 'http://localhost:3000/member/',
     };
     const fallbackOrigin = origin || Object.keys(allowedFallbacks)[0];
-    redirectUri = allowedFallbacks[fallbackOrigin] || 'https://www.k-miyosino.com/member/';
+    redirectUri = allowedFallbacks[fallbackOrigin] || 'https://k-miyosino.com/member/';
     console.warn('[Auth] redirectUri not found, using fallback:', redirectUri);
   }
 

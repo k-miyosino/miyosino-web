@@ -1,0 +1,101 @@
+name: Deploy Workers
+
+# Workersは本番・テスト共通の1組のみのため、mainへのマージ時にデプロイする
+# staging等で先に試したい場合は手動実行（workflow_dispatch）を使う
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'workers/**'
+  workflow_dispatch:
+    inputs:
+      worker:
+        description: 'デプロイするWorker'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - auth
+          - announcements
+          - applications
+          - circulars
+          - contact
+          - contents
+          - events
+          - greenwellness
+          - history
+          - minutes
+          - places
+          - photos
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.detect.outputs.configs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect workers to deploy
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_WORKER: ${{ github.event.inputs.worker }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            configs=$(bash workers/scripts/detect-changed-workers.sh --select "$INPUT_WORKER")
+          elif git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            # mainの直前の状態からの差分で判定（PRのマージ時はPR全体の変更が対象）
+            configs=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" | bash workers/scripts/detect-changed-workers.sh)
+          else
+            # 比較対象のコミットが取得できない場合はすべてデプロイ
+            configs=$(bash workers/scripts/detect-changed-workers.sh --select all)
+          fi
+          echo "デプロイ対象: $configs"
+          echo "configs=$configs" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.configs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      # 1つのWorkerが失敗しても他のWorkerのデプロイは続ける
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.detect.outputs.configs) }}
+    concurrency:
+      group: deploy-worker-${{ matrix.config }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: workers/package-lock.json
+
+      - name: Install dependencies
+        working-directory: workers
+        # 依存パッケージのインストールスクリプトは実行しない（デプロイには不要）
+        run: npm ci --ignore-scripts
+
+      # シークレット（JWT_SECRET等）はCloudflare側に保存済みのため、デプロイでは上書きされない
+      - name: Deploy ${{ matrix.config }}
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: workers
+          command: deploy --config ${{ matrix.config }}
