@@ -264,6 +264,17 @@ WORKERS=(
 )
 ```
 
+`.github/workflows/deploy-workers.yml` の手動実行用の選択肢（`options`）にもWorker名を追加：
+
+```yaml
+        options:
+          - all
+          # ... 既存のWorker
+          - [worker-name]  # 追加
+```
+
+※ main へのマージ時の自動デプロイは `wrangler.*.toml` から自動で対象を判定するため、追加作業は不要です。
+
 ### 6. Worker実装時の注意点
 
 #### ラジオボタンフィールドのフィルタリング
