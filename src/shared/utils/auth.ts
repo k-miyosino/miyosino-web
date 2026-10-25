@@ -62,16 +62,13 @@ export function handleAuthCallback(): boolean {
   if (typeof window === 'undefined') return false;
 
   try {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    const refreshToken = params.get('refresh_token');
-
-    console.log('[Auth Debug] URL:', window.location.pathname);
-    console.log('[Auth Debug] Token from URL:', token ? 'Found' : 'Not found');
-    console.log(
-      '[Auth Debug] Refresh token from URL:',
-      refreshToken ? 'Found' : 'Not found'
-    );
+    // 認証Workerはトークンをフラグメント（#以降）で渡す
+    // 旧バージョンのWorkerはクエリ（?以降）で渡していたため、両方に対応する
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const queryParams = new URLSearchParams(window.location.search);
+    const token = hashParams.get('token') || queryParams.get('token');
+    const refreshToken =
+      hashParams.get('refresh_token') || queryParams.get('refresh_token');
 
     if (token) {
       // トークンをlocalStorageに保存
@@ -80,25 +77,18 @@ export function handleAuthCallback(): boolean {
       // リフレッシュトークンが含まれていれば保存
       if (refreshToken) {
         localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-        console.log('[Auth Debug] Refresh token saved to localStorage');
       }
 
-      // 保存されたことを確認
-      const savedToken = localStorage.getItem(TOKEN_KEY);
-      console.log(
-        '[Auth Debug] Token verification:',
-        savedToken === token ? 'OK' : 'FAILED'
-      );
-
       // URLからトークンを削除（セキュリティ対策: ブラウザ履歴に残さない）
-      params.delete('token');
-      params.delete('refresh_token');
+      hashParams.delete('token');
+      hashParams.delete('refresh_token');
+      queryParams.delete('token');
+      queryParams.delete('refresh_token');
       const newUrl =
         window.location.pathname +
-        (params.toString() ? '?' + params.toString() : '') +
-        window.location.hash;
+        (queryParams.toString() ? '?' + queryParams.toString() : '') +
+        (hashParams.toString() ? '#' + hashParams.toString() : '');
       window.history.replaceState({}, '', newUrl);
-      console.log('[Auth Debug] URL cleaned:', newUrl);
 
       return true;
     }
@@ -185,11 +175,6 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
   try {
     let token = getToken();
 
-    console.log(
-      '[Auth Debug] Token from localStorage:',
-      token ? 'Found' : 'Not found'
-    );
-
     if (!token) {
       // JWTがない場合、リフレッシュトークンでサイレント更新を試みる
       const refreshed = await silentRefresh();
@@ -204,9 +189,6 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
 
     // クライアント側で期限チェック（無駄なAPI呼び出しを減らす）
     if (isTokenExpired(token)) {
-      console.log(
-        '[Auth Debug] Token is expired, attempting silent refresh...'
-      );
       localStorage.removeItem(TOKEN_KEY);
       const refreshed = await silentRefresh();
       if (!refreshed) {
@@ -225,8 +207,6 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
       },
     });
 
-    console.log('[Auth Debug] Verify response status:', response.status);
-
     if (!response.ok) {
       // サーバーエラー（5xx）の場合はトークンを消さずにリトライ可能な状態にする
       if (response.status >= 500) {
@@ -238,10 +218,6 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
     }
 
     const data = (await response.json()) as AuthStatus;
-    console.log(
-      '[Auth Debug] Auth status:',
-      data.authenticated ? 'authenticated' : 'not authenticated'
-    );
     return data;
   } catch (error) {
     console.error('[Auth] Failed to check auth status:', error);

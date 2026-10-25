@@ -137,16 +137,28 @@ async function verifyJWT(
   }
 }
 
+// CORS とログイン後のリダイレクト先として許可するオリジン
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'https://k-miyosino.github.io',
+  // 本番環境ドメイン（www付きでも同じサイトが表示されるため両方許可）
+  'https://k-miyosino.com',
+  'https://www.k-miyosino.com',
+];
+
+// リダイレクト先が許可されたオリジンかどうか
+// （任意のURLを許すと、ログイン後のトークンが外部サイトに渡ってしまうため）
+function isAllowedRedirect(redirectUri: string): boolean {
+  try {
+    return ALLOWED_ORIGINS.includes(new URL(redirectUri).origin);
+  } catch {
+    return false;
+  }
+}
+
 // CORS ヘッダーを追加
 function corsHeaders(origin?: string): Record<string, string> {
-  // 本番環境では特定のオリジンのみ許可することを推奨
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'https://k-miyosino.github.io',
-    // 本番環境ドメイン（www付きでも同じサイトが表示されるため両方許可）
-    'https://k-miyosino.com',
-    'https://www.k-miyosino.com',
-  ];
+  const allowedOrigins = ALLOWED_ORIGINS;
 
   console.log('[CORS] Received origin:', origin);
   console.log('[CORS] Allowed origins:', allowedOrigins);
@@ -267,6 +279,17 @@ async function handleLogin(
     redirectUri = new URL(redirectUri, baseOrigin).toString();
   }
 
+  if (!isAllowedRedirect(redirectUri)) {
+    console.error('[Auth] Redirect URI not allowed:', redirectUri);
+    return new Response(JSON.stringify({ error: 'Invalid redirect_uri' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
   const nonce = crypto.randomUUID();
 
   // redirectUriをstateパラメータに埋め込む（Cookieが送信されない環境でも確実にリダイレクト先を保持する）
@@ -373,6 +396,18 @@ async function handleCallback(
     console.warn('[Auth] redirectUri not found, using fallback:', redirectUri);
   }
 
+  // /login で検証済みだが、旧形式（Cookie由来）も含めて念のため再検証
+  if (!isAllowedRedirect(redirectUri)) {
+    console.error('[Auth] Redirect URI not allowed:', redirectUri);
+    return new Response(JSON.stringify({ error: 'Invalid redirect_uri' }), {
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders(origin),
+      },
+    });
+  }
+
   try {
     // アクセストークンを取得
     const tokenResponse = await fetch(
@@ -433,7 +468,8 @@ async function handleCallback(
 
     const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
 
-    // JWTとrefresh_tokenをURLパラメータとして渡す（クロスドメインCookie問題の回避）
+    // JWTとrefresh_tokenをURLフラグメント（#以降）で渡す（クロスドメインCookie問題の回避）
+    // フラグメントはサーバーへのリクエスト・Referer・アクセス解析に含まれないため、クエリより安全
     // redirectUriはstate由来なので既に絶対URL
     let redirectUrl: URL;
     try {
@@ -442,15 +478,16 @@ async function handleCallback(
       console.error('[Auth] Invalid redirectUri:', redirectUri);
       throw new Error(`Invalid redirect URI: ${redirectUri}`);
     }
-    redirectUrl.searchParams.set('token', jwt);
+    const fragment = new URLSearchParams({ token: jwt });
 
     // Kintoneのrefresh_tokenが取得できた場合は渡す（クライアント側でサイレント更新に使用）
     if (tokenData.refresh_token) {
-      redirectUrl.searchParams.set('refresh_token', tokenData.refresh_token);
+      fragment.set('refresh_token', tokenData.refresh_token);
       console.log('[Auth] refresh_token included in redirect');
     }
+    redirectUrl.hash = fragment.toString();
 
-    console.log('[Auth] Redirecting to:', redirectUrl.origin + redirectUrl.pathname + '?[params]');
+    console.log('[Auth] Redirecting to:', redirectUrl.origin + redirectUrl.pathname + '#[params]');
 
     const headers = new Headers({
       Location: redirectUrl.toString(),
