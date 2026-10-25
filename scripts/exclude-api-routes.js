@@ -4,7 +4,7 @@ const path = require('path');
 // 本番環境（静的エクスポート）の時のみAPIルートを除外
 if (process.env.NODE_ENV === 'production') {
   const apiDir = path.join(__dirname, '../src/app/api');
-  const backupDir = path.join(__dirname, '../src/app/.api-backup');
+  const backupDir = path.join(__dirname, '../src/.api-backup');
 
   // APIルートをバックアップディレクトリに移動
   if (fs.existsSync(apiDir)) {

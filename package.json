@@ -6,7 +6,7 @@
     "dev": "next dev --hostname 0.0.0.0",
     "prebuild": "node scripts/exclude-api-routes.js",
     "build": "next build",
-    "postbuild": "node scripts/restore-api-routes.js",
+    "postbuild": "node scripts/restore-api-routes.js && node scripts/generate-htaccess.js",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",

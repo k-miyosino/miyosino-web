@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ビルド時に一時退避するAPIルート（scripts/exclude-api-routes.js）
+/src/.api-backup/
