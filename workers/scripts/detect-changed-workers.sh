@@ -8,7 +8,7 @@
 #     → 変更されたファイルから対象のWorkerを判定
 #   bash scripts/detect-changed-workers.sh --select all
 #   bash scripts/detect-changed-workers.sh --select auth
-#     → 指定したWorkerを対象にする（photos は wrangler.toml）
+#     → 指定したWorkerを対象にする
 #
 # 出力例: ["wrangler.auth.toml","wrangler.history.toml"]
 
@@ -43,7 +43,6 @@ main_of() {
 if [[ "$1" == "--select" ]]; then
   case "$2" in
     all) to_json "$ALL_CONFIGS"; exit 0 ;;
-    photos) config="wrangler.toml" ;;
     *) config="wrangler.$2.toml" ;;
   esac
   if [[ ! -f "$config" ]]; then
