@@ -1,6 +1,6 @@
 # microCMS MCP 設定手順
 
-Claude Code などの AI アシスタントから、microCMS のコンテンツを読んだり更新したりするための設定手順です。
+Claude Code などの AI アシスタントから、microCMS のコンテンツを読み取るための設定手順です。
 
 ## 目次
 
