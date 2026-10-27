@@ -77,16 +77,16 @@ MicroCMS APIキーをサーバーサイドで管理するため、Cloudflare Wor
 
 3. 環境変数を設定:
 
-   **写真データ取得用Worker（miyosino-api）:**
+   **MicroCMSコンテンツ取得用Worker（miyosino-contents-api）:**
 
    ```bash
    cd workers
    # MicroCMS APIキーを設定
-   npx wrangler secret put MICROCMS_API_KEY
+   npx wrangler secret put MICROCMS_API_KEY --config wrangler.contents.toml
    # プロンプトが表示されたら、MicroCMSの読み取り専用APIキーを入力
 
    # オプション: MicroCMS APIベースURLを設定（デフォルト値を使う場合は不要）
-   npx wrangler secret put MICROCMS_API_BASE_URL
+   npx wrangler secret put MICROCMS_API_BASE_URL --config wrangler.contents.toml
    ```
 
    **お問い合わせフォーム用Worker（miyosino-contact-api）:**
@@ -177,10 +177,10 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
 
    ```bash
    cd workers
-   # 写真データ取得用Workerをデプロイ
-   npm run deploy
+   # MicroCMSコンテンツ取得用Workerをデプロイ
+   npm run deploy:contents
    # または
-   npx wrangler deploy
+   npx wrangler deploy --config wrangler.contents.toml
 
    # お問い合わせフォーム用Workerをデプロイ
    npm run deploy:contact
@@ -200,7 +200,7 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
    ```
 
 5. デプロイ後、各WorkerのURLをコピー:
-   - 写真データ取得用: `https://miyosino-photos-api.your-subdomain.workers.dev`
+   - MicroCMSコンテンツ取得用: `https://miyosino-contents-api.your-subdomain.workers.dev`
    - お問い合わせフォーム用: `https://miyosino-contact-api.your-subdomain.workers.dev`
    - Kintone OAuth 2.0認証用: `https://miyosino-auth.your-subdomain.workers.dev`
    - Kintoneお知らせAPI用: `https://miyosino-announcements.your-subdomain.workers.dev`
@@ -262,10 +262,10 @@ KINTONE_CONTACT_API_TOKEN=your-kintone-api-token
 ```bash
 cd workers
 
-# 写真データ取得用Workerをローカルで起動
-npm run dev
+# MicroCMSコンテンツ取得用Workerをローカルで起動
+npm run dev:contents
 # または
-npx wrangler dev
+npx wrangler dev --config wrangler.contents.toml
 
 # お問い合わせフォーム用Workerをローカルで起動（別のターミナル）
 npm run dev:contact
@@ -523,12 +523,12 @@ Workersの自動デプロイの対象判定やシークレットの扱いにつ�
    - Secretsの名前が正確か確認（大文字小文字を区別）
 
 4. **MicroCMSのAPIエンドポイント確認**
-   - MicroCMSの管理画面で`photo`エンドポイントが存在するか確認
+   - MicroCMSの管理画面で`contents`エンドポイントが存在するか確認
    - APIキーに読み取り権限があるか確認
    - Cloudflare Workersから直接MicroCMS APIを呼び出してテスト:
      ```bash
      curl -H "X-MICROCMS-API-KEY: your-api-key" \
-          https://k-miyoshino.microcms.io/api/v1/photo?orders=order
+          https://k-miyoshino.microcms.io/api/v1/contents?orders=order
      ```
 
 5. **環境変数の確認**
@@ -543,7 +543,7 @@ Workersの自動デプロイの対象判定やシークレットの扱いにつ�
    - フォールバック使用時: `NEXT_PUBLIC_MICROCMS_API_KEY`が正しく設定されているか確認
 
 2. **Cloudflare Workersのローカルテスト**
-   - Workerをローカルで起動: `npm run worker:dev`
+   - Workerをローカルで起動: `cd workers && npm run dev:contents`
    - Workerが正常に起動しているか確認（通常は`http://localhost:8787`で起動）
    - Workerのログでエラーが出ていないか確認
 
