@@ -28,7 +28,6 @@ on:
           - history
           - minutes
           - places
-          - photos
 
 permissions:
   contents: read
