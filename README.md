@@ -435,6 +435,8 @@ docker-compose exec web git config --global --add safe.directory /app
    - **読み取り専用APIキー**：クライアントサイドでデータを取得するため、こちらで十分です
    - **書き込みAPIキー**：データの更新も行う場合はこちら（通常は不要）
 
+> AI アシスタント（Claude Code など）から microCMS のコンテンツを読み書きする設定は、[MICROCMS_MCP.md](./MICROCMS_MCP.md) を参照してください。
+
 #### Cloudflare Turnstileキー
 
 1. [Cloudflare Dashboard](https://dash.cloudflare.com/)にログイン
