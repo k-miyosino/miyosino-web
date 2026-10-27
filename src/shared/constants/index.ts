@@ -13,12 +13,12 @@ export const SITE_CONFIG = {
 } as const;
 
 // 検索エンジンに公開するページ（sitemap.xml に掲載）
+// /family/ はメニューから外しているため掲載しない（再公開時に戻す）
 export const PUBLIC_PAGES = [
   '/',
   '/features/',
   '/community/',
   '/facilities/',
-  '/family/',
   '/surrounding/',
   '/access/',
   '/contact/',
