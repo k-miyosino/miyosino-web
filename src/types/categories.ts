@@ -11,8 +11,6 @@
 export const CONTENT_CATEGORIES = {
   /** */
   TOP_IMAGE: 'top-image',
-  /** お知らせ */
-  NEWS: 'news',
   /** 団地の四季 */
   SEASON: 'season',
   /** 自治会活動 */
@@ -32,7 +30,6 @@ export const CONTENT_CATEGORIES = {
  */
 export type ContentCategoryId =
   | typeof CONTENT_CATEGORIES.TOP_IMAGE
-  | typeof CONTENT_CATEGORIES.NEWS
   | typeof CONTENT_CATEGORIES.SEASON
   | typeof CONTENT_CATEGORIES.COMMUNITY_ACTIVITIES
   | typeof CONTENT_CATEGORIES.COMMUNITY_CIRCLE_SPORTS
