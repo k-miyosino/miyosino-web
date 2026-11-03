@@ -29,5 +29,44 @@
       "Bash(node -e \"const c=require\\(''''./next.config.ts''''\\); console.log\\(JSON.stringify\\(c\\)\\)\")",
       "Bash(netstat -tlnp)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(command -v python || command -v python3)\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_edit_check.py\"",
+            "timeout": 120,
+            "statusMessage": "編集したファイルを型チェック中..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(command -v python || command -v python3)\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_check.py\"",
+            "timeout": 300,
+            "statusMessage": "終了前に型チェックと ESLint を実行中..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(command -v python || command -v python3)\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_git_guard.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
   }
 }
