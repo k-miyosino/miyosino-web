@@ -18,7 +18,7 @@
 
 ## GitHub Pagesでのデプロイ設定
 
-### 1. の設定（推奨）
+### 1. Cloudflare Workers の設定（推奨）
 
 MicroCMS APIキーをサーバーサイドで管理するため、Cloudflare Workersを設定します。
 
