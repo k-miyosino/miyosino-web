@@ -42,3 +42,6 @@ next-env.d.ts
 
 # ビルド時に一時退避するAPIルート（scripts/exclude-api-routes.js）
 /src/.api-backup/
+
+# Claude Code のフック（.claude/hooks/*.py）を実行すると Python が作るキャッシュ
+__pycache__/
