@@ -13,3 +13,6 @@
 *.ttf binary
 *.eot binary
 
+
+# シェルスクリプトは Linux（クラウド環境・CI）で実行するため、常に LF にする
+*.sh text eol=lf
