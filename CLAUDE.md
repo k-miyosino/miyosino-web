@@ -37,7 +37,7 @@ Workers の既存の型エラーは `.claude/hooks/_checks.py` の `KNOWN_WORKER
 ## クラウド（claude.ai/code）で作業するとき
 
 - クラウド環境は Linux（Ubuntu 24.04）。Node.js は入っている。依存パッケージは `scripts/cloud-setup.sh`（環境のセットアップスクリプト）で入れる。
-  `node_modules` がなければ、まず `npm ci` と `cd workers && npm ci` を実行する
+  `node_modules` がなければ、まず `npm ci --ignore-scripts` と `cd workers && npm ci --ignore-scripts` を実行する
 - 秘密情報（`.env.local`・`workers/.dev.vars`）はないので、`npm run dev`・`npm run build`・`wrangler dev` で実際のデータを使った画面や API は確かめられない。
   Kintone・microCMS・Cloudflare へのデプロイ（`wrangler deploy`）もしない
 - 確かめられるのは型チェックと ESLint まで。画面や Workers の動作を変えたときは、確かめていないことを PR に書き、
