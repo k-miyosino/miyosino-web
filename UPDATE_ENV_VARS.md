@@ -161,6 +161,7 @@ npx wrangler secret put KINTONE_DOMAIN --config wrangler.auth.toml
 npx wrangler secret put KINTONE_CLIENT_ID --config wrangler.auth.toml
 npx wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml
 npx wrangler secret put JWT_SECRET --config wrangler.auth.toml
+npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml  # 「ログイン記録」アプリのID（README参照）
 ```
 
 ### お知らせAPI用Worker（miyosino-announcements）

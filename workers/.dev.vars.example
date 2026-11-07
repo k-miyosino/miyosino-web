@@ -15,6 +15,9 @@ TURNSTILE_SECRET_KEY=your-secret-key-here
 KINTONE_DOMAIN=your-subdomain.cybozu.com
 KINTONE_CLIENT_ID=your-client-id
 KINTONE_CLIENT_SECRET=your-client-secret
+# 「ログイン記録」アプリのID（利用者の識別に使う。未設定ならユーザーを識別しない）
+# 組合員に「レコード追加」「レコード閲覧」を許可した空のアプリ。README の「ログイン記録アプリ」を参照
+# KINTONE_LOGIN_LOG_APP_ID=999
 
 # JWT認証用シークレット
 # すべてのWorkerで同じ値を使用します
