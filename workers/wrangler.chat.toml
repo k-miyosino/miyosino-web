@@ -18,7 +18,7 @@ migrations_dir = "migrations/chat"
 
 [vars]
 # 使うモデル。変えるときは費用に注意（サーバー側フォールバックは対応モデルのときだけ使う）
-CHAT_MODEL = "claude-opus-5-5"
+CHAT_MODEL = "claude-haiku-5-5"
 # 1人1日の回数上限と、全員合計の1日の上限（日本時間で区切る）
 CHAT_DAILY_LIMIT_PER_USER = "20"
 CHAT_DAILY_LIMIT_TOTAL = "300"

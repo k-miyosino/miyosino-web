@@ -43,7 +43,7 @@ interface ChatUsage {
   remaining: number;
 }
 
-const DEFAULT_MODEL = 'claude-opus-5-5';
+const DEFAULT_MODEL = 'claude-haiku-5-5';
 const DEFAULT_LIMIT_PER_USER = 20;
 const DEFAULT_LIMIT_TOTAL = 300;
 // 1回の答えの上限。考える分のトークンも含む

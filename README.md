@@ -510,6 +510,21 @@ npm run deploy:chat
 
 フロントエンドは `NEXT_PUBLIC_CHAT_API_URL`（未設定なら `https://miyosino-chat.anorimura-miyosino.workers.dev`）を呼びます。
 
+ローカルで試す:
+
+```bash
+cd workers
+# .dev.vars に ANTHROPIC_API_KEY と JWT_SECRET（本番と同じ値）を書いておく
+npx wrangler d1 migrations apply miyosino-chat --local --config wrangler.chat.toml  # ローカルの D1 にテーブルを作る（初回だけ）
+npm run dev:chat                                                                      # http://localhost:8787 で起動
+
+# 別のターミナルで、.env.local に NEXT_PUBLIC_CHAT_API_URL=http://localhost:8787 を書いてから
+cd ..
+npm run dev
+```
+
+http://localhost:3000/member/ でログインすると、右下に「質問する」ボタンが出ます。ログインは本番の認証 Worker を使うので、利用者を識別できるのは、識別に対応した認証 Worker（`workers/api/auth.ts`）をデプロイしてからです。それまではチャット欄に再ログインの案内が出ます。
+
 ### 6. ビルドとデプロイ
 
 `develop` → `staging` → `main` の順にPRでマージします。各ブランチで GitHub Actions により以下が実行されます。
