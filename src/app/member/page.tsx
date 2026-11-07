@@ -7,7 +7,11 @@ import {
   logout,
   handleAuthCallback,
 } from '@/shared/utils/auth';
-import { AnnouncementsSection, MemberNavigation } from '@/components/member';
+import {
+  AnnouncementsSection,
+  ChatWidget,
+  MemberNavigation,
+} from '@/components/member';
 
 // Note: metadata export is not supported in client components
 // Move metadata to layout.tsx if needed
@@ -164,6 +168,9 @@ export default function MemberPage() {
         {/* お知らせセクション */}
         <AnnouncementsSection showMoreLink={true} />
       </div>
+
+      {/* 認証が確認できてからチャットを出す */}
+      <ChatWidget />
     </div>
   );
 }

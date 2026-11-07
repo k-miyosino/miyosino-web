@@ -30,6 +30,7 @@ You are working on **かわつる三芳野団地** (Miyoshino), a Next.js commun
 | `wrangler.contents.toml` | MicroCMS proxy (public content) | No |
 | `wrangler.contact.toml` | Contact form → Kintone | No |
 | `wrangler.places.toml` | Google Places proxy → Kintone | No |
+| `wrangler.chat.toml` | 組合員向けチャットボット（Claude API、D1 で回数制限） | JWT（`sub` が kintone のユーザーコードであること） |
 
 ---
 

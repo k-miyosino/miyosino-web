@@ -21,14 +21,19 @@
     "deploy:applications": "wrangler deploy --config wrangler.applications.toml",
     "dev:places": "wrangler dev --config wrangler.places.toml",
     "deploy:places": "wrangler deploy --config wrangler.places.toml",
+    "dev:chat": "wrangler dev --config wrangler.chat.toml",
+    "deploy:chat": "wrangler deploy --config wrangler.chat.toml",
     "set-jwt-secret": "bash scripts/set-jwt-secret.sh",
     "generate-jwt-secret": "bash scripts/generate-jwt-secret.sh",
     "build": "tsc",
     "build:watch": "tsc --watch"
   },
   "devDependencies": {
-    "wrangler": "^4.47.0",
     "@cloudflare/workers-types": "^4.20241106.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.47.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0"
   }
 }

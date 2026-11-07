@@ -133,6 +133,9 @@ npx wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml
 
 npx wrangler secret put JWT_SECRET --config wrangler.auth.toml
 # プロンプトが表示されたら、ランダムな文字列を入力（例: openssl rand -base64 32 で生成）
+
+npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml
+# プロンプトが表示されたら、「ログイン記録」アプリのアプリIDを入力（後述の「ログイン記録アプリ」を参照）
 ````
 
 ⚠️ **注意**: Kintone OAuth 2.0認証を使用するには、事前にKintone管理画面でOAuth 2.0クライアントの登録が必要です。詳細は後述の「Kintone OAuth 2.0設定」を参照してください。
@@ -461,12 +464,51 @@ docker-compose exec web git config --global --add safe.directory /app
    - **リダイレクトURI**: `https://miyosino-auth.your-subdomain.workers.dev/callback`
      - `your-subdomain`は、Cloudflare Workersのサブドメインに置き換えてください
      - 例: `https://miyosino-auth.abc123.workers.dev/callback`
-   - **スコープ**: `k:app_record:read`（最小限の権限）
+   - **スコープ**: `k:app_record:read` と `k:app_record:write`（書き込みは「ログイン記録」アプリへの追加だけに使う）
 6. **保存** をクリック
 7. **Client ID** と **Client Secret** をコピーして保存
    - これらの値は、Cloudflare Workersの環境変数設定で使用します
 
 ⚠️ **重要**: Client Secretは絶対に公開しないでください。Cloudflare Workersの環境変数として安全に管理されます。
+
+#### ログイン記録アプリ（利用者の識別）
+
+kintone の OAuth には「ログイン中のユーザー」を返す API がありません。そこで認証 Worker は、ログイン・トークン更新のたびに本人のトークンで「ログイン記録」アプリへレコードを 1 件追加し、その「作成者」フィールドから kintone のユーザーコードを得て JWT の `sub` にします。チャットボットの「1 人 1 日の回数制限」などに使います。
+
+1. kintone で空のアプリを作る（フィールドは追加しなくてよい。必須フィールドは置かない）
+2. アプリのアクセス権で、組合員（ログインする人全員）に「レコード追加」と「レコード閲覧」を許可する
+   - 閲覧は「自分が作成したレコードだけ」に絞ってよい
+3. アプリIDを `KINTONE_LOGIN_LOG_APP_ID` として認証 Worker に設定する（上記の `wrangler secret put`）
+
+`KINTONE_LOGIN_LOG_APP_ID` が未設定のときや、レコードの追加に失敗したときもログインはできます。そのときの `sub` は `kintone-user`（識別できなかった印）になり、利用者ごとに数える機能はその人を使えなくします。スコープを広げる前に発行されたリフレッシュトークンでは書き込みできないため、識別されるのは次に kintone で再ログインしてからです。
+
+#### チャットボット（miyosino-chat）
+
+組合員専用ページの右下に出る「サイト案内チャット」の Worker です（`workers/api/chat.ts`）。ホームページの使い方とページの案内に、Claude API で答えます。
+
+- **答えられる範囲**: `workers/api/chat-guide.ts` の案内文だけです。ページを追加・変更したら、ここも直してください
+- **使える人**: JWT の `sub` が kintone のユーザーコードの人だけです（前述の「ログイン記録アプリ」で識別された人）。識別できない人には再ログインを案内します
+- **回数制限**: 1人1日 `CHAT_DAILY_LIMIT_PER_USER` 回、全員で1日 `CHAT_DAILY_LIMIT_TOTAL` 回（日本時間で区切る）。値とモデル（`CHAT_MODEL`）は `wrangler.chat.toml` の `[vars]` で変えられます
+- **会話の保存**: しません。会話はブラウザの画面の中にだけあり、ページを移動すると消えます。D1 に残るのは日ごとの回数だけです
+
+初回のセットアップ:
+
+```bash
+cd workers
+# 1. 回数を数える D1 データベースを作り、表示された database_id を wrangler.chat.toml に書く
+npx wrangler d1 create miyosino-chat
+# 2. テーブルを作る
+npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
+# 3. シークレットを設定する
+npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml   # Anthropic コンソールで発行した API キー
+npx wrangler secret put JWT_SECRET --config wrangler.chat.toml          # 他の Worker と同じ値（npm run set-jwt-secret でも可）
+# 4. デプロイする
+npm run deploy:chat
+```
+
+⚠️ `wrangler.chat.toml` の `database_id` が仮の値のままだと、`main` へのマージ時の自動デプロイで chat Worker だけ失敗します。先に手順 1 を済ませてください。費用の上限は Anthropic コンソールでも設定しておくことをおすすめします。
+
+フロントエンドは `NEXT_PUBLIC_CHAT_API_URL`（未設定なら `https://miyosino-chat.anorimura-miyosino.workers.dev`）を呼びます。
 
 ### 6. ビルドとデプロイ
 

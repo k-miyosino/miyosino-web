@@ -10,6 +10,12 @@
  * - GET /verify - セッション検証
  * - GET /logout - ログアウト
  * - GET /user - ログインユーザー情報取得
+ *
+ * 利用者の識別:
+ * kintone の OAuth には「ログイン中のユーザー」を返す API がないため、
+ * 「ログイン記録」アプリ（KINTONE_LOGIN_LOG_APP_ID）に本人のトークンでレコードを 1 件追加し、
+ * その「作成者」フィールドからユーザーコードを得て JWT の sub にする。
+ * 識別できなかったときは sub を UNIDENTIFIED_USER_ID にする（ログイン自体は通す）。
  */
 
 interface Env {
@@ -17,7 +23,15 @@ interface Env {
   KINTONE_CLIENT_ID: string;
   KINTONE_CLIENT_SECRET: string;
   JWT_SECRET: string;
+  // 「ログイン記録」アプリのID。未設定なら利用者を識別しない
+  KINTONE_LOGIN_LOG_APP_ID?: string;
 }
+
+// 利用者を識別できなかったときの sub。チャットなど利用者ごとに数える機能はこの値を拒否する
+const UNIDENTIFIED_USER_ID = 'kintone-user';
+const UNIDENTIFIED_USER_NAME = 'Kintone Member';
+const PLACEHOLDER_EMAIL = 'member@example.com';
+const JWT_LIFETIME_SECONDS = 60 * 60 * 24 * 7; // 7日間有効
 
 interface KintoneTokenResponse {
   access_token: string;
@@ -57,7 +71,9 @@ async function generateJWT(
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
-  const encodedPayload = btoa(JSON.stringify(payload))
+  // 表示名に日本語が入るので、UTF-8 のバイト列にしてから base64url にする（btoa は日本語を扱えない）
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
+  const encodedPayload = btoa(String.fromCharCode(...payloadBytes))
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
@@ -121,8 +137,12 @@ async function verifyJWT(
       return null;
     }
 
+    const payloadBytes = Uint8Array.from(
+      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0)
+    );
     const payload = JSON.parse(
-      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'))
+      new TextDecoder().decode(payloadBytes)
     ) as JWTPayload;
 
     // 有効期限チェック
@@ -309,7 +329,8 @@ async function handleLogin(
   // ユーザー情報を取得するAPIが権限エラーになるため、
   // 最小限のスコープ（レコード閲覧）を指定し、
   // トークン取得の成功をもって認証成功とみなします。
-  authUrl.searchParams.append('scope', 'k:app_record:read');
+  // 書き込みは、利用者を識別するため「ログイン記録」アプリにレコードを追加するのに使う
+  authUrl.searchParams.append('scope', 'k:app_record:read k:app_record:write');
   // ログアウト後に再ログインする際、Kintone側のセッションが残っていても
   // 必ずID/PW入力画面を表示させる
   authUrl.searchParams.append('prompt', 'login');
@@ -444,29 +465,10 @@ async function handleCallback(
 
     const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // ユーザー情報を取得するAPI（/v1/users.json）は権限エラー（CB_OA01）になりやすいため、
-    // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなします。
-    // KintoneのOAuthでは、標準で「現在のユーザー」を取得するAPIが提供されていないため、
-    // このアプローチが最も確実です。
-
-    const userData = {
-      id: 'kintone-user',
-      name: 'Kintone Member',
-      email: 'member@example.com',
-      valid: true,
-    };
-
-    // JWTを生成
-    const now = Math.floor(Date.now() / 1000);
-    const jwtPayload: JWTPayload = {
-      sub: userData.id,
-      name: userData.name,
-      email: userData.email,
-      iat: now,
-      exp: now + 60 * 60 * 24 * 7, // 7日間有効
-    };
-
-    const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
+    // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなす。
+    // 利用者の識別はできなくてもログインは通す（識別できない場合は sub が UNIDENTIFIED_USER_ID になる）
+    const identity = await identifyKintoneUser(tokenData.access_token, env);
+    const jwt = await generateJWT(buildJWTPayload(identity), env.JWT_SECRET);
 
     // JWTとrefresh_tokenをURLフラグメント（#以降）で渡す（クロスドメインCookie問題の回避）
     // フラグメントはサーバーへのリクエスト・Referer・アクセス解析に含まれないため、クエリより安全
@@ -635,17 +637,9 @@ async function handleRefresh(
 
     const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // 新しいJWTを生成
-    const now = Math.floor(Date.now() / 1000);
-    const jwtPayload: JWTPayload = {
-      sub: 'kintone-user',
-      name: 'Kintone Member',
-      email: 'member@example.com',
-      iat: now,
-      exp: now + 60 * 60 * 24 * 7, // 7日間有効
-    };
-
-    const jwt = await generateJWT(jwtPayload, env.JWT_SECRET);
+    // 新しいJWTを生成（新しいアクセストークンで改めて利用者を識別する）
+    const identity = await identifyKintoneUser(tokenData.access_token, env);
+    const jwt = await generateJWT(buildJWTPayload(identity), env.JWT_SECRET);
 
     return new Response(
       JSON.stringify({
@@ -738,6 +732,93 @@ async function handleGetUser(
       },
     }
   );
+}
+
+interface MemberIdentity {
+  code: string; // kintone のユーザーコード
+  name: string; // kintone の表示名
+}
+
+/**
+ * 本人のアクセストークンで「ログイン記録」アプリにレコードを追加し、
+ * 「作成者」フィールドからユーザーコードと表示名を得る。
+ * アプリ未設定・権限不足（旧スコープのリフレッシュトークンなど）・通信エラーのときは null を返す。
+ * ユーザーコードは個人を特定できる情報なのでログに出さない。
+ */
+async function identifyKintoneUser(
+  accessToken: string,
+  env: Env
+): Promise<MemberIdentity | null> {
+  const appId = env.KINTONE_LOGIN_LOG_APP_ID;
+  if (!appId) {
+    console.warn('[Auth] KINTONE_LOGIN_LOG_APP_ID is not set; user is not identified');
+    return null;
+  }
+
+  const recordUrl = `https://${env.KINTONE_DOMAIN}/k/v1/record.json`;
+  const authorization = `Bearer ${accessToken}`;
+
+  try {
+    const addResponse = await fetch(recordUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: authorization,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ app: appId, record: {} }),
+    });
+    if (!addResponse.ok) {
+      console.error(
+        '[Auth] Failed to add login record:',
+        addResponse.status,
+        await addResponse.text()
+      );
+      return null;
+    }
+    const { id } = (await addResponse.json()) as { id: string };
+
+    const getUrl = new URL(recordUrl);
+    getUrl.searchParams.set('app', appId);
+    getUrl.searchParams.set('id', id);
+    const getResponse = await fetch(getUrl.toString(), {
+      headers: { Authorization: authorization },
+    });
+    if (!getResponse.ok) {
+      console.error(
+        '[Auth] Failed to read login record:',
+        getResponse.status,
+        await getResponse.text()
+      );
+      return null;
+    }
+    const { record } = (await getResponse.json()) as {
+      record: Record<string, { type: string; value: unknown }>;
+    };
+
+    // フィールドコードは環境によって違う（既定は「作成者」）ので、種類で探す
+    const creator = Object.values(record).find(
+      (field) => field.type === 'CREATOR'
+    )?.value as { code?: string; name?: string } | undefined;
+    if (!creator?.code) {
+      console.error('[Auth] Login record has no creator field');
+      return null;
+    }
+    return { code: creator.code, name: creator.name || creator.code };
+  } catch (error) {
+    console.error('[Auth] Failed to identify user:', error);
+    return null;
+  }
+}
+
+function buildJWTPayload(identity: MemberIdentity | null): JWTPayload {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    sub: identity?.code ?? UNIDENTIFIED_USER_ID,
+    name: identity?.name ?? UNIDENTIFIED_USER_NAME,
+    email: PLACEHOLDER_EMAIL,
+    iat: now,
+    exp: now + JWT_LIFETIME_SECONDS,
+  };
 }
 
 // Cookie解析ヘルパー
