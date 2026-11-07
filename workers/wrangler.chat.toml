@@ -1,0 +1,24 @@
+name = "miyosino-chat"
+main = "api/chat.ts"
+compatibility_date = "2024-01-01"
+account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
+
+# シークレットは wrangler secret put コマンドで設定してください
+# wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml
+# wrangler secret put JWT_SECRET --config wrangler.chat.toml   （npm run set-jwt-secret でも設定される）
+
+# 利用回数を数える D1 データベース
+# 作成: npx wrangler d1 create miyosino-chat  → 表示された database_id を下に書く
+# テーブル作成: npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
+[[d1_databases]]
+binding = "DB"
+database_name = "miyosino-chat"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations/chat"
+
+[vars]
+# 使うモデル。変えるときは費用に注意（サーバー側フォールバックは対応モデルのときだけ使う）
+CHAT_MODEL = "claude-opus-5-5"
+# 1人1日の回数上限と、全員合計の1日の上限（日本時間で区切る）
+CHAT_DAILY_LIMIT_PER_USER = "20"
+CHAT_DAILY_LIMIT_TOTAL = "300"

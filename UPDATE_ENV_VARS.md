@@ -164,6 +164,16 @@ npx wrangler secret put JWT_SECRET --config wrangler.auth.toml
 npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml  # 「ログイン記録」アプリのID（README参照）
 ```
 
+### チャットボット用Worker（miyosino-chat）
+
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml
+npx wrangler secret put JWT_SECRET --config wrangler.chat.toml
+```
+
+**D1**: `miyosino-chat`（`wrangler.chat.toml` の `database_id` に設定。README の「チャットボット」を参照）
+**回数上限・モデル**: `wrangler.chat.toml` の `[vars]`（シークレットではない）
+
 ### お知らせAPI用Worker（miyosino-announcements）
 
 ```bash

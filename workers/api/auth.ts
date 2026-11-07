@@ -71,7 +71,9 @@ async function generateJWT(
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
-  const encodedPayload = btoa(JSON.stringify(payload))
+  // 表示名に日本語が入るので、UTF-8 のバイト列にしてから base64url にする（btoa は日本語を扱えない）
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
+  const encodedPayload = btoa(String.fromCharCode(...payloadBytes))
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
@@ -135,8 +137,12 @@ async function verifyJWT(
       return null;
     }
 
+    const payloadBytes = Uint8Array.from(
+      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0)
+    );
     const payload = JSON.parse(
-      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'))
+      new TextDecoder().decode(payloadBytes)
     ) as JWTPayload;
 
     // 有効期限チェック

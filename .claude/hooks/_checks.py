@@ -18,7 +18,6 @@ MAX_LINES = 30
 KNOWN_WORKER_ERRORS = {
     ("workers/api/_kintone.ts", "TS2578"),
     ("workers/api/contact.ts", "TS18046"),
-    ("workers/api/greenwellness.ts", "TS2591"),
     ("workers/api/minutes.ts", "TS2339"),
 }
 

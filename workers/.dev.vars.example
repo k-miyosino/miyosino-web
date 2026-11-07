@@ -19,6 +19,10 @@ KINTONE_CLIENT_SECRET=your-client-secret
 # 組合員に「レコード追加」「レコード閲覧」を許可した空のアプリ。README の「ログイン記録アプリ」を参照
 # KINTONE_LOGIN_LOG_APP_ID=999
 
+# チャットボット用Worker（miyosino-chat）の Claude API キー
+# Anthropic コンソールで発行する。本番は wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml
+# ANTHROPIC_API_KEY=your-anthropic-api-key
+
 # JWT認証用シークレット
 # すべてのWorkerで同じ値を使用します
 # 生成方法: openssl rand -base64 32

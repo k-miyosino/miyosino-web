@@ -482,6 +482,34 @@ kintone の OAuth には「ログイン中のユーザー」を返す API があ
 
 `KINTONE_LOGIN_LOG_APP_ID` が未設定のときや、レコードの追加に失敗したときもログインはできます。そのときの `sub` は `kintone-user`（識別できなかった印）になり、利用者ごとに数える機能はその人を使えなくします。スコープを広げる前に発行されたリフレッシュトークンでは書き込みできないため、識別されるのは次に kintone で再ログインしてからです。
 
+#### チャットボット（miyosino-chat）
+
+組合員専用ページの右下に出る「サイト案内チャット」の Worker です（`workers/api/chat.ts`）。ホームページの使い方とページの案内に、Claude API で答えます。
+
+- **答えられる範囲**: `workers/api/chat-guide.ts` の案内文だけです。ページを追加・変更したら、ここも直してください
+- **使える人**: JWT の `sub` が kintone のユーザーコードの人だけです（前述の「ログイン記録アプリ」で識別された人）。識別できない人には再ログインを案内します
+- **回数制限**: 1人1日 `CHAT_DAILY_LIMIT_PER_USER` 回、全員で1日 `CHAT_DAILY_LIMIT_TOTAL` 回（日本時間で区切る）。値とモデル（`CHAT_MODEL`）は `wrangler.chat.toml` の `[vars]` で変えられます
+- **会話の保存**: しません。会話はブラウザの画面の中にだけあり、ページを移動すると消えます。D1 に残るのは日ごとの回数だけです
+
+初回のセットアップ:
+
+```bash
+cd workers
+# 1. 回数を数える D1 データベースを作り、表示された database_id を wrangler.chat.toml に書く
+npx wrangler d1 create miyosino-chat
+# 2. テーブルを作る
+npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
+# 3. シークレットを設定する
+npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml   # Anthropic コンソールで発行した API キー
+npx wrangler secret put JWT_SECRET --config wrangler.chat.toml          # 他の Worker と同じ値（npm run set-jwt-secret でも可）
+# 4. デプロイする
+npm run deploy:chat
+```
+
+⚠️ `wrangler.chat.toml` の `database_id` が仮の値のままだと、`main` へのマージ時の自動デプロイで chat Worker だけ失敗します。先に手順 1 を済ませてください。費用の上限は Anthropic コンソールでも設定しておくことをおすすめします。
+
+フロントエンドは `NEXT_PUBLIC_CHAT_API_URL`（未設定なら `https://miyosino-chat.anorimura-miyosino.workers.dev`）を呼びます。
+
 ### 6. ビルドとデプロイ
 
 `develop` → `staging` → `main` の順にPRでマージします。各ブランチで GitHub Actions により以下が実行されます。
