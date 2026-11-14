@@ -20,6 +20,22 @@ migrations_dir = "migrations/chat"
 # 使うモデル。変えるときは費用に注意（サーバー側フォールバックは対応モデルのときだけ使う）
 CHAT_MODEL = "claude-haiku-5-5"
 # オン・オフと回数の上限は D1 の chat_settings に置く（npm run chat:on / chat:off / chat:limits / chat:status）
+# チャットが中身を読む公開サイト（公開ページの HTML をここから取る。組合員専用ページは読まない）
+# サイトの公開先を変えたら、ここも変える（例: https://k-miyosino.com）
+SITE_URL = "https://k-miyosino.github.io/miyosino-web"
+
+# 公開ページに表示される中身を、それぞれの Worker から直接取る（インターネットを通さない）
+[[services]]
+binding = "CONTENTS"
+service = "miyosino-contents-api"
+
+[[services]]
+binding = "PLACES"
+service = "miyosino-places-api"
+
+[[services]]
+binding = "HISTORY"
+service = "miyosino-history-api"
 
 # 定期実行: 保存期間を過ぎた質問ログ・評価・回数を消す（毎日 日本時間 4:00 = UTC 19:00）
 [triggers]
