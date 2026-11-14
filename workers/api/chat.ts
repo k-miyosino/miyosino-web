@@ -6,6 +6,10 @@
  * エンドポイント:
  * - POST /chat - 会話の履歴を受け取り、答えを返す
  * - GET /chat/usage - 今日の利用回数と上限を返す
+ * - GET /chat/status - チャットがオンかどうかを返す（画面はオフならボタンを出さない）
+ *
+ * オン・オフ: D1 の chat_settings の enabled（'1' でオン）。workers/ で npm run chat:on / chat:off で切り替える。
+ *   オフのときは /chat と /chat/usage が 503（error: 'disabled'）を返す
  *
  * 認証: JWTトークンで組合員認証を確認
  * 回数制限: 1人1日 CHAT_DAILY_LIMIT_PER_USER 回、全員で1日 CHAT_DAILY_LIMIT_TOTAL 回（日本時間で区切る）。
@@ -220,6 +224,14 @@ async function releaseTotalCount(db: D1Database, date: string): Promise<void> {
     .run();
 }
 
+// オン・オフの設定を読む。設定の行がなければオンとみなす
+async function isChatEnabled(db: D1Database): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT value FROM chat_settings WHERE key = 'enabled'")
+    .first<{ value: string }>();
+  return row === null || row.value === '1';
+}
+
 async function getUserUsage(
   db: D1Database,
   userId: string,
@@ -396,17 +408,26 @@ export default {
     if (!payload) {
       return jsonResponse({ error: 'Invalid token' }, 401, origin);
     }
-    // 利用者を識別できないと1人ごとに数えられないので使わせない（再ログインで識別される）
-    if (!payload.sub || payload.sub === UNIDENTIFIED_USER_ID) {
-      return jsonResponse({ error: 'unidentified' }, 403, origin);
-    }
-
     const limits = {
       perUser: parseLimit(env.CHAT_DAILY_LIMIT_PER_USER, DEFAULT_LIMIT_PER_USER),
       total: parseLimit(env.CHAT_DAILY_LIMIT_TOTAL, DEFAULT_LIMIT_TOTAL),
     };
 
     try {
+      // オン・オフは利用者の識別より先に答える（オフなら誰にもボタンを出さない）
+      const enabled = await isChatEnabled(env.DB);
+      if (path === '/chat/status' && request.method === 'GET') {
+        return jsonResponse({ enabled }, 200, origin);
+      }
+      if (!enabled) {
+        return jsonResponse({ error: 'disabled' }, 503, origin);
+      }
+
+      // 利用者を識別できないと1人ごとに数えられないので使わせない（再ログインで識別される）
+      if (!payload.sub || payload.sub === UNIDENTIFIED_USER_ID) {
+        return jsonResponse({ error: 'unidentified' }, 403, origin);
+      }
+
       if (path === '/chat' && request.method === 'POST') {
         return await handleChat(request, env, payload.sub, limits, origin);
       }

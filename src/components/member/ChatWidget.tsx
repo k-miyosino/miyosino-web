@@ -6,12 +6,14 @@ import {
   CHAT_MAX_MESSAGE_LENGTH,
   CHAT_MAX_MESSAGES,
   ChatApiError,
+  fetchChatEnabled,
   fetchChatUsage,
   sendChatMessages,
 } from '@/repositories/chat/chatRepository';
 import { logout } from '@/shared/utils/auth';
 
 const ERROR_MESSAGES: Record<ChatErrorCode, string> = {
+  disabled: '現在、チャットは停止しています。',
   unidentified:
     '利用者を確認できませんでした。いったんログアウトして、もう一度ログインしてください。',
   user_limit:
@@ -44,9 +46,11 @@ function toErrorCode(error: unknown): ChatErrorCode {
 /**
  * 組合員専用ページの右下に出すチャットボット。
  * 認証済みのときだけ描画すること（MemberAuthWrapper と組合員専用トップから使う）。
+ * チャットがオンのときだけボタンを出す（オフのときや、状態を取得できないときは何も出さない）。
  * 会話はこのコンポーネントの中にだけ持ち、ページを移動すると消える。
  */
 export default function ChatWidget() {
+  const [isEnabled, setIsEnabled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -57,6 +61,21 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // チャットがオンかどうかを確かめる。取得できなければボタンを出さない
+  useEffect(() => {
+    let cancelled = false;
+    fetchChatEnabled()
+      .then((enabled) => {
+        if (!cancelled) setIsEnabled(enabled);
+      })
+      .catch(() => {
+        if (!cancelled) setIsEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // 初めて開いたときに今日の残り回数を取得する（識別できない利用者もここでわかる）
   useEffect(() => {
     if (!isOpen || hasLoadedUsage.current) return;
@@ -64,8 +83,9 @@ export default function ChatWidget() {
     fetchChatUsage()
       .then(setUsage)
       .catch((error: unknown) => {
-        // 残り回数が取れなくても質問はできるので、識別できない場合だけ知らせる
-        if (toErrorCode(error) === 'unidentified') setErrorCode('unidentified');
+        // 残り回数が取れなくても質問はできるので、識別できない・停止中の場合だけ知らせる
+        const code = toErrorCode(error);
+        if (code === 'unidentified' || code === 'disabled') setErrorCode(code);
       });
   }, [isOpen]);
 
@@ -81,6 +101,7 @@ export default function ChatWidget() {
   }, [isOpen]);
 
   const isBlocked =
+    errorCode === 'disabled' ||
     errorCode === 'unidentified' ||
     errorCode === 'user_limit' ||
     errorCode === 'total_limit' ||
@@ -130,6 +151,10 @@ export default function ChatWidget() {
   function handleReset() {
     setMessages([]);
     if (errorCode === 'failed') setErrorCode(null);
+  }
+
+  if (!isEnabled) {
+    return null;
   }
 
   if (!isOpen) {

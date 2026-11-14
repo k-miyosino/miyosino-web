@@ -490,6 +490,16 @@ kintone の OAuth には「ログイン中のユーザー」を返す API があ
 - **使える人**: JWT の `sub` が kintone のユーザーコードの人だけです（前述の「ログイン記録アプリ」で識別された人）。識別できない人には再ログインを案内します
 - **回数制限**: 1人1日 `CHAT_DAILY_LIMIT_PER_USER` 回、全員で1日 `CHAT_DAILY_LIMIT_TOTAL` 回（日本時間で区切る）。値とモデル（`CHAT_MODEL`）は `wrangler.chat.toml` の `[vars]` で変えられます
 - **会話の保存**: しません。会話はブラウザの画面の中にだけあり、ページを移動すると消えます。D1 に残るのは日ごとの回数だけです
+- **オン・オフ**: D1 の設定（`chat_settings` の `enabled`）で切り替えます。すぐに反映され、デプロイし直しても戻りません。オフのときは「質問する」ボタン自体が出ません
+
+```bash
+cd workers
+npm run chat:off      # チャットを止める（ボタンが消える）
+npm run chat:on       # チャットを再開する
+npm run chat:status   # 今の状態を見る（enabled が 1 ならオン）
+```
+
+Cloudflare ダッシュボードの D1（miyosino-chat）のコンソールから `UPDATE chat_settings SET value = '0' WHERE key = 'enabled'` を実行しても同じです（`'1'` でオン）。
 
 初回のセットアップ:
 
@@ -497,7 +507,7 @@ kintone の OAuth には「ログイン中のユーザー」を返す API があ
 cd workers
 # 1. 回数を数える D1 データベースを作り、表示された database_id を wrangler.chat.toml に書く
 npx wrangler d1 create miyosino-chat
-# 2. テーブルを作る
+# 2. テーブルを作る（利用回数と設定。最初はオンになる）
 npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
 # 3. シークレットを設定する
 npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml   # Anthropic コンソールで発行した API キー

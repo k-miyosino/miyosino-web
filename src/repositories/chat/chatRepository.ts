@@ -53,6 +53,7 @@ async function requestChatApi<T>(path: string, init: RequestInit): Promise<T> {
     // 本文がJSONでなければ種類は「その他」とする
   }
   const code: ChatErrorCode =
+    data.error === 'disabled' ||
     data.error === 'unidentified' ||
     data.error === 'user_limit' ||
     data.error === 'total_limit'
@@ -63,6 +64,14 @@ async function requestChatApi<T>(path: string, init: RequestInit): Promise<T> {
     code,
     data.usage
   );
+}
+
+/** チャットがオンかどうかを取得する */
+export async function fetchChatEnabled(): Promise<boolean> {
+  const data = await requestChatApi<{ enabled: boolean }>('/chat/status', {
+    method: 'GET',
+  });
+  return data.enabled === true;
 }
 
 /** 今日の利用回数を取得する */
