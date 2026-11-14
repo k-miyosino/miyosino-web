@@ -5,27 +5,23 @@
 //   npm run chat:eval -- --model claude-sonnet-5-5   # モデルを変えて試す
 //   npm run chat:eval -- --dry-run          # API を呼ばず、読み込んだ質問と案内文の長さだけ表示する
 //
-// Worker（api/chat.ts）と同じ案内文・モデル・設定で、質問を1問ずつ Claude API に送り、
+// Worker（api/chat.ts）と同じ部品（api/_chat-core.ts、api/_chat-knowledge.ts）を esbuild でまとめて読み込み、
+// 同じ案内文・道具・設定で質問を1問ずつ送る。公開ページの中身は、公開の URL（SITE_URL と各 Worker）から読む。
 // 答えと文字数などを eval/results/<日時>.md に保存する。D1 は使わず、利用回数にも数えない。
 // API キーは環境変数 ANTHROPIC_API_KEY か、.dev.vars の ANTHROPIC_API_KEY を使う（表示はしない）。
 // Windows でも動くよう Node で書いている。
 
-import Anthropic from '@anthropic-ai/sdk';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const workersDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// api/chat.ts の askClaude と同じ設定（変えたら両方を直す）
-const MAX_TOKENS = 8000;
-const EFFORT = 'low';
-const MODELS_WITH_SERVER_FALLBACK = new Set([
-  'claude-fable-5-1',
-  'claude-opus-5-5',
-  'claude-opus-5',
-  'claude-sonnet-5-5',
-]);
+// 公開ページに表示される中身を取る Worker の公開 URL（環境変数で変えられる。公開サイトは CHAT_EVAL_SITE_URL）
+const CONTENTS_URL = process.env.CHAT_EVAL_CONTENTS_URL || 'https://miyosino-contents-api.anorimura-miyosino.workers.dev';
+const PLACES_URL = process.env.CHAT_EVAL_PLACES_URL || 'https://miyosino-places-api.anorimura-miyosino.workers.dev';
+const HISTORY_URL = process.env.CHAT_EVAL_HISTORY_URL || 'https://miyosino-history-api.anorimura-miyosino.workers.dev';
 
 function fail(message) {
   console.error(`❌ ${message}`);
@@ -42,21 +38,56 @@ function parseArgs(argv) {
   return args;
 }
 
-// api/chat-guide.ts のテンプレートリテラルを読み出す（中にバッククォートを書かない決まり）
-function loadSystemPrompt() {
-  const source = readFileSync(path.join(workersDir, 'api', 'chat-guide.ts'), 'utf8');
-  const match = source.match(/export const CHAT_SYSTEM_PROMPT = `([\s\S]*?)`;/);
-  if (!match) fail('api/chat-guide.ts から CHAT_SYSTEM_PROMPT を読み出せませんでした');
-  if (match[1].includes('${')) fail('案内文に「${」があります。評価スクリプトでは読めません');
-  return match[1];
+// Worker と同じ部品を esbuild でまとめて読み込む（esbuild は wrangler に含まれている）
+async function loadCore() {
+  const esbuild = createRequire(import.meta.url)('esbuild');
+  const outfile = path.join(workersDir, 'eval', '.cache', 'chat-core.mjs');
+  await esbuild.build({
+    stdin: {
+      contents: [
+        "export { runChat, DEFAULT_MODEL } from './api/_chat-core.ts';",
+        "export { getPageContent } from './api/_chat-knowledge.ts';",
+        "export { CHAT_SYSTEM_PROMPT } from './api/chat-guide.ts';",
+      ].join('\n'),
+      resolveDir: workersDir,
+      loader: 'ts',
+    },
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    packages: 'external',
+    outfile,
+    logLevel: 'error',
+  });
+  return import(pathToFileURL(outfile).href);
 }
 
-// wrangler.chat.toml の [vars] の CHAT_MODEL
-function loadModel() {
+// wrangler.chat.toml の [vars] の値（CHAT_MODEL、SITE_URL）
+function loadVar(name) {
   const toml = readFileSync(path.join(workersDir, 'wrangler.chat.toml'), 'utf8');
-  const match = toml.match(/^CHAT_MODEL\s*=\s*"([^"]+)"/m);
-  if (!match) fail('wrangler.chat.toml に CHAT_MODEL がありません');
-  return match[1];
+  for (const line of toml.split(/\r?\n/)) {
+    const eq = line.indexOf('=');
+    if (eq === -1 || line.slice(0, eq).trim() !== name) continue;
+    return line.slice(eq + 1).trim().replace(/^"|"$/g, '');
+  }
+  return undefined;
+}
+
+function trimTrailingSlash(url) {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}
+
+// 公開の URL から読む取り方（Worker ではサービスバインディングを使う）
+function createEvalFetchers(siteUrl) {
+  const site = trimTrailingSlash(siteUrl);
+  return {
+    sitePage: (p) => fetch(`${site}${p === '/' ? '/' : `${p}/`}`),
+    contents: (query) => fetch(`${trimTrailingSlash(CONTENTS_URL)}/?${query.toString()}`),
+    places: () => fetch(PLACES_URL),
+    history: () => fetch(HISTORY_URL),
+  };
 }
 
 function loadApiKey() {
@@ -118,30 +149,6 @@ function measure(answer, question) {
   };
 }
 
-async function ask(client, model, systemPrompt, question) {
-  const response = await client.beta.messages.create({
-    model,
-    max_tokens: MAX_TOKENS,
-    output_config: { effort: EFFORT },
-    ...(MODELS_WITH_SERVER_FALLBACK.has(model)
-      ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' }
-      : {}),
-    system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: question }],
-  });
-  const answer = response.content
-    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-    .join('')
-    .trim();
-  return {
-    answer: response.stop_reason === 'refusal' ? '（安全上の理由で断られた）' : answer,
-    stopReason: response.stop_reason,
-    inputTokens: response.usage.input_tokens,
-    cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
-    outputTokens: response.usage.output_tokens,
-  };
-}
-
 function timestamp() {
   const d = new Date(Date.now() + 9 * 60 * 60 * 1000); // 日本時間
   const iso = d.toISOString();
@@ -150,25 +157,31 @@ function timestamp() {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const systemPrompt = loadSystemPrompt();
-  const model = args.model ?? loadModel();
+  const core = await loadCore();
+  const systemPrompt = core.CHAT_SYSTEM_PROMPT;
+  const model = args.model ?? loadVar('CHAT_MODEL') ?? core.DEFAULT_MODEL;
+  const siteUrl = process.env.CHAT_EVAL_SITE_URL || loadVar('SITE_URL');
+  if (!siteUrl) fail('wrangler.chat.toml に SITE_URL がありません');
   const questions = loadQuestions();
 
-  console.log(`モデル: ${model} / 案内文: ${systemPrompt.length} 文字 / 質問: ${questions.length} 問`);
+  console.log(`モデル: ${model} / 案内文: ${systemPrompt.length} 文字 / 質問: ${questions.length} 問 / 公開サイト: ${siteUrl}`);
   if (args.dryRun) {
     for (const [i, q] of questions.entries()) console.log(`${i + 1}. [${q.category}] ${q.question}`);
     return;
   }
 
-  const client = new Anthropic({ apiKey: loadApiKey(), maxRetries: 2 });
+  const apiKey = loadApiKey();
+  const fetchers = createEvalFetchers(siteUrl);
+  const readPage = (p) => core.getPageContent(p, fetchers);
   const results = [];
   for (const [i, q] of questions.entries()) {
     process.stdout.write(`(${i + 1}/${questions.length}) ${q.question} ... `);
     try {
       // 1問ずつ順番に送る（同時に送るとレート制限に当たりやすく、進み具合の表示と結果の順もそろわない）
-      const r = await ask(client, model, systemPrompt, q.question); // NOSONAR: 順番に送るため、わざとループの中で待つ
-      const m = measure(r.answer, q.question);
-      results.push({ ...q, ...r, ...m });
+      const r = await core.runChat({ apiKey, model, messages: [{ role: 'user', content: q.question }], readPage }); // NOSONAR: 順番に送るため、わざとループの中で待つ
+      const answer = r.outcome === 'refused' ? '（安全上の理由で断られた）' : r.reply;
+      const m = measure(answer, q.question);
+      results.push({ ...q, ...r, answer, ...m });
       console.log(m.notes.length ? `⚠️  ${m.notes.join('、')}` : 'OK');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -188,15 +201,16 @@ async function main() {
     `- 案内文: ${systemPrompt.length} 文字`,
     `- 質問: ${questions.length} 問（失敗 ${results.length - ok.length} 問）`,
     `- 平均: ${avg('chars')} 文字、最長の文 ${avg('longest')} 字`,
-    `- トークン: 入力 ${sum('inputTokens')}（うちキャッシュ ${sum('cacheReadTokens')}）、出力 ${sum('outputTokens')}`,
+    `- 公開サイト: ${siteUrl}`,
+    `- トークン: 入力 ${sum('inputTokens')}、出力 ${sum('outputTokens')}`,
     `- 注意の付いた答え: ${ok.filter((r) => r.notes.length).length} 問`,
     '',
-    '| # | 分類 | 質問 | 文字数 | 文 | 手順 | 最長の文 | 注意 |',
-    '|---|---|---|---|---|---|---|---|',
+    '| # | 分類 | 質問 | 文字数 | 文 | 手順 | 最長の文 | 読んだページ | 注意 |',
+    '|---|---|---|---|---|---|---|---|---|',
     ...results.map((r, i) =>
       r.error
-        ? `| ${i + 1} | ${r.category} | ${r.question} | - | - | - | - | 失敗 |`
-        : `| ${i + 1} | ${r.category} | ${r.question} | ${r.chars} | ${r.sentences} | ${r.steps} | ${r.longest} | ${r.notes.join('、')} |`
+        ? `| ${i + 1} | ${r.category} | ${r.question} | - | - | - | - | - | 失敗 |`
+        : `| ${i + 1} | ${r.category} | ${r.question} | ${r.chars} | ${r.sentences} | ${r.steps} | ${r.longest} | ${r.pagesRead.join(' ') || '-'} | ${r.notes.join('、')} |`
     ),
     '',
     '## 答え',

@@ -52,7 +52,7 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* 組合員専用、子育て環境の魅力ボタンとお問い合わせボタン */}
+          {/* 組合員専用ボタンとお問い合わせボタン */}
           <div className="hidden md:flex items-center space-x-2 lg:space-x-4">
             <Link
               href="/member"
@@ -73,13 +73,6 @@ export default function Header() {
               </svg>
               組合員専用
             </Link>
-            {/* TODO: 今後コンテンツを充実させて追加 */}
-            {/* <Link
-              href="/family"
-              className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium hover:from-pink-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 whitespace-nowrap"
-            >
-              👨‍👩‍👧‍👦 子育て環境の魅力
-            </Link> */}
             <Link
               href="/contact"
               className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium hover:bg-green-600 transition-colors duration-200 whitespace-nowrap"
@@ -149,14 +142,6 @@ export default function Header() {
                 </svg>
                 組合員専用
               </Link>
-              {/* TODO: 今後コンテンツを充実させて追加 */}
-              {/* <Link
-                href="/family"
-                className="bg-gradient-to-r from-pink-500 to-purple-600 text-white block px-3 py-2 text-base font-medium rounded-lg mx-3 mt-2 hover:from-pink-600 hover:to-purple-700 transition-all duration-200"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                👨‍👩‍👧‍👦 子育て環境の魅力
-              </Link> */}
               <Link
                 href="/contact"
                 className="bg-green-600 text-white px-3 py-2 text-base font-medium rounded-lg mx-3 mt-2 hover:bg-green-600 transition-colors duration-200 flex items-center justify-center"

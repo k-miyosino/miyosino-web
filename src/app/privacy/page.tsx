@@ -129,7 +129,10 @@ export default function PrivacyPage() {
                 回答の作成
               </h3>
               <p className="text-gray-700 leading-relaxed mb-4">
-                入力された質問と会話の内容は、回答を作るため、Anthropic社（米国）のAIサービスに送信され、同社の規約に従って取り扱われます。
+                入力された質問と会話の内容は、回答を作るため、Anthropic社（米国）のAIサービスに送信され、同社の規約に従って取り扱われます。回答を作るために、だれでも見られる公開ページに掲載している内容を参照し、あわせて同社に送信することがあります。
+              </p>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                組合員専用ページに掲載している情報（お知らせ、イベント情報、会議情報、回覧板・配布資料、グリーンウェルネス、各種申請、団地運営など）は、チャットからは参照せず、同社にも送信しません。
               </p>
               <h3 className="text-lg font-bold text-gray-900 mb-2">
                 質問と回答の保存

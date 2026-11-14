@@ -53,8 +53,10 @@ if [[ "$1" == "--select" ]]; then
   exit 0
 fi
 
-# 標準入力から変更ファイル一覧を受け取り、workers/ 配下のみに絞る
-CHANGED=$(grep '^workers/' | sed 's#^workers/##' || true)
+# 標準入力から変更ファイル一覧（リポジトリのルートからのパス）を受け取る
+ALL_CHANGED=$(cat || true)
+# workers/ 配下だけ（workers/ からのパス）
+CHANGED=$(printf '%s\n' "$ALL_CHANGED" | grep '^workers/' | sed 's#^workers/##' || true)
 
 # 依存関係やTypeScript設定が変わった場合はすべてのWorkerを対象にする
 for file in $CHANGED; do
@@ -67,22 +69,39 @@ for file in $CHANGED; do
   esac
 done
 
+REPO_ROOT="$(cd "$WORKERS_DIR/.." && pwd)"
+
+# 本体ファイルが読み込むファイルを、相対パスの import をたどってすべて挙げる（リポジトリのルートからのパス）
+# 例: api/chat.ts → api/_chat-core.ts → api/chat-guide.ts → ../src/shared/constants/sitePages.ts
+deps_of() {
+  local queue=("workers/$1")
+  local seen=" workers/$1 "
+  while [[ ${#queue[@]} -gt 0 ]]; do
+    local file="${queue[0]}"
+    queue=("${queue[@]:1}")
+    local imports
+    imports=$(grep -oE "from ['\"]\.{1,2}/[^'\"]+['\"]" "$REPO_ROOT/$file" 2>/dev/null \
+      | sed -E "s#from ['\"]([^'\"]+)['\"]#\1#" || true)
+    for imp in $imports; do
+      [[ "$imp" == *.ts ]] || imp="$imp.ts"
+      local resolved
+      resolved=$(realpath -m --relative-to="$REPO_ROOT" "$REPO_ROOT/$(dirname "$file")/$imp")
+      if [[ "$seen" != *" $resolved "* ]]; then
+        seen="$seen$resolved "
+        queue+=("$resolved")
+      fi
+    done
+  done
+  echo "$seen"
+}
+
 TARGETS=""
 for config in $ALL_CONFIGS; do
   main=$(main_of "$config")
-  # 本体ファイルが import している同じフォルダ内のファイル（例: api/_kintone.ts）
-  imports=$(grep -oE "from ['\"]\./[^'\"]+['\"]" "$main" 2>/dev/null \
-    | sed -E "s#from ['\"]\./([^'\"]+)['\"]#$(dirname "$main")/\1.ts#" || true)
+  deps=$(deps_of "$main")
 
-  for file in $CHANGED; do
-    hit=0
-    if [[ "$file" == "$config" || "$file" == "$main" ]]; then
-      hit=1
-    fi
-    for imported in $imports; do
-      if [[ "$file" == "$imported" ]]; then hit=1; fi
-    done
-    if [[ $hit -eq 1 ]]; then
+  for file in $ALL_CHANGED; do
+    if [[ "$file" == "workers/$config" || " $deps " == *" $file "* ]]; then
       TARGETS="$TARGETS $config"
       break
     fi
