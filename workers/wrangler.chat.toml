@@ -8,12 +8,12 @@ account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
 # wrangler secret put JWT_SECRET --config wrangler.chat.toml   （npm run set-jwt-secret でも設定される）
 
 # 利用回数を数える D1 データベース
-# 作成: npx wrangler d1 create miyosino-chat  → 表示された database_id を下に書く
+# 作成済み（npx wrangler d1 create miyosino-chat で作ったときの database_id）
 # テーブル作成: npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
 [[d1_databases]]
 binding = "DB"
 database_name = "miyosino-chat"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "829829c4-3b89-45ba-804e-fe29d31b0f88"
 migrations_dir = "migrations/chat"
 
 [vars]
