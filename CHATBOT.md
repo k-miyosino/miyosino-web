@@ -1,0 +1,227 @@
+# チャットボット運用手順書
+
+組合員専用ページの右下に出る「サイト案内チャット」の運用手順です。
+ホームページの使い方と、どのページに何があるかを、Claude API（Anthropic）で答えます。
+
+## 目次
+
+1. [仕組み](#1-仕組み)
+2. [日常の操作（オン・オフ、回数の上限）](#2-日常の操作オンオフ回数の上限)
+3. [利用状況と費用の確認](#3-利用状況と費用の確認)
+4. [案内文・モデルを変える](#4-案内文モデルを変える)
+5. [Anthropic の API キーと支払い](#5-anthropic-の-api-キーと支払い)
+6. [ログイン記録アプリ（kintone）](#6-ログイン記録アプリkintone)
+7. [困ったとき](#7-困ったとき)
+8. [初回セットアップ（記録）](#8-初回セットアップ記録)
+9. [ローカルで試す](#9-ローカルで試す)
+
+---
+
+## 1. 仕組み
+
+| 部品 | 場所 | 役割 |
+|---|---|---|
+| チャット欄 | `src/components/member/ChatWidget.tsx` | 組合員専用ページの右下に「質問する」ボタンを出す。ログインが確認できて、チャットがオンのときだけ出る |
+| 認証 Worker（`miyosino-auth`） | `workers/api/auth.ts` | kintone でログインした人に JWT を発行する。「ログイン記録」アプリを使って、JWT にその人の kintone のユーザーコードを入れる |
+| チャット Worker（`miyosino-chat`） | `workers/api/chat.ts` | JWT を確かめ、回数を数え、Claude API に質問を送って答えを返す |
+| 案内文 | `workers/api/chat-guide.ts` | チャットが答えられる範囲。ここに書いたことだけを答える |
+| D1（`miyosino-chat`） | Cloudflare | 日ごとの利用回数と、設定（オン・オフ、回数の上限）を置く |
+| Claude API | Anthropic | 答えを作る。モデルは `claude-haiku-5-5` |
+
+- **使える人**: 組合員専用ページにログインし、kintone のユーザーコードで識別された人だけです
+- **回数の上限**: 1人1日の上限と、全員合計の1日の上限があります。日本時間の 0 時に戻ります。答えられなかった分は数えません
+- **会話の保存**: しません。会話はブラウザの画面の中にだけあり、ページを移動すると消えます。D1 に残るのは日ごとの回数と設定だけです
+- **入力した内容の行き先**: 質問は、答えを作るために Anthropic（米国）のサーバーに送られます。チャット欄には「個人情報を入力しないでください」と出しています
+
+---
+
+## 2. 日常の操作（オン・オフ、回数の上限）
+
+コマンドはどれも **`workers` フォルダーで** 実行します。Windows の PowerShell でも動きます。
+事前に `npx wrangler login` で Cloudflare にログインしておいてください。
+
+```bash
+cd workers
+npm run chat:status               # 今の設定を見る
+npm run chat:off                  # チャットを止める（「質問する」ボタンが消える）
+npm run chat:on                   # チャットを再開する
+npm run chat:limits -- 30 500     # 上限を1人1日30回、全員合計で1日500回にする
+```
+
+`chat:status` は次のように表示されます。
+
+```
+key            │ value
+enabled        │ 1      ← 1 ならオン、0 ならオフ
+limit_per_user │ 20     ← 1人1日の上限
+limit_total    │ 300    ← 全員合計の1日の上限
+```
+
+- 変更はすぐに反映され、デプロイし直しても戻りません
+- 上限を上げると、その日のうちから効きます（今日すでに上限まで使った人も、その分だけ使えるようになります）
+- 上限を 0 にすると、誰も使えなくなります。止めたいときは `chat:off` を使ってください（ボタンごと消えます）
+
+Cloudflare ダッシュボードの D1（`miyosino-chat`）のコンソールで SQL を実行しても同じです。
+
+```sql
+UPDATE chat_settings SET value = '0' WHERE key = 'enabled';          -- オフ（'1' でオン）
+UPDATE chat_settings SET value = '30' WHERE key = 'limit_per_user';  -- 1人1日の上限
+UPDATE chat_settings SET value = '500' WHERE key = 'limit_total';    -- 全員合計の上限
+```
+
+---
+
+## 3. 利用状況と費用の確認
+
+### 回数（D1）
+
+```bash
+cd workers
+# 直近14日の、全員合計の利用回数
+npx wrangler d1 execute miyosino-chat --remote --config wrangler.chat.toml --command "SELECT date_jst, count FROM chat_usage_total ORDER BY date_jst DESC LIMIT 14"
+```
+
+1人ごとの回数は `chat_usage` テーブルにあります（`user_id` は kintone のユーザーコードなので、扱いに注意してください）。
+
+### 費用（Anthropic）
+
+- Anthropic コンソール（https://console.anthropic.com）の「Usage」で、使った量と金額を見られます
+- 目安: 質問1回あたり 0.1 円程度。全員合計の上限（300回）まで毎日使われても、1か月 1,500 円前後です
+- 残高は「Billing」で見られます。残高がなくなると、チャットは「答えを受け取れませんでした」になります
+
+---
+
+## 4. 案内文・モデルを変える
+
+### 案内文（答えられる範囲）
+
+`workers/api/chat-guide.ts` を直します。**ページを追加・変更したら、ここも直してください。** 書かれていないことには答えず、管理組合事務所やお問い合わせページを案内します。
+
+反映にはチャット Worker のデプロイが必要です。
+
+- `develop` → `staging` → `main` とマージすると、`main` へのマージで自動でデプロイされます
+- 先に反映したいときは、GitHub の Actions →「Deploy Workers」→「Run workflow」で、ブランチを選んで `chat` を実行します
+
+### モデル
+
+`workers/wrangler.chat.toml` の `[vars]` の `CHAT_MODEL` を変えて、デプロイします。費用が大きく変わるので注意してください（`claude-haiku-5-5` に比べ、`claude-sonnet-5-5` は約20倍、`claude-opus-5-5` は約40倍）。
+
+---
+
+## 5. Anthropic の API キーと支払い
+
+### API キー
+
+- **ワークスペースに属したキーを使います。** 組織全体のキー（ワークスペースに属さないキー）だと、次のエラーで答えが返りません
+  ```
+  This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header
+  ```
+- キーは作ったときに一度しか表示されません。忘れたら作り直して、登録し直します
+- 作り方: コンソールの「Settings」→「Workspaces」でワークスペース（例: `miyosino-chat`）を作る →「API Keys」→「Create Key」でそのワークスペースを選ぶ
+- 登録（すぐに反映され、デプロイは不要）:
+  ```bash
+  cd workers
+  npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml
+  ```
+- キーはチャットやメール、リポジトリに貼らないでください。入れ替えたら、古いキーはコンソールで削除します
+- ワークスペースの地域は「アメリカ合衆国」で問題ありません
+
+### 支払い
+
+- 前払いのクレジット制です。買った残高より多く引かれることはありません
+- **クレジットは購入日から1年で失効し、返金されません。** 少額ずつ買い足すのがおすすめです
+- 自動チャージ（auto-reload）はオフのままにします
+- ワークスペースの設定で、月の利用額の上限（spend limit）も設定しておきます
+
+---
+
+## 6. ログイン記録アプリ（kintone）
+
+kintone の OAuth には「ログイン中のユーザー」を返す API がありません。そこで認証 Worker は、ログインとトークン更新のたびに、本人のトークンで「ログイン記録」アプリにレコードを1件追加し、その「作成者」から kintone のユーザーコードを得ます。チャットの「1人1日の回数」は、このユーザーコードで数えます。
+
+### アプリの設定
+
+- **置き場所**: 通常のアプリか、組合員全員が入っているスペース。**ゲストスペースには置かない**（API のアドレスが変わり、使えません）
+- **フォーム**: フィールドは追加しない。**必須項目のフィールドは置かない**（空のレコードを追加するので、必須項目があると失敗します）
+- **アプリのアクセス権**: 組合員（全員が入るグループや組織）に「レコード閲覧」と「レコード追加」だけを許可する
+- **レコードのアクセス権**（おすすめ）: 条件「すべてのレコード」で、管理者は閲覧・編集・削除、**作成者は閲覧**、Everyone はなし。作成者が自分のレコードを閲覧できることは必須です（追加した直後に読み返すため）
+- **API トークン**: 不要
+- **プロセス管理・通知**: オフ
+- **OAuth クライアント**: cybozu.com 共通管理の OAuth クライアントにスコープの設定があれば、「アプリのレコードの追加・編集・削除」（`k:app_record:write`）を加える
+
+アプリ ID（URL の `/k/123/` の `123`）は、認証 Worker に登録します。
+
+```bash
+cd workers
+npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml
+```
+
+### 運用
+
+- レコードは、ログインとトークン更新（7日ごと）のたびに増えます。古いもの（例: 半年より前）は消してかまいません。消しても動作には影響しません
+- 識別できなかった人（アプリ ID が未設定、権限不足など）もログインはできます。その人のチャットには「いったんログアウトして、もう一度ログインしてください」と出ます
+
+---
+
+## 7. 困ったとき
+
+### まずログを見る
+
+```bash
+cd workers
+npx wrangler tail --config wrangler.chat.toml   # チャット Worker のログ（auth は wrangler.auth.toml）
+```
+
+ログが流れる状態で、ブラウザから質問すると `[Chat]` で始まる行が出ます。Cloudflare ダッシュボードの Worker の「ログ」でも見られます。
+
+### 症状と原因
+
+| 症状 | 考えられる原因と対処 |
+|---|---|
+| 「質問する」ボタンが出ない | チャットがオフ（`npm run chat:status`）／チャット Worker の `ANTHROPIC_API_KEY` か `JWT_SECRET` が未登録／チャット Worker の `JWT_SECRET` がほかの Worker と違う／組合員専用ページにログインしていない |
+| 「利用者を確認できませんでした」 | ログアウトしてから再ログインしていない／ログイン記録アプリの権限・置き場所／OAuth のスコープ。ログイン記録アプリに自分のレコードが増えるか確かめる |
+| 「答えを受け取れませんでした」 | ログに `Claude API error: <番号>` が出る。401 はキーの誤り、400 で `not scoped to a workspace` はワークスペースに属さないキー（[5章](#5-anthropic-の-api-キーと支払い)）、400 で `credit balance` は残高不足 |
+| 「今日の利用回数の上限に達しました」 | 1人1日の上限。必要なら `npm run chat:limits` で上げる |
+| 「今日はチャットの利用が混み合っているため…」 | 全員合計の上限。必要なら `npm run chat:limits` で上げる |
+
+### コマンドのエラー
+
+| エラー | 対処 |
+|---|---|
+| `Could not read file: wrangler.chat.toml`（パスが二重に表示される） | `workers` フォルダーで実行していない。`cd workers` してから実行する |
+| `Invalid property: databaseId => Invalid uuid` | 手元の `wrangler.chat.toml` が古い。`git pull` で最新にする |
+| `execvpe(/bin/bash) failed`（Windows） | bash のスクリプトを呼んでいる。`npm run set-jwt-secret` などの bash のスクリプトは、Windows では WSL か Git Bash で実行する |
+| 最後に `Assertion failed ... async.c` | Windows で wrangler がエラーで終わるときに出る表示。無視してよい |
+
+---
+
+## 8. 初回セットアップ（記録）
+
+2026年11月に済ませた手順です。作り直すときの参考にしてください。
+
+1. kintone に「ログイン記録」アプリを作る（[6章](#6-ログイン記録アプリkintone)）
+2. 認証 Worker にアプリ ID を登録する: `npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml`
+3. D1 を作る: `npx wrangler d1 create miyosino-chat`。表示された `database_id` を `workers/wrangler.chat.toml` に書いてコミットする（Actions のデプロイがファイルを読むため）
+4. テーブルを作る: `npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml`（最初はオン、上限は1人20回・全員300回）
+5. Anthropic でクレジットを買い、ワークスペースに属した API キーを作る（[5章](#5-anthropic-の-api-キーと支払い)）
+6. チャット Worker にシークレットを登録する: `ANTHROPIC_API_KEY` と `JWT_SECRET`（ほかの Worker と同じ値）
+7. GitHub の Actions →「Deploy Workers」で `auth` と `chat` をデプロイする（Workers は本番・テスト共通。`auth` をデプロイした時点で本番のログインも切り替わる）
+8. `staging` にマージして、画面を公開する
+9. 組合員専用ページで **ログアウトしてから再ログイン** し、ログイン記録アプリに自分のレコードが増えること、「質問する」から答えが返ることを確かめる
+
+---
+
+## 9. ローカルで試す
+
+```bash
+cd workers
+# .dev.vars に ANTHROPIC_API_KEY と JWT_SECRET（本番と同じ値）を書いておく（.dev.vars はコミットしない）
+npx wrangler d1 migrations apply miyosino-chat --local --config wrangler.chat.toml  # ローカルの D1 にテーブルを作る（初回だけ）
+npm run dev:chat                                                                      # http://localhost:8787 で起動
+
+# 別のターミナルで、.env.local に NEXT_PUBLIC_CHAT_API_URL=http://localhost:8787 を書いてから
+cd ..
+npm run dev
+```
+
+http://localhost:3000/member/ でログインすると、右下に「質問する」ボタンが出ます。ログインは本番の認証 Worker を使います。ローカルの設定は `--remote` を外したコマンドで変えます（例: `npx wrangler d1 execute miyosino-chat --local --config wrangler.chat.toml --command "..."`）。
