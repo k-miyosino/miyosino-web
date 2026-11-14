@@ -25,7 +25,8 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { CHAT_SYSTEM_PROMPT } from './chat-guide';
+import { ClaudeReply, runChat } from './_chat-core';
+import { createWorkerFetchers, getPageContent } from './_chat-knowledge';
 import { verifyJWT } from './_jwt';
 import {
   CHAT_RATINGS,
@@ -42,6 +43,11 @@ interface Env {
   JWT_SECRET: string;
   DB: D1Database;
   CHAT_MODEL?: string;
+  // 公開ページの中身を読むため（_chat-knowledge.ts）。組合員専用ページは読まない
+  SITE_URL?: string;
+  CONTENTS?: Fetcher;
+  PLACES?: Fetcher;
+  HISTORY?: Fetcher;
 }
 
 interface ChatSettings {
@@ -50,14 +56,6 @@ interface ChatSettings {
   logging: boolean;
   retentionDays: number;
   feedback: boolean;
-}
-
-interface ClaudeReply {
-  reply: string;
-  outcome: 'answered' | 'refused';
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
 }
 
 interface ChatMessage {
@@ -71,29 +69,17 @@ interface ChatUsage {
   remaining: number;
 }
 
-const DEFAULT_MODEL = 'claude-haiku-5-5';
 // D1 に上限の設定がないとき・読めないときの値
 const DEFAULT_LIMIT_PER_USER = 20;
 const DEFAULT_LIMIT_TOTAL = 300;
 const DEFAULT_RETENTION_DAYS = 180;
-// 1回の答えの上限。考える分のトークンも含む
-const MAX_TOKENS = 8000;
 // 送ってよい会話の長さ（費用と悪用を抑える）
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_ASSISTANT_LENGTH = 4000;
 // 認証Workerが利用者を識別できなかったときの sub（workers/api/auth.ts と同じ値）
 const UNIDENTIFIED_USER_ID = 'kintone-user';
-// サーバー側の自動フォールバック（fallbacks: "default"）に対応しているモデル
-const MODELS_WITH_SERVER_FALLBACK = new Set([
-  'claude-fable-5-1',
-  'claude-opus-5-5',
-  'claude-opus-5',
-  'claude-sonnet-5-5',
-]);
 
-const REFUSAL_REPLY =
-  'すみません、この質問にはお答えできません。管理組合事務所かお問い合わせページ（/contact）にお問い合わせください。';
 
 function corsHeaders(origin?: string): Record<string, string> {
   return {
@@ -266,52 +252,6 @@ function parseMessages(body: unknown): ChatMessage[] | null {
   return parsed;
 }
 
-async function askClaude(env: Env, messages: ChatMessage[]): Promise<ClaudeReply> {
-  const model = env.CHAT_MODEL || DEFAULT_MODEL;
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1 });
-  const useFallback = MODELS_WITH_SERVER_FALLBACK.has(model);
-
-  const response = await client.beta.messages.create({
-    model,
-    max_tokens: MAX_TOKENS,
-    // 案内の質問は難しくないので、考える量を抑えて速さと費用を優先する
-    output_config: { effort: 'low' },
-    // 安全上の理由で断られたとき、サーバー側で別のモデルに答えさせる
-    ...(useFallback
-      ? {
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default' as const,
-        }
-      : {}),
-    system: [
-      {
-        type: 'text',
-        text: CHAT_SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
-    messages,
-  });
-
-  const usage = {
-    model,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
-  };
-  if (response.stop_reason === 'refusal') {
-    return { reply: REFUSAL_REPLY, outcome: 'refused', ...usage };
-  }
-
-  const reply = response.content
-    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
-    .join('')
-    .trim();
-  if (!reply) {
-    throw new Error(`Empty reply (stop_reason: ${response.stop_reason})`);
-  }
-  return { reply, outcome: 'answered', ...usage };
-}
-
 // 質問ログを保存する。失敗しても答えは返す
 async function saveLog(
   env: Env,
@@ -387,7 +327,13 @@ async function handleChat(
   const turn = messages.filter((m) => m.role === 'user').length;
   let result: ClaudeReply;
   try {
-    result = await askClaude(env, messages);
+    const fetchers = createWorkerFetchers(env);
+    result = await runChat({
+      apiKey: env.ANTHROPIC_API_KEY,
+      model: env.CHAT_MODEL,
+      messages,
+      readPage: (path) => getPageContent(path, fetchers),
+    });
   } catch (error) {
     // 答えられなかった分は数えない
     await releaseUserCount(env.DB, userId, date);

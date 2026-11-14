@@ -2,32 +2,15 @@
 
 import Link from 'next/link';
 import { ReactNode } from 'react';
+import { SITE_PAGES } from '@/shared/constants/sitePages';
 
 /**
- * チャットの答えの中でリンクにしてよいページ（サイトにある決まったページだけ）と、その呼び方。
+ * チャットの答えの中でリンクにしてよいページと、その呼び方（サイトのページの一覧 sitePages.ts から作る）。
  * 呼び方の先頭がリンクの読み上げ名になる。答えで括弧の直前にこの呼び方があれば、その呼び方をリンクにする。
- * AI が一覧にないパスを書いてもリンクにはしない（画面からも消す）。ページを追加・削除したら、
- * 案内文（workers/api/chat-guide.ts）といっしょにここも直す。
+ * AI が一覧にないパスを書いてもリンクにはしない（画面からも消す）。
  */
-export const CHAT_LINK_PAGES: Readonly<Record<string, readonly string[]>> = {
-  '/': ['ホーム', 'トップページ'],
-  '/features': ['団地の特長', '団地の特徴'],
-  '/community': ['コミュニティ'],
-  '/facilities': ['共有施設・サービス'],
-  '/surrounding': ['周辺施設'],
-  '/access': ['アクセス'],
-  '/contact': ['お問い合わせページ', 'お問い合わせ'],
-  '/privacy': ['プライバシーポリシー'],
-  '/sitemap': ['サイトマップ'],
-  '/member': ['組合員専用ページのトップ', '組合員専用ページ'],
-  '/member/announcements': ['お知らせ'],
-  '/member/management': ['団地運営'],
-  '/member/green-wellness': ['グリーンウェルネス'],
-  '/member/circulars': ['回覧板・配布資料'],
-  '/member/minutes': ['会議情報・議事録', '会議情報'],
-  '/member/applications': ['各種申請'],
-  '/member/events': ['イベント情報', 'イベント予定'],
-};
+export const CHAT_LINK_PAGES: Readonly<Record<string, readonly string[]>> =
+  Object.fromEntries(SITE_PAGES.map((page) => [page.path, page.names]));
 
 const OPEN_PARENS = new Set(['（', '(']);
 const CLOSE_PARENS = new Set(['）', ')']);

@@ -8,6 +8,8 @@ on:
       - main
     paths:
       - 'workers/**'
+      # chat Worker が読み込むページの一覧（detect-changed-workers.sh が import をたどって判定する）
+      - 'src/shared/constants/sitePages.ts'
   workflow_dispatch:
     inputs:
       worker:
