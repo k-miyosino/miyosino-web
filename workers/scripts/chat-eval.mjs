@@ -64,8 +64,10 @@ function loadApiKey() {
   const devVars = path.join(workersDir, '.dev.vars');
   if (existsSync(devVars)) {
     for (const line of readFileSync(devVars, 'utf8').split(/\r?\n/)) {
-      const match = line.match(/^\s*ANTHROPIC_API_KEY\s*=\s*(.+?)\s*$/);
-      if (match) return match[1].replace(/^["']|["']$/g, '');
+      const eq = line.indexOf('=');
+      if (eq === -1 || line.slice(0, eq).trim() !== 'ANTHROPIC_API_KEY') continue;
+      const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+      if (value) return value;
     }
   }
   fail('API キーがありません。.dev.vars に ANTHROPIC_API_KEY=... を書いてください（コミットしないこと）');
@@ -77,13 +79,12 @@ function loadQuestions() {
   const questions = [];
   let category = null;
   for (const line of text.split(/\r?\n/)) {
-    const heading = line.match(/^##\s+(.+)$/);
-    if (heading) {
-      category = heading[1].trim();
+    if (line.startsWith('## ')) {
+      category = line.slice(3).trim();
       continue;
     }
-    const item = line.match(/^-\s+(.+)$/);
-    if (category && item) questions.push({ category, question: item[1].trim() });
+    const question = line.startsWith('- ') ? line.slice(2).trim() : '';
+    if (category && question) questions.push({ category, question });
   }
   if (questions.length === 0) fail('eval/chat-questions.md に質問がありません');
   return questions;
@@ -106,7 +107,7 @@ function measure(answer, question) {
   if (/ありがとうございます|幸いです|お気軽に/.test(answer)) notes.push('挨拶・締め');
   const phone = question.match(/\d{2,4}-\d{2,4}-\d{3,4}/);
   if (phone && answer.includes(phone[0])) notes.push('電話番号をくり返した');
-  const room = question.match(/\d+号棟\d+号室/);
+  const room = question.match(/\d{1,4}号棟\d{1,4}号室/);
   if (room && answer.includes(room[0])) notes.push('部屋番号をくり返した');
   return {
     chars: answer.replace(/\s/g, '').length,
@@ -164,7 +165,8 @@ async function main() {
   for (const [i, q] of questions.entries()) {
     process.stdout.write(`(${i + 1}/${questions.length}) ${q.question} ... `);
     try {
-      const r = await ask(client, model, systemPrompt, q.question);
+      // 1問ずつ順番に送る（同時に送るとレート制限に当たりやすく、進み具合の表示と結果の順もそろわない）
+      const r = await ask(client, model, systemPrompt, q.question); // NOSONAR: 順番に送るため、わざとループの中で待つ
       const m = measure(r.answer, q.question);
       results.push({ ...q, ...r, ...m });
       console.log(m.notes.length ? `⚠️  ${m.notes.join('、')}` : 'OK');
@@ -216,4 +218,8 @@ async function main() {
   console.log(`\n✅ 保存しました: ${path.relative(workersDir, outFile)}`);
 }
 
-main().catch((error) => fail(String(error)));
+try {
+  await main();
+} catch (error) {
+  fail(String(error));
+}
