@@ -93,11 +93,25 @@ function findPaths(text: string): PathToken[] {
   return tokens;
 }
 
-// 括弧の直前にあるページの呼び方（長い呼び方から照らし合わせる）
-function nameBefore(path: string, before: string): string | undefined {
-  return [...(CHAT_LINK_PAGES[path] ?? [])]
-    .sort((a, b) => b.length - a.length)
-    .find((name) => before.endsWith(name));
+// ページ名を囲むことのあるかぎ括弧（「イベント情報」（/member/events） のような答えに合わせる）
+const CLOSING_QUOTES = ['」', '』'];
+
+interface NameMatch {
+  name: string;
+  /** 名前のあとに付いていた閉じかぎ括弧（なければ空） */
+  quote: string;
+}
+
+// 括弧の直前にあるページの呼び方（長い呼び方から照らし合わせる）。かぎ括弧で囲まれていてもよい
+function nameBefore(path: string, before: string): NameMatch | undefined {
+  const names = [...(CHAT_LINK_PAGES[path] ?? [])].sort(
+    (a, b) => b.length - a.length
+  );
+  for (const quote of ['', ...CLOSING_QUOTES]) {
+    const name = names.find((n) => before.endsWith(n + quote));
+    if (name) return { name, quote };
+  }
+  return undefined;
 }
 
 interface ChatAnswerProps {
@@ -109,6 +123,7 @@ interface ChatAnswerProps {
 /**
  * 答えの文章を表示する。パスそのものは画面に出さない。
  * - 「回覧板・配布資料（/member/circulars）」→「回覧板・配布資料」をリンクにして括弧を消す
+ *   （「イベント情報」（/member/events） のようにかぎ括弧で囲まれていても、中の名前をリンクにする）
  * - 括弧の直前がページの呼び方でなければ、括弧の位置に「（開く）」のリンクを出す
  * - 括弧のないパスは、その位置にページ名のリンクを出す
  * - 一覧にないパスは消す
@@ -136,11 +151,14 @@ export default function ChatAnswer({
     if (!(path in CHAT_LINK_PAGES)) return [before]; // 一覧にないパスは消す
     if (!token.inParens)
       return [before, link(path, CHAT_LINK_PAGES[path][0], token.start)];
-    const name = nameBefore(path, before);
-    if (!name) return [before, '（', link(path, '開く', token.start), '）'];
+    const match = nameBefore(path, before);
+    if (!match) return [before, '（', link(path, '開く', token.start), '）'];
+    // 名前をリンクにする（かぎ括弧があれば残し、その中の名前だけをリンクにする）
+    const cut = match.name.length + match.quote.length;
     return [
-      before.slice(0, before.length - name.length),
-      link(path, name, token.start),
+      before.slice(0, before.length - cut),
+      link(path, match.name, token.start),
+      match.quote,
     ];
   };
 
