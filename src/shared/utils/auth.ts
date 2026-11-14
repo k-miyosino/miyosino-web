@@ -5,6 +5,8 @@
  * localStorage方式（クロスドメインCookie問題の回避）
  */
 
+import { clearChatSession } from './chatSession';
+
 const AUTH_API_ENDPOINT =
   process.env.NEXT_PUBLIC_AUTH_API_URL ||
   'https://miyosino-auth.anorimura-miyosino.workers.dev';
@@ -251,6 +253,8 @@ export async function logout(): Promise<void> {
   // localStorageからトークンを削除
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  // チャットの会話も消す（共用の端末で次の人に残らないように）
+  clearChatSession();
 
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
