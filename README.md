@@ -133,6 +133,9 @@ npx wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml
 
 npx wrangler secret put JWT_SECRET --config wrangler.auth.toml
 # プロンプトが表示されたら、ランダムな文字列を入力（例: openssl rand -base64 32 で生成）
+
+npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml
+# プロンプトが表示されたら、「ログイン記録」アプリのアプリIDを入力（CHATBOT.md の「ログイン記録アプリ」を参照）
 ````
 
 ⚠️ **注意**: Kintone OAuth 2.0認証を使用するには、事前にKintone管理画面でOAuth 2.0クライアントの登録が必要です。詳細は後述の「Kintone OAuth 2.0設定」を参照してください。
@@ -461,12 +464,22 @@ docker-compose exec web git config --global --add safe.directory /app
    - **リダイレクトURI**: `https://miyosino-auth.your-subdomain.workers.dev/callback`
      - `your-subdomain`は、Cloudflare Workersのサブドメインに置き換えてください
      - 例: `https://miyosino-auth.abc123.workers.dev/callback`
-   - **スコープ**: `k:app_record:read`（最小限の権限）
+   - **スコープ**: `k:app_record:read` と `k:app_record:write`（書き込みは「ログイン記録」アプリへの追加だけに使う）
 6. **保存** をクリック
 7. **Client ID** と **Client Secret** をコピーして保存
    - これらの値は、Cloudflare Workersの環境変数設定で使用します
 
 ⚠️ **重要**: Client Secretは絶対に公開しないでください。Cloudflare Workersの環境変数として安全に管理されます。
+
+#### チャットボットとログイン記録アプリ
+
+組合員専用ページの右下に出る「サイト案内チャット」（`miyosino-chat` Worker）と、利用者を識別するための kintone の「ログイン記録」アプリ（`KINTONE_LOGIN_LOG_APP_ID`）の設定・運用は、**[CHATBOT.md](./CHATBOT.md)** にまとめています。
+
+- オン・オフ、回数の上限の変更（`workers/` で `npm run chat:on` / `chat:off` / `chat:limits` / `chat:status`）
+- 案内文（`workers/api/chat-guide.ts`）とモデルの変え方
+- Anthropic の API キーと支払い、ログイン記録アプリの設定
+- 困ったときのログの見方と、症状ごとの対処
+- 初回セットアップの記録と、ローカルで試す手順
 
 ### 6. ビルドとデプロイ
 

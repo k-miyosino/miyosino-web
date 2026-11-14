@@ -33,9 +33,12 @@ function decodeJwtPayload(
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    // ペイロードは UTF-8（表示名に日本語が入る）なので、バイト列として復号する
+    const bytes = Uint8Array.from(
+      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0)
     );
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
     return payload as { exp?: number; sub?: string };
   } catch {
     return null;
