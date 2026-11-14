@@ -17,3 +17,6 @@ node_modules/
 
 # チャットボットの評価結果（npm run chat:eval の出力）
 eval/results/
+
+# 評価スクリプトが esbuild でまとめた部品
+eval/.cache/
