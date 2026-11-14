@@ -278,7 +278,7 @@ export default function ChatWidget() {
     <div
       role="dialog"
       aria-label="サイト案内チャット"
-      className="fixed inset-x-2 bottom-2 z-40 flex max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
+      className="fixed inset-x-2 bottom-2 z-40 flex max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
     >
       {/* ヘッダー */}
       <div className="flex items-center justify-between bg-blue-600 px-4 py-3 text-white">
@@ -434,7 +434,7 @@ export default function ChatWidget() {
             placeholder={
               isBlocked ? '今は質問できません' : '質問を入力（Enterで送信）'
             }
-            className="flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+            className="flex-1 resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 sm:text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
             aria-label="質問"
           />
           <button
