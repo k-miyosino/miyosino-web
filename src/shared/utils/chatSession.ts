@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@/types/chat';
+import type { ChatMessage, ChatRating } from '@/types/chat';
 
 /**
  * チャットの会話をブラウザの sessionStorage に残す（ページを移動しても会話が続くように）。
@@ -18,12 +18,23 @@ export interface ChatSession {
   conversationId: string;
 }
 
-function isChatMessage(value: unknown): value is ChatMessage {
-  if (typeof value !== 'object' || value === null) return false;
-  const { role, content } = value as { role?: unknown; content?: unknown };
-  return (
-    (role === 'user' || role === 'assistant') && typeof content === 'string'
-  );
+const RATINGS: readonly ChatRating[] = ['understood', 'partly', 'not'];
+
+// 保存しておいた発言を確かめて取り出す（形が違うものは捨てる）
+function toChatMessage(value: unknown): ChatMessage | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { role, content, turn, rating } = value as Record<string, unknown>;
+  if (
+    (role !== 'user' && role !== 'assistant') ||
+    typeof content !== 'string'
+  ) {
+    return null;
+  }
+  const message: ChatMessage = { role, content };
+  if (typeof turn === 'number' && Number.isInteger(turn)) message.turn = turn;
+  if (RATINGS.includes(rating as ChatRating))
+    message.rating = rating as ChatRating;
+  return message;
 }
 
 export function loadChatSession(): ChatSession | null {
@@ -32,7 +43,10 @@ export function loadChatSession(): ChatSession | null {
     if (!raw) return null;
     const data = JSON.parse(raw) as Partial<ChatSession>;
     const messages = Array.isArray(data.messages)
-      ? data.messages.filter(isChatMessage).slice(-MAX_STORED_MESSAGES)
+      ? data.messages
+          .map(toChatMessage)
+          .filter((m): m is ChatMessage => m !== null)
+          .slice(-MAX_STORED_MESSAGES)
       : [];
     return {
       messages,
@@ -80,5 +94,25 @@ export function createConversationId(): string {
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   } catch {
     return '';
+  }
+}
+
+const NO_LOG_KEY = 'miyosino-chat-no-log';
+
+/** 「この会話を保存しない」を選んでいるか（その端末に覚えておく） */
+export function loadNoLogPreference(): boolean {
+  try {
+    return window.localStorage.getItem(NO_LOG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveNoLogPreference(noLog: boolean): void {
+  try {
+    if (noLog) window.localStorage.setItem(NO_LOG_KEY, '1');
+    else window.localStorage.removeItem(NO_LOG_KEY);
+  } catch {
+    // 覚えられなくてもチャットは使える
   }
 }

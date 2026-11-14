@@ -1,4 +1,10 @@
-import { ChatErrorCode, ChatMessage, ChatUsage } from '@/types/chat';
+import {
+  ChatErrorCode,
+  ChatMessage,
+  ChatRating,
+  ChatStatus,
+  ChatUsage,
+} from '@/types/chat';
 import { getToken } from '@/shared/utils/auth';
 import { handleUnauthorized } from '../kintone/utils';
 
@@ -66,12 +72,18 @@ async function requestChatApi<T>(path: string, init: RequestInit): Promise<T> {
   );
 }
 
-/** チャットがオンかどうかを取得する */
-export async function fetchChatEnabled(): Promise<boolean> {
-  const data = await requestChatApi<{ enabled: boolean }>('/chat/status', {
+/** チャットの状態（オンか、質問ログと評価がオンか、保存期間）を取得する */
+export async function fetchChatStatus(): Promise<ChatStatus> {
+  const data = await requestChatApi<Partial<ChatStatus>>('/chat/status', {
     method: 'GET',
   });
-  return data.enabled === true;
+  return {
+    enabled: data.enabled === true,
+    logging: data.logging === true,
+    retentionDays:
+      typeof data.retentionDays === 'number' ? data.retentionDays : 0,
+    feedback: data.feedback === true,
+  };
 }
 
 /** 今日の利用回数を取得する */
@@ -82,12 +94,42 @@ export async function fetchChatUsage(): Promise<ChatUsage> {
   return data.usage;
 }
 
+export interface SendChatOptions {
+  /** 会話をまとめるためのランダムな ID（だれかとは結びつかない） */
+  conversationId: string;
+  /** 質問したページのパス */
+  page: string;
+  /** false なら、質問ログに保存しない（「この会話を保存しない」） */
+  saveLog: boolean;
+}
+
 /** 会話を送って答えを受け取る。最後の発言は利用者の質問であること */
 export async function sendChatMessages(
-  messages: ChatMessage[]
-): Promise<{ reply: string; usage: ChatUsage }> {
-  return requestChatApi<{ reply: string; usage: ChatUsage }>('/chat', {
+  messages: ChatMessage[],
+  options: SendChatOptions
+): Promise<{ reply: string; usage: ChatUsage; turn: number }> {
+  return requestChatApi<{ reply: string; usage: ChatUsage; turn: number }>(
+    '/chat',
+    {
+      method: 'POST',
+      // 送るのは役割と文章だけ（評価などの画面用の項目は送らない）
+      body: JSON.stringify({
+        messages: messages.map(({ role, content }) => ({ role, content })),
+        ...options,
+      }),
+    }
+  );
+}
+
+/** 答えへの評価を送る（チャットの回数には数えない） */
+export async function sendChatFeedback(feedback: {
+  conversationId: string;
+  turn: number;
+  rating: ChatRating;
+  page: string;
+}): Promise<void> {
+  await requestChatApi<{ ok: boolean }>('/chat/feedback', {
     method: 'POST',
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify(feedback),
   });
 }
