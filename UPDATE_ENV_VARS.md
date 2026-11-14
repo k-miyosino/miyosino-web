@@ -172,7 +172,8 @@ npx wrangler secret put JWT_SECRET --config wrangler.chat.toml
 ```
 
 **D1**: `miyosino-chat`（`wrangler.chat.toml` の `database_id` に設定。README の「チャットボット」を参照）
-**回数上限・モデル**: `wrangler.chat.toml` の `[vars]`（シークレットではない）
+**モデル**: `wrangler.chat.toml` の `[vars]` の `CHAT_MODEL`（シークレットではない）
+**オン・オフ・回数上限**: D1 の `chat_settings`（`npm run chat:on` / `chat:off` / `chat:limits` / `chat:status`。README の「チャットボット」を参照）
 
 ### お知らせAPI用Worker（miyosino-announcements）
 

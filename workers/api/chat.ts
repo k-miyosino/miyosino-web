@@ -8,12 +8,15 @@
  * - GET /chat/usage - 今日の利用回数と上限を返す
  * - GET /chat/status - チャットがオンかどうかを返す（画面はオフならボタンを出さない）
  *
- * オン・オフ: D1 の chat_settings の enabled（'1' でオン）。workers/ で npm run chat:on / chat:off で切り替える。
+ * 設定: D1 の chat_settings に置く（デプロイなしで変えられ、デプロイし直しても戻らない）
+ * - enabled: '1' でオン。workers/ で npm run chat:on / chat:off で切り替える。
  *   オフのときは /chat と /chat/usage が 503（error: 'disabled'）を返す
+ * - limit_per_user / limit_total: 1人1日の上限と、全員合計の1日の上限（日本時間で区切る）。
+ *   workers/ で npm run chat:limits -- <1人の上限> <全員の上限> で変える
+ * 今の設定は npm run chat:status で見られる。行がないときや値が読めないときは既定値を使う
  *
  * 認証: JWTトークンで組合員認証を確認
- * 回数制限: 1人1日 CHAT_DAILY_LIMIT_PER_USER 回、全員で1日 CHAT_DAILY_LIMIT_TOTAL 回（日本時間で区切る）。
- *   回数は D1（バインディング DB）で数える。テーブルは migrations/chat/ を参照
+ * 回数は D1（バインディング DB）で数える。テーブルは migrations/chat/ を参照
  */
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -24,8 +27,11 @@ interface Env {
   JWT_SECRET: string;
   DB: D1Database;
   CHAT_MODEL?: string;
-  CHAT_DAILY_LIMIT_PER_USER?: string;
-  CHAT_DAILY_LIMIT_TOTAL?: string;
+}
+
+interface ChatSettings {
+  enabled: boolean;
+  limits: { perUser: number; total: number };
 }
 
 interface JWTPayload {
@@ -48,6 +54,7 @@ interface ChatUsage {
 }
 
 const DEFAULT_MODEL = 'claude-haiku-5-5';
+// D1 に上限の設定がないとき・読めないときの値
 const DEFAULT_LIMIT_PER_USER = 20;
 const DEFAULT_LIMIT_TOTAL = 300;
 // 1回の答えの上限。考える分のトークンも含む
@@ -152,9 +159,10 @@ async function verifyJWT(
   }
 }
 
+// 0 以上の整数として読めなければ既定値にする
 function parseLimit(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? '', 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  if (value === undefined || !/^\d+$/.test(value.trim())) return fallback;
+  return Number.parseInt(value, 10);
 }
 
 // 日本時間の日付（YYYY-MM-DD）
@@ -224,12 +232,20 @@ async function releaseTotalCount(db: D1Database, date: string): Promise<void> {
     .run();
 }
 
-// オン・オフの設定を読む。設定の行がなければオンとみなす
-async function isChatEnabled(db: D1Database): Promise<boolean> {
-  const row = await db
-    .prepare("SELECT value FROM chat_settings WHERE key = 'enabled'")
-    .first<{ value: string }>();
-  return row === null || row.value === '1';
+// 設定をまとめて読む。enabled の行がなければオンとみなす
+async function getChatSettings(db: D1Database): Promise<ChatSettings> {
+  const { results } = await db
+    .prepare('SELECT key, value FROM chat_settings')
+    .all<{ key: string; value: string }>();
+  const values = new Map(results.map((row) => [row.key, row.value]));
+  const enabled = values.get('enabled');
+  return {
+    enabled: enabled === undefined || enabled === '1',
+    limits: {
+      perUser: parseLimit(values.get('limit_per_user'), DEFAULT_LIMIT_PER_USER),
+      total: parseLimit(values.get('limit_total'), DEFAULT_LIMIT_TOTAL),
+    },
+  };
 }
 
 async function getUserUsage(
@@ -408,14 +424,9 @@ export default {
     if (!payload) {
       return jsonResponse({ error: 'Invalid token' }, 401, origin);
     }
-    const limits = {
-      perUser: parseLimit(env.CHAT_DAILY_LIMIT_PER_USER, DEFAULT_LIMIT_PER_USER),
-      total: parseLimit(env.CHAT_DAILY_LIMIT_TOTAL, DEFAULT_LIMIT_TOTAL),
-    };
-
     try {
       // オン・オフは利用者の識別より先に答える（オフなら誰にもボタンを出さない）
-      const enabled = await isChatEnabled(env.DB);
+      const { enabled, limits } = await getChatSettings(env.DB);
       if (path === '/chat/status' && request.method === 'GET') {
         return jsonResponse({ enabled }, 200, origin);
       }

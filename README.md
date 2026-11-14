@@ -488,18 +488,22 @@ kintone の OAuth には「ログイン中のユーザー」を返す API があ
 
 - **答えられる範囲**: `workers/api/chat-guide.ts` の案内文だけです。ページを追加・変更したら、ここも直してください
 - **使える人**: JWT の `sub` が kintone のユーザーコードの人だけです（前述の「ログイン記録アプリ」で識別された人）。識別できない人には再ログインを案内します
-- **回数制限**: 1人1日 `CHAT_DAILY_LIMIT_PER_USER` 回、全員で1日 `CHAT_DAILY_LIMIT_TOTAL` 回（日本時間で区切る）。値とモデル（`CHAT_MODEL`）は `wrangler.chat.toml` の `[vars]` で変えられます
+- **回数制限**: 1人1日の上限と、全員合計の1日の上限があります（日本時間で区切る。最初は20回・300回）。上限は D1 の設定（`chat_settings` の `limit_per_user`・`limit_total`）にあり、下の `npm run chat:limits` で変えられます
+- **モデル**: `wrangler.chat.toml` の `[vars]` の `CHAT_MODEL` で変えられます（変更はデプロイが必要）
 - **会話の保存**: しません。会話はブラウザの画面の中にだけあり、ページを移動すると消えます。D1 に残るのは日ごとの回数だけです
-- **オン・オフ**: D1 の設定（`chat_settings` の `enabled`）で切り替えます。すぐに反映され、デプロイし直しても戻りません。オフのときは「質問する」ボタン自体が出ません
+- **オン・オフ**: D1 の設定（`chat_settings` の `enabled`）で切り替えます。オフのときは「質問する」ボタン自体が出ません
+
+オン・オフと回数の上限は、すぐに反映され、デプロイし直しても戻りません。
 
 ```bash
 cd workers
-npm run chat:off      # チャットを止める（ボタンが消える）
-npm run chat:on       # チャットを再開する
-npm run chat:status   # 今の状態を見る（enabled が 1 ならオン）
+npm run chat:off                  # チャットを止める（ボタンが消える）
+npm run chat:on                   # チャットを再開する
+npm run chat:limits -- 30 500     # 上限を1人1日30回、全員合計で1日500回にする
+npm run chat:status               # 今の設定を見る（enabled が 1 ならオン、limit_per_user と limit_total が上限）
 ```
 
-Cloudflare ダッシュボードの D1（miyosino-chat）のコンソールから `UPDATE chat_settings SET value = '0' WHERE key = 'enabled'` を実行しても同じです（`'1'` でオン）。
+Cloudflare ダッシュボードの D1（miyosino-chat）のコンソールで SQL を実行しても同じです。例: `UPDATE chat_settings SET value = '0' WHERE key = 'enabled'`（`'1'` でオン）、`UPDATE chat_settings SET value = '30' WHERE key = 'limit_per_user'`。
 
 初回のセットアップ:
 
@@ -507,7 +511,7 @@ Cloudflare ダッシュボードの D1（miyosino-chat）のコンソールか�
 cd workers
 # 1. 回数を数える D1 データベースを作り、表示された database_id を wrangler.chat.toml に書く
 npx wrangler d1 create miyosino-chat
-# 2. テーブルを作る（利用回数と設定。最初はオンになる）
+# 2. テーブルを作る（利用回数と設定。最初はオン、上限は1人20回・全員300回）
 npx wrangler d1 migrations apply miyosino-chat --remote --config wrangler.chat.toml
 # 3. シークレットを設定する
 npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml   # Anthropic コンソールで発行した API キー
