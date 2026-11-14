@@ -10,6 +10,7 @@ account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
 # wrangler secret put KINTONE_CLIENT_ID --config wrangler.auth.toml
 # wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml
 # wrangler secret put JWT_SECRET --config wrangler.auth.toml
+# wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml
 
 # 開発環境用の設定（オプション）
 # [env.development]
