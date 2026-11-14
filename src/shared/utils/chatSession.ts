@@ -67,11 +67,18 @@ export function clearChatSession(): void {
   }
 }
 
-/** 会話の ID を作る（crypto.randomUUID が使えない古いブラウザでは乱数で作る） */
+/**
+ * 会話の ID を作る。crypto.randomUUID が使えない古いブラウザでは crypto.getRandomValues で作る。
+ * どちらも使えなければ空にする（ID がなくてもチャットは使える。Math.random は予測できるので使わない）
+ */
 export function createConversationId(): string {
   try {
-    return window.crypto.randomUUID();
+    if (typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   } catch {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    return '';
   }
 }

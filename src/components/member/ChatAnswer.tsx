@@ -29,18 +29,75 @@ export const CHAT_LINK_PAGES: Readonly<Record<string, readonly string[]>> = {
   '/member/events': ['イベント情報', 'イベント予定'],
 };
 
-// 括弧で囲んだパス（全角・半角の括弧）か、括弧のないパス。
-// 括弧のないパスは、直前が英数字・「/」・「:」などのとき（日付の 2026/11/14 や URL の中）は当てない
-const PATH_PATTERN =
-  /[（(](\/[a-z0-9/-]{0,40})[）)]|(^|[^A-Za-z0-9/:._-])(\/[a-z0-9-][a-z0-9/-]{0,39})/g;
+const OPEN_PARENS = new Set(['（', '(']);
+const CLOSE_PARENS = new Set(['）', ')']);
+const MAX_PATH_LENGTH = 40;
 
-function normalizePath(path: string): string {
-  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+/** 答えの中で見つけたパス */
+interface PathToken {
+  /** 置き換える範囲（括弧があれば括弧を含む） */
+  start: number;
+  end: number;
+  path: string;
+  inParens: boolean;
 }
 
-// 長い呼び方から照らし合わせる（「お問い合わせページ」を「お問い合わせ」より先に）
-function namesOf(path: string): string[] {
-  return [...(CHAT_LINK_PAGES[path] ?? [])].sort((a, b) => b.length - a.length);
+function isPathChar(c: string): boolean {
+  return (
+    (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c === '/' || c === '-'
+  );
+}
+
+// 括弧のないパスの直前にこれがあれば、パスではない（日付の 2026/11/14、URL の中など）
+function isWordChar(c: string): boolean {
+  return /[A-Za-z0-9/:._-]/.test(c);
+}
+
+// 末尾の「/」を取る（「/」だけのときはそのまま）
+function normalizePath(path: string): string {
+  let end = path.length;
+  while (end > 1 && path[end - 1] === '/') end--;
+  return path.slice(0, end);
+}
+
+/**
+ * 答えの中のパスを前から順に探す。正規表現を使わず1文字ずつ見るので、長い答えでも処理が増えすぎない。
+ * - 「（/member/circulars）」「(/contact)」: 括弧ごと
+ * - 「/member/events」: 括弧なし（直前が英数字や「/」「:」なら当てない。「/」だけのものも当てない）
+ */
+function findPaths(text: string): PathToken[] {
+  const tokens: PathToken[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const prev = i > 0 ? text[i - 1] : '';
+    if (text[i] !== '/' || (!OPEN_PARENS.has(prev) && isWordChar(prev))) {
+      i++;
+      continue;
+    }
+    let end = i + 1;
+    while (
+      end < text.length &&
+      end - i < MAX_PATH_LENGTH &&
+      isPathChar(text[end])
+    ) {
+      end++;
+    }
+    const path = text.slice(i, end);
+    if (OPEN_PARENS.has(prev) && CLOSE_PARENS.has(text[end] ?? '')) {
+      tokens.push({ start: i - 1, end: end + 1, path, inParens: true });
+    } else if (path.length > 1) {
+      tokens.push({ start: i, end, path, inParens: false });
+    }
+    i = end;
+  }
+  return tokens;
+}
+
+// 括弧の直前にあるページの呼び方（長い呼び方から照らし合わせる）
+function nameBefore(path: string, before: string): string | undefined {
+  return [...(CHAT_LINK_PAGES[path] ?? [])]
+    .sort((a, b) => b.length - a.length)
+    .find((name) => before.endsWith(name));
 }
 
 interface ChatAnswerProps {
@@ -57,10 +114,10 @@ interface ChatAnswerProps {
  * - 一覧にないパスは消す
  * 改行はそのまま表示する（親の要素に whitespace-pre-wrap を付けること）。
  */
-export default function ChatAnswer({ text, onNavigate }: ChatAnswerProps) {
-  const parts: ReactNode[] = [];
-  let last = 0;
-
+export default function ChatAnswer({
+  text,
+  onNavigate,
+}: Readonly<ChatAnswerProps>) {
   const link = (path: string, label: string, key: number) => (
     <Link
       key={key}
@@ -73,34 +130,25 @@ export default function ChatAnswer({ text, onNavigate }: ChatAnswerProps) {
     </Link>
   );
 
-  for (const match of text.matchAll(PATH_PATTERN)) {
-    const start = match.index ?? 0;
-    let before = text.slice(last, start);
-    const inParens = match[1] !== undefined;
-    const path = normalizePath(inParens ? match[1] : match[3]);
-    const known = path in CHAT_LINK_PAGES;
+  // 1つのパスと、その直前の文章を表示の部品にする
+  const render = (token: PathToken, before: string): ReactNode[] => {
+    const path = normalizePath(token.path);
+    if (!(path in CHAT_LINK_PAGES)) return [before]; // 一覧にないパスは消す
+    if (!token.inParens)
+      return [before, link(path, CHAT_LINK_PAGES[path][0], token.start)];
+    const name = nameBefore(path, before);
+    if (!name) return [before, '（', link(path, '開く', token.start), '）'];
+    return [
+      before.slice(0, before.length - name.length),
+      link(path, name, token.start),
+    ];
+  };
 
-    if (inParens) {
-      const name = known
-        ? namesOf(path).find((n) => before.endsWith(n))
-        : undefined;
-      if (name) {
-        // 括弧の直前の呼び方をリンクにして、括弧は消す
-        parts.push(before.slice(0, before.length - name.length));
-        parts.push(link(path, name, start));
-      } else {
-        parts.push(before);
-        if (known) parts.push('（', link(path, '開く', start), '）');
-        // 一覧にないパスは括弧ごと消す
-      }
-    } else {
-      // 括弧のないパス: 直前の1文字（match[2]）は残す
-      before += match[2];
-      parts.push(before);
-      if (known) parts.push(link(path, CHAT_LINK_PAGES[path][0], start));
-      // 一覧にないパスは消す
-    }
-    last = start + match[0].length;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const token of findPaths(text)) {
+    parts.push(...render(token, text.slice(last, token.start)));
+    last = token.end;
   }
   parts.push(text.slice(last));
   return <>{parts}</>;
