@@ -7,6 +7,7 @@ import {
   handleAuthCallback,
   silentRefresh,
 } from '@/shared/utils/auth';
+import ChatWidget from './ChatWidget';
 
 interface MemberAuthWrapperProps {
   children: ReactNode;
@@ -123,5 +124,11 @@ export default function MemberAuthWrapper({
     );
   }
 
-  return <>{children}</>;
+  // 認証が確認できてからチャットを出す
+  return (
+    <>
+      {children}
+      <ChatWidget />
+    </>
+  );
 }

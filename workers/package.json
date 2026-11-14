@@ -21,14 +21,23 @@
     "deploy:applications": "wrangler deploy --config wrangler.applications.toml",
     "dev:places": "wrangler dev --config wrangler.places.toml",
     "deploy:places": "wrangler deploy --config wrangler.places.toml",
+    "dev:chat": "wrangler dev --config wrangler.chat.toml",
+    "deploy:chat": "wrangler deploy --config wrangler.chat.toml",
+    "chat:on": "wrangler d1 execute miyosino-chat --remote --config wrangler.chat.toml --command \"INSERT INTO chat_settings (key, value) VALUES ('enabled', '1') ON CONFLICT (key) DO UPDATE SET value = '1'\"",
+    "chat:off": "wrangler d1 execute miyosino-chat --remote --config wrangler.chat.toml --command \"INSERT INTO chat_settings (key, value) VALUES ('enabled', '0') ON CONFLICT (key) DO UPDATE SET value = '0'\"",
+    "chat:limits": "bash scripts/set-chat-limits.sh",
+    "chat:status": "wrangler d1 execute miyosino-chat --remote --config wrangler.chat.toml --command \"SELECT key, value FROM chat_settings ORDER BY key\"",
     "set-jwt-secret": "bash scripts/set-jwt-secret.sh",
     "generate-jwt-secret": "bash scripts/generate-jwt-secret.sh",
     "build": "tsc",
     "build:watch": "tsc --watch"
   },
   "devDependencies": {
-    "wrangler": "^4.47.0",
     "@cloudflare/workers-types": "^4.20241106.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.47.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0"
   }
 }

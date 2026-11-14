@@ -1,0 +1,393 @@
+/**
+ * Cloudflare Workers - 組合員専用チャットボット API
+ *
+ * 組合員専用ページのチャットから質問を受け取り、Claude API で答えを返します。
+ *
+ * エンドポイント:
+ * - POST /chat - 会話の履歴を受け取り、答えを返す
+ * - GET /chat/usage - 今日の利用回数と上限を返す
+ * - GET /chat/status - チャットがオンかどうかを返す（画面はオフならボタンを出さない）
+ *
+ * 設定: D1 の chat_settings に置く（デプロイなしで変えられ、デプロイし直しても戻らない）
+ * - enabled: '1' でオン。workers/ で npm run chat:on / chat:off で切り替える。
+ *   オフのときは /chat と /chat/usage が 503（error: 'disabled'）を返す
+ * - limit_per_user / limit_total: 1人1日の上限と、全員合計の1日の上限（日本時間で区切る）。
+ *   workers/ で npm run chat:limits -- <1人の上限> <全員の上限> で変える
+ * 今の設定は npm run chat:status で見られる。行がないときや値が読めないときは既定値を使う
+ *
+ * 認証: JWTトークンで組合員認証を確認
+ * 回数は D1（バインディング DB）で数える。テーブルは migrations/chat/ を参照
+ */
+
+import Anthropic from '@anthropic-ai/sdk';
+import { CHAT_SYSTEM_PROMPT } from './chat-guide';
+import { verifyJWT } from './_jwt';
+
+interface Env {
+  ANTHROPIC_API_KEY: string;
+  JWT_SECRET: string;
+  DB: D1Database;
+  CHAT_MODEL?: string;
+}
+
+interface ChatSettings {
+  enabled: boolean;
+  limits: { perUser: number; total: number };
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
+const DEFAULT_MODEL = 'claude-haiku-5-5';
+// D1 に上限の設定がないとき・読めないときの値
+const DEFAULT_LIMIT_PER_USER = 20;
+const DEFAULT_LIMIT_TOTAL = 300;
+// 1回の答えの上限。考える分のトークンも含む
+const MAX_TOKENS = 8000;
+// 送ってよい会話の長さ（費用と悪用を抑える）
+const MAX_MESSAGES = 20;
+const MAX_MESSAGE_LENGTH = 1000;
+const MAX_ASSISTANT_LENGTH = 4000;
+// 認証Workerが利用者を識別できなかったときの sub（workers/api/auth.ts と同じ値）
+const UNIDENTIFIED_USER_ID = 'kintone-user';
+// サーバー側の自動フォールバック（fallbacks: "default"）に対応しているモデル
+const MODELS_WITH_SERVER_FALLBACK = new Set([
+  'claude-fable-5-1',
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-sonnet-5-5',
+]);
+
+const REFUSAL_REPLY =
+  'すみません、この質問にはお答えできません。管理組合事務所かお問い合わせページ（/contact）にお問い合わせください。';
+
+function corsHeaders(origin?: string): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
+function jsonResponse(
+  body: unknown,
+  status: number,
+  origin?: string
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders(origin),
+    },
+  });
+}
+
+// 0 以上の整数として読めなければ既定値にする
+function parseLimit(value: string | undefined, fallback: number): number {
+  if (value === undefined || !/^\d+$/.test(value.trim())) return fallback;
+  return Number.parseInt(value, 10);
+}
+
+// 日本時間の日付（YYYY-MM-DD）
+function todayJst(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * 回数を1つ増やす。上限に達していれば増やさずに false を返す。
+ * 上限の確認と加算を1つのSQLで行うので、同時に送られても上限を超えない。
+ */
+async function reserveUserCount(
+  db: D1Database,
+  userId: string,
+  date: string,
+  limit: number
+): Promise<boolean> {
+  if (limit <= 0) return false;
+  const row = await db
+    .prepare(
+      `INSERT INTO chat_usage (user_id, date_jst, count) VALUES (?1, ?2, 1)
+       ON CONFLICT (user_id, date_jst) DO UPDATE SET count = count + 1 WHERE count < ?3
+       RETURNING count`
+    )
+    .bind(userId, date, limit)
+    .first<{ count: number }>();
+  return row !== null;
+}
+
+async function reserveTotalCount(
+  db: D1Database,
+  date: string,
+  limit: number
+): Promise<boolean> {
+  if (limit <= 0) return false;
+  const row = await db
+    .prepare(
+      `INSERT INTO chat_usage_total (date_jst, count) VALUES (?1, 1)
+       ON CONFLICT (date_jst) DO UPDATE SET count = count + 1 WHERE count < ?2
+       RETURNING count`
+    )
+    .bind(date, limit)
+    .first<{ count: number }>();
+  return row !== null;
+}
+
+// 答えられなかったときに回数を戻す
+async function releaseUserCount(
+  db: D1Database,
+  userId: string,
+  date: string
+): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE chat_usage SET count = count - 1 WHERE user_id = ?1 AND date_jst = ?2 AND count > 0'
+    )
+    .bind(userId, date)
+    .run();
+}
+
+async function releaseTotalCount(db: D1Database, date: string): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE chat_usage_total SET count = count - 1 WHERE date_jst = ?1 AND count > 0'
+    )
+    .bind(date)
+    .run();
+}
+
+// 設定をまとめて読む。enabled の行がなければオンとみなす
+async function getChatSettings(db: D1Database): Promise<ChatSettings> {
+  const { results } = await db
+    .prepare('SELECT key, value FROM chat_settings')
+    .all<{ key: string; value: string }>();
+  const values = new Map(results.map((row) => [row.key, row.value]));
+  const enabled = values.get('enabled');
+  return {
+    enabled: enabled === undefined || enabled === '1',
+    limits: {
+      perUser: parseLimit(values.get('limit_per_user'), DEFAULT_LIMIT_PER_USER),
+      total: parseLimit(values.get('limit_total'), DEFAULT_LIMIT_TOTAL),
+    },
+  };
+}
+
+async function getUserUsage(
+  db: D1Database,
+  userId: string,
+  date: string,
+  limit: number
+): Promise<ChatUsage> {
+  const row = await db
+    .prepare(
+      'SELECT count FROM chat_usage WHERE user_id = ?1 AND date_jst = ?2'
+    )
+    .bind(userId, date)
+    .first<{ count: number }>();
+  const used = row?.count ?? 0;
+  return { used, limit, remaining: Math.max(limit - used, 0) };
+}
+
+// リクエストの会話を確かめる。不正なら null
+function parseMessages(body: unknown): ChatMessage[] | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const messages = (body as { messages?: unknown }).messages;
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0 ||
+    messages.length > MAX_MESSAGES
+  ) {
+    return null;
+  }
+
+  const parsed: ChatMessage[] = [];
+  for (const message of messages) {
+    if (typeof message !== 'object' || message === null) return null;
+    const { role, content } = message as { role?: unknown; content?: unknown };
+    if (role !== 'user' && role !== 'assistant') return null;
+    if (typeof content !== 'string') return null;
+    const trimmed = content.trim();
+    if (trimmed.length === 0) return null;
+    if (role === 'user') {
+      if (trimmed.length > MAX_MESSAGE_LENGTH) return null;
+      parsed.push({ role, content: trimmed });
+    } else {
+      // 以前の答えは長いことがあるので、拒否せずに切り詰める
+      parsed.push({ role, content: trimmed.slice(0, MAX_ASSISTANT_LENGTH) });
+    }
+  }
+
+  // 最初と最後は利用者の質問でなければならない
+  if (parsed[0].role !== 'user' || parsed[parsed.length - 1].role !== 'user') {
+    return null;
+  }
+  return parsed;
+}
+
+async function askClaude(env: Env, messages: ChatMessage[]): Promise<string> {
+  const model = env.CHAT_MODEL || DEFAULT_MODEL;
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1 });
+  const useFallback = MODELS_WITH_SERVER_FALLBACK.has(model);
+
+  const response = await client.beta.messages.create({
+    model,
+    max_tokens: MAX_TOKENS,
+    // 案内の質問は難しくないので、考える量を抑えて速さと費用を優先する
+    output_config: { effort: 'low' },
+    // 安全上の理由で断られたとき、サーバー側で別のモデルに答えさせる
+    ...(useFallback
+      ? {
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default' as const,
+        }
+      : {}),
+    system: [
+      {
+        type: 'text',
+        text: CHAT_SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages,
+  });
+
+  if (response.stop_reason === 'refusal') {
+    return REFUSAL_REPLY;
+  }
+
+  const reply = response.content
+    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+    .join('')
+    .trim();
+  if (!reply) {
+    throw new Error(`Empty reply (stop_reason: ${response.stop_reason})`);
+  }
+  return reply;
+}
+
+async function handleChat(
+  request: Request,
+  env: Env,
+  userId: string,
+  limits: { perUser: number; total: number },
+  origin?: string
+): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: 'invalid_request' }, 400, origin);
+  }
+  const messages = parseMessages(body);
+  if (!messages) {
+    return jsonResponse({ error: 'invalid_request' }, 400, origin);
+  }
+
+  const date = todayJst();
+  if (!(await reserveUserCount(env.DB, userId, date, limits.perUser))) {
+    return jsonResponse(
+      {
+        error: 'user_limit',
+        usage: await getUserUsage(env.DB, userId, date, limits.perUser),
+      },
+      429,
+      origin
+    );
+  }
+  if (!(await reserveTotalCount(env.DB, date, limits.total))) {
+    await releaseUserCount(env.DB, userId, date);
+    return jsonResponse(
+      {
+        error: 'total_limit',
+        usage: await getUserUsage(env.DB, userId, date, limits.perUser),
+      },
+      429,
+      origin
+    );
+  }
+
+  try {
+    const reply = await askClaude(env, messages);
+    const usage = await getUserUsage(env.DB, userId, date, limits.perUser);
+    return jsonResponse({ reply, usage }, 200, origin);
+  } catch (error) {
+    // 答えられなかった分は数えない
+    await releaseUserCount(env.DB, userId, date);
+    await releaseTotalCount(env.DB, date);
+    if (error instanceof Anthropic.APIError) {
+      console.error('[Chat] Claude API error:', error.status, error.message);
+    } else {
+      console.error('[Chat] Failed to get reply:', error);
+    }
+    return jsonResponse({ error: 'chat_failed' }, 502, origin);
+  }
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/$/, '');
+    const origin = request.headers.get('Origin') || undefined;
+
+    // CORSプリフライトリクエストの処理
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders(origin) });
+    }
+
+    if (!env.ANTHROPIC_API_KEY || !env.JWT_SECRET || !env.DB) {
+      console.error('[Chat] Required environment variables are not set');
+      return jsonResponse({ error: 'Server configuration error' }, 500, origin);
+    }
+
+    // JWTトークンで認証確認
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+    }
+    const payload = await verifyJWT(authHeader.substring(7), env.JWT_SECRET);
+    if (!payload) {
+      return jsonResponse({ error: 'Invalid token' }, 401, origin);
+    }
+    try {
+      // オン・オフは利用者の識別より先に答える（オフなら誰にもボタンを出さない）
+      const { enabled, limits } = await getChatSettings(env.DB);
+      if (path === '/chat/status' && request.method === 'GET') {
+        return jsonResponse({ enabled }, 200, origin);
+      }
+      if (!enabled) {
+        return jsonResponse({ error: 'disabled' }, 503, origin);
+      }
+
+      // 利用者を識別できないと1人ごとに数えられないので使わせない（再ログインで識別される）
+      if (!payload.sub || payload.sub === UNIDENTIFIED_USER_ID) {
+        return jsonResponse({ error: 'unidentified' }, 403, origin);
+      }
+
+      if (path === '/chat' && request.method === 'POST') {
+        return await handleChat(request, env, payload.sub, limits, origin);
+      }
+      if (path === '/chat/usage' && request.method === 'GET') {
+        const usage = await getUserUsage(
+          env.DB,
+          payload.sub,
+          todayJst(),
+          limits.perUser
+        );
+        return jsonResponse({ usage }, 200, origin);
+      }
+      return jsonResponse({ error: 'Not found' }, 404, origin);
+    } catch (error) {
+      console.error('[Chat] Error:', error);
+      return jsonResponse({ error: 'Internal server error' }, 500, origin);
+    }
+  },
+};
