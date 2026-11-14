@@ -21,6 +21,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { CHAT_SYSTEM_PROMPT } from './chat-guide';
+import { verifyJWT } from './_jwt';
 
 interface Env {
   ANTHROPIC_API_KEY: string;
@@ -32,14 +33,6 @@ interface Env {
 interface ChatSettings {
   enabled: boolean;
   limits: { perUser: number; total: number };
-}
-
-interface JWTPayload {
-  sub: string;
-  name: string;
-  email: string;
-  iat: number;
-  exp: number;
 }
 
 interface ChatMessage {
@@ -97,66 +90,6 @@ function jsonResponse(
       ...corsHeaders(origin),
     },
   });
-}
-
-// JWT検証関数
-async function verifyJWT(
-  token: string,
-  secret: string
-): Promise<JWTPayload | null> {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    const [encodedHeader, encodedPayload, encodedSignature] = parts;
-    const data = `${encodedHeader}.${encodedPayload}`;
-
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
-
-    const signature = Uint8Array.from(
-      atob(encodedSignature.replace(/-/g, '+').replace(/_/g, '/')),
-      (c) => c.charCodeAt(0)
-    );
-
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signature,
-      encoder.encode(data)
-    );
-
-    if (!valid) {
-      return null;
-    }
-
-    // JWTのペイロードは UTF-8（表示名に日本語が入る）なので、バイト列として復号する
-    const payloadBytes = Uint8Array.from(
-      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')),
-      (c) => c.charCodeAt(0)
-    );
-    const payload = JSON.parse(
-      new TextDecoder().decode(payloadBytes)
-    ) as JWTPayload;
-
-    // 有効期限チェック
-    if (payload.exp < Date.now() / 1000) {
-      return null;
-    }
-
-    return payload;
-  } catch (error) {
-    console.error('[Chat] JWT verification error:', error);
-    return null;
-  }
 }
 
 // 0 以上の整数として読めなければ既定値にする

@@ -18,6 +18,8 @@
  * 識別できなかったときは sub を UNIDENTIFIED_USER_ID にする（ログイン自体は通す）。
  */
 
+import { JWTPayload, generateJWT, verifyJWT } from './_jwt';
+
 interface Env {
   KINTONE_DOMAIN: string; // 例: your-subdomain.cybozu.com
   KINTONE_CLIENT_ID: string;
@@ -47,114 +49,6 @@ interface KintoneUserResponse {
   name: string;
   email: string;
   valid: boolean;
-}
-
-interface JWTPayload {
-  sub: string; // ユーザーID
-  name: string; // ユーザー名
-  email: string;
-  iat: number; // 発行時刻
-  exp: number; // 有効期限
-}
-
-// JWT関連のヘルパー関数
-async function generateJWT(
-  payload: JWTPayload,
-  secret: string
-): Promise<string> {
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT',
-  };
-
-  const encodedHeader = btoa(JSON.stringify(header))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-  // 表示名に日本語が入るので、UTF-8 のバイト列にしてから base64url にする（btoa は日本語を扱えない）
-  const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
-  const encodedPayload = btoa(String.fromCharCode(...payloadBytes))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-
-  const data = `${encodedHeader}.${encodedPayload}`;
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-  const encodedSignature = btoa(
-    String.fromCharCode(...new Uint8Array(signature))
-  )
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-
-  return `${data}.${encodedSignature}`;
-}
-
-async function verifyJWT(
-  token: string,
-  secret: string
-): Promise<JWTPayload | null> {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    const [encodedHeader, encodedPayload, encodedSignature] = parts;
-    const data = `${encodedHeader}.${encodedPayload}`;
-
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
-
-    const signature = Uint8Array.from(
-      atob(encodedSignature.replace(/-/g, '+').replace(/_/g, '/')),
-      (c) => c.charCodeAt(0)
-    );
-
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signature,
-      encoder.encode(data)
-    );
-
-    if (!valid) {
-      return null;
-    }
-
-    const payloadBytes = Uint8Array.from(
-      atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')),
-      (c) => c.charCodeAt(0)
-    );
-    const payload = JSON.parse(
-      new TextDecoder().decode(payloadBytes)
-    ) as JWTPayload;
-
-    // 有効期限チェック
-    if (payload.exp < Date.now() / 1000) {
-      return null;
-    }
-
-    return payload;
-  } catch (error) {
-    console.error('[Auth] JWT verification error:', error);
-    return null;
-  }
 }
 
 // CORS とログイン後のリダイレクト先として許可するオリジン

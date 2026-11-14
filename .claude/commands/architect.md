@@ -61,7 +61,7 @@ Follow `/app/ADD_NEW_KINTONE_API.md` as the authoritative guide. Key steps:
 - Kintone app ID is hard-coded as a constant inside the worker (not an env var)
 - Use shared helpers from `workers/api/_kintone.ts`: `corsHeaders()` and `fetchAllKintoneRecords()`
 - **Gotcha:** Radio button fields cannot use `=` in Kintone query strings — fetch all records, then `filter()` in JS (see `workers/api/applications.ts`)
-- JWT verification is copy-paste identical across all workers (no shared import — Workers are isolated)
+- JWT: use `generateJWT()` / `verifyJWT()` from `workers/api/_jwt.ts` (UTF-8 payload). `auth.ts` and `chat.ts` import it; older workers still carry an identical copy of `verifyJWT` (each worker is bundled separately, so a shared import is fine)
 
 ### 2. Wrangler config (`workers/wrangler.<name>.toml`)
 - Copy `workers/wrangler.circulars.toml`
