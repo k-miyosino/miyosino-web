@@ -161,7 +161,7 @@ npx wrangler secret put KINTONE_DOMAIN --config wrangler.auth.toml
 npx wrangler secret put KINTONE_CLIENT_ID --config wrangler.auth.toml
 npx wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml
 npx wrangler secret put JWT_SECRET --config wrangler.auth.toml
-npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml  # 「ログイン記録」アプリのID（README参照）
+npx wrangler secret put KINTONE_LOGIN_LOG_APP_ID --config wrangler.auth.toml  # 「ログイン記録」アプリのID（CHATBOT.md 参照）
 ```
 
 ### チャットボット用Worker（miyosino-chat）
@@ -171,9 +171,9 @@ npx wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml
 npx wrangler secret put JWT_SECRET --config wrangler.chat.toml
 ```
 
-**D1**: `miyosino-chat`（`wrangler.chat.toml` の `database_id` に設定。README の「チャットボット」を参照）
+**D1**: `miyosino-chat`（`wrangler.chat.toml` の `database_id` に設定済み。運用は [CHATBOT.md](./CHATBOT.md) を参照）
 **モデル**: `wrangler.chat.toml` の `[vars]` の `CHAT_MODEL`（シークレットではない）
-**オン・オフ・回数上限**: D1 の `chat_settings`（`npm run chat:on` / `chat:off` / `chat:limits` / `chat:status`。README の「チャットボット」を参照）
+**オン・オフ・回数上限**: D1 の `chat_settings`（`npm run chat:on` / `chat:off` / `chat:limits` / `chat:status`。[CHATBOT.md](./CHATBOT.md) を参照）
 
 ### お知らせAPI用Worker（miyosino-announcements）
 
