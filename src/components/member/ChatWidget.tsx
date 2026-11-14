@@ -277,7 +277,7 @@ export default function ChatWidget() {
             <p className="text-sm text-gray-700">
               ホームページの使い方や、どのページに何が載っているかをお答えします。
               お知らせや資料の中身は、それぞれのページでご確認ください。
-              答えの「開く」を押すと、そのページに移ります。
+              答えの中の下線の付いたページ名を押すと、そのページに移ります。
             </p>
             {!isBlocked && (
               <div className="space-y-2">
