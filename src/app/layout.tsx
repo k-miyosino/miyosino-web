@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Noto_Serif_JP } from 'next/font/google';
 import './globals.css';
 import { Header, Footer } from '@/components';
 import { GoogleAnalytics } from '@/components/analytics';
+import ChatWidgetGate from '@/components/member/ChatWidgetGate';
 import { SITE_CONFIG } from '@/shared/constants';
 
 const geistSans = Geist({
@@ -62,6 +63,8 @@ export default function RootLayout({
         <Header />
         <main className="min-h-screen">{children}</main>
         <Footer />
+        {/* ログインしているときだけ、どのページでも右下にチャットを出す */}
+        <ChatWidgetGate />
       </body>
     </html>
   );

@@ -34,10 +34,12 @@ export interface ChatUsage {
  * - unidentified: 利用者を識別できない（再ログインが必要）
  * - user_limit: 1人1日の上限に達した
  * - total_limit: 全員合計の1日の上限に達した
+ * - unauthorized: ログインの有効期限が切れている（もう一度ログインが必要）
  * - disabled: チャットがオフになっている
  * - failed: その他の失敗
  */
 export type ChatErrorCode =
+  | 'unauthorized'
   | 'disabled'
   | 'unidentified'
   | 'user_limit'
