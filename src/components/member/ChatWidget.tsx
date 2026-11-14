@@ -11,6 +11,12 @@ import {
   sendChatMessages,
 } from '@/repositories/chat/chatRepository';
 import { logout } from '@/shared/utils/auth';
+import {
+  createConversationId,
+  loadChatSession,
+  saveChatSession,
+} from '@/shared/utils/chatSession';
+import ChatAnswer from './ChatAnswer';
 
 const ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   disabled: '現在、チャットは停止しています。',
@@ -47,7 +53,7 @@ function toErrorCode(error: unknown): ChatErrorCode {
  * 組合員専用ページの右下に出すチャットボット。
  * 認証済みのときだけ描画すること（MemberAuthWrapper と組合員専用トップから使う）。
  * チャットがオンのときだけボタンを出す（オフのときや、状態を取得できないときは何も出さない）。
- * 会話はこのコンポーネントの中にだけ持ち、ページを移動すると消える。
+ * 会話と開いているかどうかは sessionStorage に残すので、ページを移動しても続く（タブを閉じると消える）。
  */
 export default function ChatWidget() {
   const [isEnabled, setIsEnabled] = useState(false);
@@ -57,6 +63,9 @@ export default function ChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const [usage, setUsage] = useState<ChatUsage | null>(null);
   const [errorCode, setErrorCode] = useState<ChatErrorCode | null>(null);
+  const [conversationId, setConversationId] = useState('');
+  // sessionStorage から読み込み終わるまでは保存しない（空の会話で上書きしないため）
+  const [isRestored, setIsRestored] = useState(false);
   const hasLoadedUsage = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -75,6 +84,22 @@ export default function ChatWidget() {
       cancelled = true;
     };
   }, []);
+
+  // 前のページで続けていた会話を読み込む
+  useEffect(() => {
+    const saved = loadChatSession();
+    if (saved) {
+      setMessages(saved.messages);
+      setIsOpen(saved.isOpen);
+      setConversationId(saved.conversationId);
+    }
+    setIsRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isRestored) return;
+    saveChatSession({ messages, isOpen, conversationId });
+  }, [isRestored, messages, isOpen, conversationId]);
 
   // 初めて開いたときに今日の残り回数を取得する（識別できない利用者もここでわかる）
   useEffect(() => {
@@ -115,6 +140,7 @@ export default function ChatWidget() {
       ...messages,
       { role: 'user', content: question },
     ];
+    if (!conversationId) setConversationId(createConversationId());
     setMessages(history);
     setInput('');
     setErrorCode(null);
@@ -150,7 +176,16 @@ export default function ChatWidget() {
 
   function handleReset() {
     setMessages([]);
+    setConversationId('');
     if (errorCode === 'failed') setErrorCode(null);
+  }
+
+  // 答えの中のリンクを押したとき。スマートフォンではチャット欄が画面の下を覆うので閉じる（会話は残る）。
+  // ページの移動で部品が作り直される前に保存しておく
+  function handleNavigate() {
+    const keepOpen = window.matchMedia('(min-width: 640px)').matches;
+    saveChatSession({ messages, isOpen: keepOpen, conversationId });
+    if (!keepOpen) setIsOpen(false);
   }
 
   if (!isEnabled) {
@@ -242,6 +277,7 @@ export default function ChatWidget() {
             <p className="text-sm text-gray-700">
               ホームページの使い方や、どのページに何が載っているかをお答えします。
               お知らせや資料の中身は、それぞれのページでご確認ください。
+              答えの「開く」を押すと、そのページに移ります。
             </p>
             {!isBlocked && (
               <div className="space-y-2">
@@ -277,7 +313,14 @@ export default function ChatWidget() {
                   : 'bg-white text-gray-900 ring-1 ring-gray-200'
               }`}
             >
-              {message.content}
+              {message.role === 'assistant' ? (
+                <ChatAnswer
+                  text={message.content}
+                  onNavigate={handleNavigate}
+                />
+              ) : (
+                message.content
+              )}
             </div>
           </div>
         ))}
