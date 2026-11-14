@@ -41,6 +41,8 @@ export default function PrivacyPage() {
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
                 かわつる三芳野団地（以下「当団地」といいます）は、お問い合わせフォームを通じて以下の個人情報を収集することがあります。
+                組合員向けチャットボットで取り扱う情報は、「7.
+                組合員向けチャットボット（サイト案内チャット）について」に記載しています。
               </p>
               <ul className="list-disc list-inside text-gray-700 space-y-2 mb-4">
                 <li>お名前</li>
@@ -116,9 +118,71 @@ export default function PrivacyPage() {
               </p>
             </section>
 
+            <section className="mb-12" id="chatbot">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                7. 組合員向けチャットボット（サイト案内チャット）について
+              </h2>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                組合員専用ページの「サイト案内チャット」では、次のとおり情報を取り扱います。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                回答の作成
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                入力された質問と会話の内容は、回答を作るため、Anthropic社（米国）のAIサービスに送信され、同社の規約に従って取り扱われます。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                質問と回答の保存
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                当団地が保存を行っている間は、回答とホームページの改善のため、次の情報を保存します。保存しているときは、チャット欄にその旨を表示します。
+              </p>
+              <ul className="list-disc list-inside text-gray-700 space-y-2 mb-4">
+                <li>
+                  質問と回答の内容（電話番号・メールアドレス・部屋番号と思われる文字列は、伏せ字に置き換えて保存します）
+                </li>
+                <li>質問した日時とページ</li>
+                <li>
+                  会話ごとに作る番号（どなたかを特定するものではありません）
+                </li>
+                <li>回答への評価（わかった／少しわかった／わからなかった）</li>
+              </ul>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                ログイン名など、どなたの質問かがわかる情報は保存しません。保存した情報は180日間保存し、過ぎたものは自動的に削除します。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                保存を止める方法
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                チャット欄の「この会話を保存しない」を選ぶと、質問と回答は保存しません。回答への評価は、質問と回答を含まない形で保存します。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                利用回数の管理
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                1日に使える回数を数えるため、ログインしたアカウントを識別する情報と日ごとの利用回数を、7日間保存します。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                お使いのブラウザに保存する情報
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                ページを移動しても会話を続けられるよう、会話の内容をお使いのブラウザに一時的に保存します。ブラウザのタブを閉じたときと、ログアウトしたときに消えます。「この会話を保存しない」を選んだことも、お使いのブラウザに保存します。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                保存した情報を見られる人
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                保存した情報を見られるのは、ホームページを管理する担当者だけです。
+              </p>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">お願い</h3>
+              <p className="text-gray-700 leading-relaxed mb-4">
+                チャットには、名前・住所・電話番号などの個人情報を入力しないでください。
+              </p>
+            </section>
+
             <section className="mb-12">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                7. お問い合わせ
+                8. お問い合わせ
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
                 プライバシーポリシーに関するお問い合わせは、
@@ -134,7 +198,7 @@ export default function PrivacyPage() {
 
             <section className="mb-12">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                8. プライバシーポリシーの変更
+                9. プライバシーポリシーの変更
               </h2>
               <p className="text-gray-700 leading-relaxed">
                 当団地は、必要に応じて本プライバシーポリシーを変更することがあります。
