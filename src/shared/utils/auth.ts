@@ -58,6 +58,24 @@ function isTokenExpired(token: string): boolean {
   return payload.exp < Math.floor(Date.now() / 1000) + 30;
 }
 
+/** ログインの状態が変わったときに window に送るイベントの名前（チャット欄が表示を切り替えるのに使う） */
+export const AUTH_CHANGE_EVENT = 'miyosino-auth-change';
+
+function notifyAuthChange(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
+}
+
+/**
+ * 期限の切れていないログインのトークンがあるか（画面の側だけで確かめる。署名は確かめない）。
+ * 公開ページでチャット欄を出すかどうかを決めるのに使う。ログイン画面へは飛ばさない
+ */
+export function hasValidToken(): boolean {
+  const token = getToken();
+  return token !== null && !isTokenExpired(token);
+}
+
 /**
  * URLからトークンを取得してlocalStorageに保存
  * 認証後のリダイレクト時に呼び出される
@@ -95,6 +113,7 @@ export function handleAuthCallback(): boolean {
         (hashParams.toString() ? '#' + hashParams.toString() : '');
       window.history.replaceState({}, '', newUrl);
 
+      notifyAuthChange();
       return true;
     }
     return false;
@@ -163,6 +182,7 @@ export async function silentRefresh(): Promise<boolean> {
     }
 
     console.log('[Auth] Silent refresh successful');
+    notifyAuthChange();
     return true;
   } catch (error) {
     console.error('[Auth] Silent refresh error:', error);
@@ -255,6 +275,7 @@ export async function logout(): Promise<void> {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   // チャットの会話も消す（共用の端末で次の人に残らないように）
   clearChatSession();
+  notifyAuthChange();
 
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 

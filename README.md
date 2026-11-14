@@ -473,7 +473,7 @@ docker-compose exec web git config --global --add safe.directory /app
 
 #### チャットボットとログイン記録アプリ
 
-組合員専用ページの右下に出る「サイト案内チャット」（`miyosino-chat` Worker）と、利用者を識別するための kintone の「ログイン記録」アプリ（`KINTONE_LOGIN_LOG_APP_ID`）の設定・運用は、**[CHATBOT.md](./CHATBOT.md)** にまとめています。
+ログインしているとき各ページの右下に出る「サイト案内チャット」（`miyosino-chat` Worker）と、利用者を識別するための kintone の「ログイン記録」アプリ（`KINTONE_LOGIN_LOG_APP_ID`）の設定・運用は、**[CHATBOT.md](./CHATBOT.md)** にまとめています。
 
 - オン・オフ、回数の上限の変更（`workers/` で `npm run chat:on` / `chat:off` / `chat:limits` / `chat:status`）
 - 案内文（`workers/api/chat-guide.ts`）とモデルの変え方
