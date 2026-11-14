@@ -29,6 +29,7 @@ import {
 import ChatAnswer from './ChatAnswer';
 import ChatFeedback from './ChatFeedback';
 import ChatLogNotice from './ChatLogNotice';
+import { useMobileChatFrame } from './useMobileChatFrame';
 
 const ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   disabled: '現在、チャットは停止しています。',
@@ -81,6 +82,8 @@ export default function ChatWidget() {
   const [conversationId, setConversationId] = useState('');
   // sessionStorage から読み込み終わるまでは保存しない（空の会話で上書きしないため）
   const [isRestored, setIsRestored] = useState(false);
+  // スマートフォンの幅のとき、見えている範囲に合わせた高さと位置（閉じるボタンが画面の外に出ないように）
+  const mobileFrame = useMobileChatFrame(isOpen);
   const hasLoadedUsage = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -278,7 +281,13 @@ export default function ChatWidget() {
     <div
       role="dialog"
       aria-label="サイト案内チャット"
-      className="fixed inset-x-2 bottom-2 z-40 flex max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
+      // ページ上部のヘッダー（z-50）より手前に出す。スマートフォンでは高さと位置を見えている範囲から決める
+      className="fixed inset-x-2 bottom-2 z-[60] flex max-h-[85dvh] flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
+      style={
+        mobileFrame
+          ? { maxHeight: mobileFrame.maxHeight, bottom: mobileFrame.bottom }
+          : undefined
+      }
     >
       {/* ヘッダー */}
       <div className="flex items-center justify-between bg-blue-600 px-4 py-3 text-white">
