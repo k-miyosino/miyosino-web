@@ -1,22 +1,34 @@
 'use client';
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { ChatErrorCode, ChatMessage, ChatUsage } from '@/types/chat';
+import { usePathname } from 'next/navigation';
+import {
+  ChatErrorCode,
+  ChatMessage,
+  ChatRating,
+  ChatStatus,
+  ChatUsage,
+} from '@/types/chat';
 import {
   CHAT_MAX_MESSAGE_LENGTH,
   CHAT_MAX_MESSAGES,
   ChatApiError,
-  fetchChatEnabled,
+  fetchChatStatus,
   fetchChatUsage,
+  sendChatFeedback,
   sendChatMessages,
 } from '@/repositories/chat/chatRepository';
 import { logout } from '@/shared/utils/auth';
 import {
   createConversationId,
   loadChatSession,
+  loadNoLogPreference,
   saveChatSession,
+  saveNoLogPreference,
 } from '@/shared/utils/chatSession';
 import ChatAnswer from './ChatAnswer';
+import ChatFeedback from './ChatFeedback';
+import ChatLogNotice from './ChatLogNotice';
 
 const ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   disabled: '現在、チャットは停止しています。',
@@ -56,7 +68,10 @@ function toErrorCode(error: unknown): ChatErrorCode {
  * 会話と開いているかどうかは sessionStorage に残すので、ページを移動しても続く（タブを閉じると消える）。
  */
 export default function ChatWidget() {
-  const [isEnabled, setIsEnabled] = useState(false);
+  const pathname = usePathname();
+  const [status, setStatus] = useState<ChatStatus | null>(null);
+  const isEnabled = status?.enabled === true;
+  const [noLog, setNoLog] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -73,12 +88,12 @@ export default function ChatWidget() {
   // チャットがオンかどうかを確かめる。取得できなければボタンを出さない
   useEffect(() => {
     let cancelled = false;
-    fetchChatEnabled()
-      .then((enabled) => {
-        if (!cancelled) setIsEnabled(enabled);
+    fetchChatStatus()
+      .then((result) => {
+        if (!cancelled) setStatus(result);
       })
       .catch(() => {
-        if (!cancelled) setIsEnabled(false);
+        if (!cancelled) setStatus(null);
       });
     return () => {
       cancelled = true;
@@ -87,6 +102,7 @@ export default function ChatWidget() {
 
   // 前のページで続けていた会話を読み込む
   useEffect(() => {
+    setNoLog(loadNoLogPreference());
     const saved = loadChatSession();
     if (saved) {
       setMessages(saved.messages);
@@ -125,6 +141,17 @@ export default function ChatWidget() {
     }
   }, [isOpen]);
 
+  // 評価のボタンを出す答え（最新の答えだけ。評価がオンで、会話の ID と何番目の答えかがわかるとき）
+  const lastIndex = messages.length - 1;
+  const feedbackIndex =
+    status?.feedback &&
+    conversationId &&
+    !isSending &&
+    messages[lastIndex]?.role === 'assistant' &&
+    messages[lastIndex].turn
+      ? lastIndex
+      : -1;
+
   const isBlocked =
     errorCode === 'disabled' ||
     errorCode === 'unidentified' ||
@@ -140,14 +167,22 @@ export default function ChatWidget() {
       ...messages,
       { role: 'user', content: question },
     ];
-    if (!conversationId) setConversationId(createConversationId());
+    const id = conversationId || createConversationId();
+    if (id !== conversationId) setConversationId(id);
     setMessages(history);
     setInput('');
     setErrorCode(null);
     setIsSending(true);
     try {
-      const result = await sendChatMessages(toRequestMessages(history));
-      setMessages([...history, { role: 'assistant', content: result.reply }]);
+      const result = await sendChatMessages(toRequestMessages(history), {
+        conversationId: id,
+        page: pathname ?? '',
+        saveLog: !noLog,
+      });
+      setMessages([
+        ...history,
+        { role: 'assistant', content: result.reply, turn: result.turn },
+      ]);
       setUsage(result.usage);
     } catch (error) {
       setErrorCode(toErrorCode(error));
@@ -172,6 +207,26 @@ export default function ChatWidget() {
       event.preventDefault();
       void send(input);
     }
+  }
+
+  // 答えへの評価。画面はすぐにお礼に変え、送れなくても利用者には知らせない（評価は任意のため）
+  function handleRate(index: number, rating: ChatRating) {
+    const message = messages[index];
+    if (!message?.turn || !conversationId) return;
+    setMessages(messages.map((m, i) => (i === index ? { ...m, rating } : m)));
+    sendChatFeedback({
+      conversationId,
+      turn: message.turn,
+      rating,
+      page: pathname ?? '',
+    }).catch((error: unknown) => {
+      console.error('[ChatWidget] feedback error:', error);
+    });
+  }
+
+  function handleChangeNoLog(value: boolean) {
+    setNoLog(value);
+    saveNoLogPreference(value);
   }
 
   function handleReset() {
@@ -303,7 +358,7 @@ export default function ChatWidget() {
             className={
               message.role === 'user'
                 ? 'flex justify-end'
-                : 'flex justify-start'
+                : 'flex flex-col items-start'
             }
           >
             <div
@@ -322,6 +377,13 @@ export default function ChatWidget() {
                 message.content
               )}
             </div>
+            {index === feedbackIndex && (
+              <ChatFeedback
+                rating={message.rating}
+                onRate={(rating) => handleRate(index, rating)}
+                onNavigate={handleNavigate}
+              />
+            )}
           </div>
         ))}
 
@@ -384,8 +446,16 @@ export default function ChatWidget() {
           </button>
         </div>
         <p className="mt-1 text-xs text-gray-400">
-          個人情報（住所・電話番号など）は入力しないでください
+          個人情報（名前・住所・電話番号など）は入力しないでください
         </p>
+        {status?.logging && (
+          <ChatLogNotice
+            retentionDays={status.retentionDays}
+            noLog={noLog}
+            onChangeNoLog={handleChangeNoLog}
+            onNavigate={handleNavigate}
+          />
+        )}
       </form>
     </div>
   );

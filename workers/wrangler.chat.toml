@@ -20,3 +20,7 @@ migrations_dir = "migrations/chat"
 # 使うモデル。変えるときは費用に注意（サーバー側フォールバックは対応モデルのときだけ使う）
 CHAT_MODEL = "claude-haiku-5-5"
 # オン・オフと回数の上限は D1 の chat_settings に置く（npm run chat:on / chat:off / chat:limits / chat:status）
+
+# 定期実行: 保存期間を過ぎた質問ログ・評価・回数を消す（毎日 日本時間 4:00 = UTC 19:00）
+[triggers]
+crons = ["0 19 * * *"]
