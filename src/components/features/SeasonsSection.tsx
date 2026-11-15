@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { featuresSections } from './data';
+import { SeasonsPlaceholder } from './LoadingPlaceholders';
 import type { Season } from '@/types/seasons';
 import { fetchSeasons } from '@/repositories/microcms/contentRepository';
 
@@ -53,9 +54,7 @@ export function SeasonsSection() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 mt-16">
-            <p className="text-gray-600">四季の情報を読み込み中...</p>
-          </div>
+          <SeasonsPlaceholder items={4} />
         ) : seasonsData.length === 0 ? (
           <div className="text-center py-12 mt-16">
             <p className="text-gray-600">四季の情報はありません。</p>
