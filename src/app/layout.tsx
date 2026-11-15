@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Noto_Serif_JP } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Header, Footer } from '@/components';
 import { GoogleAnalytics } from '@/components/analytics';
@@ -16,15 +16,10 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-const notoSerifJP = Noto_Serif_JP({
-  variable: '--font-noto-serif-jp',
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700'],
-  preload: true,
-});
-
-// Kosugi Maru は Dev Container 等で Google Fonts がタイムアウトするため削除。
-// 必要なら Noto Serif JP やローカルフォントで代替可能。
+// 日本語の Web フォント（Noto Serif JP・Kosugi Maru）は読み込まない。
+// 日本語フォントは文字の範囲ごとに100件以上のファイルに分かれていて、ビルドのたびに
+// Google Fonts から取得するため、1件でも取れないとビルドが止まる（GitHub Actions で頻発した）。
+// 明朝体（font-serif）は globals.css で端末に入っているフォントを指定している。
 
 const siteTitle = 'かわつる三芳野団地 | Miyoshino Apartments';
 const siteDescription =
@@ -57,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSerifJP.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <GoogleAnalytics />
         <Header />
