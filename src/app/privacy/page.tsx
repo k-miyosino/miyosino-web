@@ -1,11 +1,12 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
+import { pageMetadata } from '@/shared/metadata';
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: '/privacy/',
   title: 'プライバシーポリシー | かわつる三芳野団地',
   description:
     'かわつる三芳野団地のプライバシーポリシー。個人情報の取り扱いについて説明します。',
-};
+});
 
 export default function PrivacyPage() {
   return (

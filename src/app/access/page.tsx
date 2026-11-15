@@ -4,12 +4,14 @@ import {
   GoogleMapSection,
   TableOfContents,
 } from '@/components/access';
+import { pageMetadata } from '@/shared/metadata';
 
-export const metadata = {
+export const metadata = pageMetadata({
+  path: '/access/',
   title: 'アクセス | かわつる三芳野団地',
   description:
     '団地への交通アクセス情報をご紹介。電車・バス・車でのアクセス方法、駐車場情報、都心各所へのアクセス時間などを詳しく解説します。',
-};
+});
 
 export default function AccessPage() {
   return (
