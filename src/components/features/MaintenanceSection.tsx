@@ -8,10 +8,10 @@ import type { MaintenanceRepair } from '@/types/history';
 import { MaintenanceTimeline, repairAnchorId } from './MaintenanceTimeline';
 
 const maintenanceDescription =
-  '当団地では、定期的な大規模修繕工事を実施し、建物の価値と快適性を長期的に維持しています。約10年ごとに計画的な修繕を行うことで、外観の美しさと機能性を保ち、資産価値の維持向上を図っています。';
+  '当団地では、長期修繕計画にもとづいて、おおむね10年前後の間隔で大規模修繕工事を行い、建物の機能と外観を保つよう努めています。';
 
 const maintenanceValueProposition =
-  'このような継続的な修繕により、建物の資産価値が維持され、長期的な住環境の質が保証されています。計画的な修繕は、将来の大規模な改修費用を抑制し、管理組合の財務健全性にも寄与しています。';
+  '傷みが大きくなる前に計画的に手を入れることで、建物を長く使い続けられる状態に保つことを目指しています。修繕の時期と費用をあらかじめ見通しておくことで、修繕積立金を計画的に準備できます。';
 
 export function MaintenanceSection() {
   const sectionMeta = featuresSections.find((s) => s.id === 'maintenance');
@@ -136,13 +136,13 @@ export function MaintenanceSection() {
               </div>
             )}
 
-            {/* 資産価値の説明 */}
+            {/* 計画的な修繕の考え方 */}
             <div className="mt-8 pt-8 border-t border-gray-200">
               <div className="bg-green-50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 mb-2">
-                      資産価値への影響
+                      計画的な修繕の考え方
                     </h4>
                     <p className="text-sm leading-6 text-gray-700">
                       {maintenanceValueProposition}
