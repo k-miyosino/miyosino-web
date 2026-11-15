@@ -51,35 +51,70 @@ const getHazardMapUrl = () => {
   return `${baseUrl}?${params.toString()}`;
 };
 
+// 団地の場所での想定（2026年11月に「重ねるハザードマップ」で確かめた結果）
+type HazardLevel = 'outside' | 'shallow';
+
+const hazardLevelStyles: Record<
+  HazardLevel,
+  { badge: string; border: string }
+> = {
+  outside: {
+    badge: 'bg-green-100 text-green-800 ring-green-200',
+    border: 'border-green-500',
+  },
+  shallow: {
+    badge: 'bg-amber-100 text-amber-800 ring-amber-200',
+    border: 'border-amber-400',
+  },
+};
+
 const hazardMapData = {
   title: '周辺の災害リスク情報',
   description:
-    'かわつる三芳野団地周辺は、洪水や浸水などの水害リスクが低いエリアです。国土地理院の「重ねるハザードマップ」で、団地周辺の洪水・土砂災害などの想定区域をご確認いただけます。',
+    '2026年11月時点の国土地理院「重ねるハザードマップ」では、かわつる三芳野団地は土砂災害・高潮・津波の想定区域に含まれていません。洪水と内水（大雨による浸水）では、団地内の一部で0.0〜0.5m（大人の膝までつかる程度）の浸水が想定されています。ハザードマップは見直されることがあるため、最新の情報は下の地図でご確認ください。',
+  checkedAt: '2026年11月',
   risks: [
     {
       type: '洪水',
+      level: 'shallow',
+      result: '一部で0.0〜0.5m',
       description:
-        '河川の氾濫による浸水リスクを確認できます。想定最大規模の洪水時の浸水想定区域と浸水継続時間が表示されます。',
+        '想定最大規模の大雨で川があふれた場合、団地内の一部で0.0〜0.5m（大人の膝までつかる程度）の浸水が想定されています。',
     },
     {
       type: '内水',
+      level: 'shallow',
+      result: '一部で0.0〜0.5m',
       description:
-        '雨水による内水氾濫の浸水リスクを確認できます。下水道や排水路の処理能力を超えた場合の浸水想定区域が表示されます。',
+        '下水道や排水路で雨水を流しきれない大雨の場合、団地内の一部で0.0〜0.5m（大人の膝までつかる程度）の浸水が想定されています。',
     },
     {
       type: '土砂災害',
+      level: 'outside',
+      result: '想定区域外',
       description:
-        '土石流、急傾斜地の崩壊、地すべりなどの土砂災害警戒区域を確認できます。',
+        '確認した時点では、土石流・急傾斜地の崩壊・地すべりの土砂災害警戒区域に含まれていません。',
     },
     {
       type: '高潮',
-      description: '台風や低気圧による高潮による浸水リスクを確認できます。',
+      level: 'outside',
+      result: '想定区域外',
+      description:
+        '確認した時点では、高潮による浸水想定区域に含まれていません。',
     },
     {
       type: '津波',
-      description: '地震による津波の浸水想定区域を確認できます。',
+      level: 'outside',
+      result: '想定区域外',
+      description:
+        '確認した時点では、津波による浸水想定区域に含まれていません。',
     },
-  ],
+  ] satisfies {
+    type: string;
+    level: HazardLevel;
+    result: string;
+    description: string;
+  }[],
   note: 'このハザードマップは国土地理院が提供する「重ねるハザードマップ」を使用しています。詳細な情報や最新のデータについては、国土地理院の公式サイトをご確認ください。',
 };
 
@@ -130,23 +165,36 @@ export function HazardMapSection() {
             </div>
           </div>
 
-          {/* 災害リスクの説明 */}
+          {/* 団地の場所での想定 */}
+          <h3 className="mb-2 text-xl font-bold text-gray-900">
+            団地の場所での想定
+          </h3>
+          <p className="mb-6 text-sm text-gray-500">
+            {hazardMapData.checkedAt}
+            に国土地理院の「重ねるハザードマップ」で確かめた結果です。ハザードマップは見直されることがあるため、最新の情報は上の地図でご確認ください。
+          </p>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            {hazardMapData.risks.map((risk, index) => (
-              <div
-                key={index}
-                className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 border-l-4 border-orange-600"
-              >
-                <div className="flex items-center gap-x-3 mb-4">
-                  <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
+            {hazardMapData.risks.map((risk) => {
+              const style = hazardLevelStyles[risk.level];
+              return (
+                <div
+                  key={risk.type}
+                  className={`rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 border-l-4 ${style.border}`}
+                >
+                  <h4 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                     {risk.type}
-                  </h3>
+                  </h4>
+                  <p
+                    className={`mt-2 inline-block rounded-full px-3 py-1 text-sm font-bold ring-1 ${style.badge}`}
+                  >
+                    {risk.result}
+                  </p>
+                  <p className="mt-4 text-sm leading-6 text-gray-600">
+                    {risk.description}
+                  </p>
                 </div>
-                <p className="text-sm leading-6 text-gray-600">
-                  {risk.description}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* 防災への取り組み */}
