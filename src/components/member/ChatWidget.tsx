@@ -18,7 +18,7 @@ import {
   sendChatFeedback,
   sendChatMessages,
 } from '@/repositories/chat/chatRepository';
-import { logout } from '@/shared/utils/auth';
+import { logout, redirectToLogin } from '@/shared/utils/auth';
 import {
   createConversationId,
   loadChatSession,
@@ -29,8 +29,11 @@ import {
 import ChatAnswer from './ChatAnswer';
 import ChatFeedback from './ChatFeedback';
 import ChatLogNotice from './ChatLogNotice';
+import { useMobileChatFrame } from './useMobileChatFrame';
 
 const ERROR_MESSAGES: Record<ChatErrorCode, string> = {
+  unauthorized:
+    'ログインの有効期限が切れました。もう一度ログインしてください。',
   disabled: '現在、チャットは停止しています。',
   unidentified:
     '利用者を確認できませんでした。いったんログアウトして、もう一度ログインしてください。',
@@ -62,8 +65,8 @@ function toErrorCode(error: unknown): ChatErrorCode {
 }
 
 /**
- * 組合員専用ページの右下に出すチャットボット。
- * 認証済みのときだけ描画すること（MemberAuthWrapper と組合員専用トップから使う）。
+ * 各ページの右下に出すチャットボット。
+ * ログインしているときだけ描画すること（layout.tsx の ChatWidgetGate から使う）。
  * チャットがオンのときだけボタンを出す（オフのときや、状態を取得できないときは何も出さない）。
  * 会話と開いているかどうかは sessionStorage に残すので、ページを移動しても続く（タブを閉じると消える）。
  */
@@ -81,6 +84,8 @@ export default function ChatWidget() {
   const [conversationId, setConversationId] = useState('');
   // sessionStorage から読み込み終わるまでは保存しない（空の会話で上書きしないため）
   const [isRestored, setIsRestored] = useState(false);
+  // スマートフォンの幅のとき、見えている範囲に合わせた高さと位置（閉じるボタンが画面の外に出ないように）
+  const mobileFrame = useMobileChatFrame(isOpen);
   const hasLoadedUsage = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -124,9 +129,15 @@ export default function ChatWidget() {
     fetchChatUsage()
       .then(setUsage)
       .catch((error: unknown) => {
-        // 残り回数が取れなくても質問はできるので、識別できない・停止中の場合だけ知らせる
+        // 残り回数が取れなくても質問はできるので、識別できない・停止中・ログインの期限切れの場合だけ知らせる
         const code = toErrorCode(error);
-        if (code === 'unidentified' || code === 'disabled') setErrorCode(code);
+        if (
+          code === 'unidentified' ||
+          code === 'disabled' ||
+          code === 'unauthorized'
+        ) {
+          setErrorCode(code);
+        }
       });
   }, [isOpen]);
 
@@ -153,6 +164,7 @@ export default function ChatWidget() {
       : -1;
 
   const isBlocked =
+    errorCode === 'unauthorized' ||
     errorCode === 'disabled' ||
     errorCode === 'unidentified' ||
     errorCode === 'user_limit' ||
@@ -278,7 +290,13 @@ export default function ChatWidget() {
     <div
       role="dialog"
       aria-label="サイト案内チャット"
-      className="fixed inset-x-2 bottom-2 z-40 flex max-h-[85vh] flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
+      // ページ上部のヘッダー（z-50）より手前に出す。スマートフォンでは高さと位置を見えている範囲から決める
+      className="fixed inset-x-2 bottom-2 z-[60] flex max-h-[85dvh] flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-2xl ring-1 ring-gray-900/10 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[36rem] sm:w-96"
+      style={
+        mobileFrame
+          ? { maxHeight: mobileFrame.maxHeight, bottom: mobileFrame.bottom }
+          : undefined
+      }
     >
       {/* ヘッダー */}
       <div className="flex items-center justify-between bg-blue-600 px-4 py-3 text-white">
@@ -398,6 +416,15 @@ export default function ChatWidget() {
         {errorCode && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             <p>{ERROR_MESSAGES[errorCode]}</p>
+            {errorCode === 'unauthorized' && (
+              <button
+                type="button"
+                onClick={() => redirectToLogin()}
+                className="mt-2 rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
+              >
+                ログインする
+              </button>
+            )}
             {errorCode === 'unidentified' && (
               <button
                 type="button"

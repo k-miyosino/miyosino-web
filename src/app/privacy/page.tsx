@@ -123,7 +123,7 @@ export default function PrivacyPage() {
                 7. 組合員向けチャットボット（サイト案内チャット）について
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
-                組合員専用ページの「サイト案内チャット」では、次のとおり情報を取り扱います。
+                ログインした組合員が使える「サイト案内チャット」（ログイン中は各ページの右下に表示）では、次のとおり情報を取り扱います。
               </p>
               <h3 className="text-lg font-bold text-gray-900 mb-2">
                 回答の作成

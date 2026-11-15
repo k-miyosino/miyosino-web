@@ -6,7 +6,6 @@ import {
   ChatUsage,
 } from '@/types/chat';
 import { getToken } from '@/shared/utils/auth';
-import { handleUnauthorized } from '../kintone/utils';
 
 const CHAT_API_ENDPOINT =
   process.env.NEXT_PUBLIC_CHAT_API_URL ||
@@ -50,7 +49,11 @@ async function requestChatApi<T>(path: string, init: RequestInit): Promise<T> {
   if (response.ok) {
     return (await response.json()) as T;
   }
-  if (response.status === 401) handleUnauthorized();
+  // ログインの期限切れなど。公開ページを見ているだけの人を知らないうちにログアウトさせないよう、
+  // 保存されたログインの情報は消さずに知らせるだけにする（組合員専用ページは各ページの認証の確認で扱う）
+  if (response.status === 401) {
+    throw new ChatApiError('ログインの有効期限が切れました', 'unauthorized');
+  }
 
   let data: ChatErrorResponse = {};
   try {
