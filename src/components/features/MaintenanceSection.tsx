@@ -58,7 +58,6 @@ export function MaintenanceSection() {
         <div className="mx-auto mt-16 max-w-4xl">
           <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
             <div className="flex items-center gap-x-3 mb-6">
-              <div className="h-6 w-6 bg-blue-600 rounded"></div>
               <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                 大規模修繕工事の履歴
               </h3>
@@ -141,7 +140,6 @@ export function MaintenanceSection() {
             <div className="mt-8 pt-8 border-t border-gray-200">
               <div className="bg-green-50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 bg-green-600 rounded flex-shrink-0 mt-0.5"></div>
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 mb-2">
                       資産価値への影響

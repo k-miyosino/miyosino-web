@@ -191,7 +191,6 @@ export function OrganizationManagementSection() {
         <div className="mx-auto mt-16 max-w-6xl">
           <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-sm ring-1 ring-gray-200">
             <div className="flex items-center gap-x-3 mb-6">
-              <div className="h-6 w-6 bg-green-600 rounded"></div>
               <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                 {organizationData.title}
               </h3>

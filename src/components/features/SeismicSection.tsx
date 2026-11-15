@@ -56,7 +56,6 @@ export function SeismicSection() {
             {/* 耐震性能 */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 border-l-4 border-purple-600">
               <div className="flex items-center gap-x-3 mb-6">
-                <div className="h-6 w-6 bg-purple-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                   耐震性能
                 </h3>
@@ -89,7 +88,6 @@ export function SeismicSection() {
             {/* 耐震診断評定 */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 border-l-4 border-purple-600">
               <div className="flex items-center gap-x-3 mb-6">
-                <div className="h-6 w-6 bg-purple-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                   耐震診断評定
                 </h3>
@@ -141,7 +139,6 @@ export function SeismicSection() {
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
               <div className="bg-purple-50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 bg-purple-600 rounded flex-shrink-0 mt-0.5"></div>
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 mb-2">
                       資産価値への影響
