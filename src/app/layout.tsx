@@ -23,9 +23,11 @@ const geistMono = Geist_Mono({
 
 const siteTitle = 'かわつる三芳野団地 | Miyoshino Apartments';
 const siteDescription =
-  'かわつる三芳野団地へようこそ。広々とした住空間、緑豊かな環境、そして温かいコミュニティがここにはあります。';
+  'かわつる三芳野団地（埼玉県川越市）のホームページです。広々とした住空間、緑豊かな環境、そして温かいコミュニティがここにはあります。';
 
 export const metadata: Metadata = {
+  // 正規URL（canonical）や OGP の URL を、このドメイン＋basePath からの相対で書けるようにする
+  metadataBase: new URL(`${SITE_CONFIG.url}${SITE_CONFIG.basePath}/`),
   title: siteTitle,
   description: siteDescription,
   keywords: '団地, マンション, 家族, コミュニティ, 子育て, 緑豊か',

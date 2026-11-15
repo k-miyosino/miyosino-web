@@ -32,9 +32,9 @@ export default function CommonFacilitiesSection() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
           共有施設
-        </h3>
+        </h2>
         <div className="text-center py-8">
           <p className="text-gray-500">読み込み中...</p>
         </div>
@@ -50,10 +50,10 @@ export default function CommonFacilitiesSection() {
         id="common"
         className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-blue-600 rounded-lg p-6 mb-8 shadow-sm"
       >
-        <h3 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
+        <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
           <span className="text-4xl">{sectionData?.icon}</span>
           <span>{sectionData?.label}</span>
-        </h3>
+        </h2>
       </div>
       {facilities.length === 0 ? (
         <div className="text-center py-8">
@@ -87,9 +87,9 @@ export default function CommonFacilitiesSection() {
                   {facility.icon && (
                     <div className="text-2xl">{facility.icon}</div>
                   )}
-                  <h4 className="text-xl font-bold text-gray-900">
+                  <h3 className="text-xl font-bold text-gray-900">
                     {facility.title}
-                  </h4>
+                  </h3>
                 </div>
                 <p className="text-gray-600 mb-4 leading-relaxed">
                   {facility.description}

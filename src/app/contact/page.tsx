@@ -3,12 +3,14 @@ import {
   PhoneContactSection,
   // TableOfContents, // 一時的に非表示
 } from '@/components/contact';
+import { pageMetadata } from '@/shared/metadata';
 
-export const metadata = {
+export const metadata = pageMetadata({
+  path: '/contact/',
   title: 'お問い合わせ | かわつる三芳野団地',
   description:
     'かわつる三芳野団地へのお問い合わせはこちら。お電話でご連絡いただけます。',
-};
+});
 
 export default function ContactPage() {
   return (
