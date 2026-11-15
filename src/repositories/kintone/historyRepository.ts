@@ -16,7 +16,7 @@ const HISTORY_API_ENDPOINT =
   process.env.NEXT_PUBLIC_HISTORY_API_ENDPOINT ||
   'https://miyosino-history-api.anorimura-miyosino.workers.dev';
 
-async function fetchAllEvents(): Promise<KintoneHistoryEvent[]> {
+async function requestAllEvents(): Promise<KintoneHistoryEvent[]> {
   const response = await fetch(HISTORY_API_ENDPOINT, { cache: 'no-store' });
 
   if (!response.ok) {
@@ -27,6 +27,19 @@ async function fetchAllEvents(): Promise<KintoneHistoryEvent[]> {
 
   const data = (await response.json()) as KintoneHistoryResponse;
   return data.events;
+}
+
+// 特徴ページでは「修繕の履歴」と「団地のあゆみ」が同時に同じデータを取りに来るので、
+// 取得中の1回を共有する。取得が終わったら（失敗したときも）次の呼び出しで取り直す。
+let inFlightEvents: Promise<KintoneHistoryEvent[]> | null = null;
+
+function fetchAllEvents(): Promise<KintoneHistoryEvent[]> {
+  if (!inFlightEvents) {
+    inFlightEvents = requestAllEvents().finally(() => {
+      inFlightEvents = null;
+    });
+  }
+  return inFlightEvents;
 }
 
 function groupByYear(events: KintoneHistoryEvent[]): HistoryYearGroup[] {
