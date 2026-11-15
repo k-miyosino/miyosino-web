@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { featuresSections } from './data';
 import { fetchMaintenanceRepairs } from '@/repositories/kintone/historyRepository';
 import type { MaintenanceRepair } from '@/types/history';
+import { MaintenanceTimeline, repairAnchorId } from './MaintenanceTimeline';
 
 const maintenanceDescription =
   '当団地では、定期的な大規模修繕工事を実施し、建物の価値と快適性を長期的に維持しています。約10年ごとに計画的な修繕を行うことで、外観の美しさと機能性を保ち、資産価値の維持向上を図っています。';
@@ -70,9 +71,14 @@ export function MaintenanceSection() {
               </p>
             ) : (
               <div className="flow-root">
+                <MaintenanceTimeline repairs={repairs} />
                 <ul role="list" className="-mb-8">
                   {repairs.map((repair, index) => (
-                    <li key={repair.id}>
+                    <li
+                      key={repair.id}
+                      id={repairAnchorId(repair.id)}
+                      className="scroll-mt-36"
+                    >
                       <div className="relative pb-8">
                         {index !== repairs.length - 1 ? (
                           <span

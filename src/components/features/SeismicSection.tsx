@@ -1,4 +1,5 @@
 import { featuresSections } from './data';
+import { SeismicScale } from './SeismicScale';
 
 const seismicData = {
   title: '高い耐震性能と安全性',
@@ -48,6 +49,9 @@ export function SeismicSection() {
         </div>
 
         <div className="mx-auto mt-16 max-w-4xl">
+          <div className="mb-8">
+            <SeismicScale />
+          </div>
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* 耐震性能 */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 border-l-4 border-purple-600">
