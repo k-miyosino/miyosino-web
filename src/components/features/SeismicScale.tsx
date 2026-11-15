@@ -29,7 +29,6 @@ export function SeismicScale() {
     >
       <figcaption id="seismic-scale-caption">
         <div className="flex items-center gap-x-3">
-          <div className="h-6 w-6 bg-purple-600 rounded"></div>
           <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
             Is値で見た当団地の位置
           </h3>

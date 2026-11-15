@@ -54,7 +54,7 @@ const getHazardMapUrl = () => {
 const hazardMapData = {
   title: '周辺の災害リスク情報',
   description:
-    'かわつる三芳野団地周辺は、洪水や浸水などの水害リスクが極めて低いエリアに位置しています。 国土地理院が提供するハザードマップからも、当団地が自然災害に対して高い安全性を持っていることがご確認いただけます。事前のリスク把握とともに、当団地の「災害への強さ」をぜひお確かめください。',
+    'かわつる三芳野団地周辺は、洪水や浸水などの水害リスクが低いエリアです。国土地理院の「重ねるハザードマップ」で、団地周辺の洪水・土砂災害などの想定区域をご確認いただけます。',
   risks: [
     {
       type: '洪水',
@@ -138,7 +138,6 @@ export function HazardMapSection() {
                 className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 border-l-4 border-orange-600"
               >
                 <div className="flex items-center gap-x-3 mb-4">
-                  <div className="h-6 w-6 bg-orange-600 rounded flex-shrink-0"></div>
                   <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                     {risk.type}
                   </h3>
@@ -155,7 +154,6 @@ export function HazardMapSection() {
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
               <div className="bg-orange-50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 bg-orange-600 rounded flex-shrink-0 mt-0.5"></div>
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 mb-2">
                       防災への取り組み

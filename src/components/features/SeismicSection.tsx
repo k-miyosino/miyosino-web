@@ -4,12 +4,12 @@ import { SeismicScale } from './SeismicScale';
 const seismicData = {
   title: '高い耐震性能と安全性',
   description:
-    'かわつる三芳野団地は、新耐震基準に適合し、専門機関による耐震診断により高い耐震性能が確認されています。震度6強（Is0.6以上）の地震にも耐えうる構造となっており、安心して長く住み続けられる安全性の高い建物です。',
+    'かわつる三芳野団地の建物は、専門機関の耐震診断で Is値0.6以上と判定されています。Is値0.6以上は、震度6強〜7程度の大規模な地震に対して「倒壊または崩壊する危険性が低い」とされる水準です。この診断結果は、第三者機関（JASO）の評定を受けています。',
   performance: {
-    level: 'Is0.6以上（日本の耐震診断基準）',
-    standard: '新耐震基準適合',
+    level: 'Is0.6以上（耐震診断の結果）',
+    standard: '同等の耐震性能（耐震診断による）',
     description:
-      '1981年（昭和56年）に制定された新耐震基準に適合しており、中規模の地震（震度5強程度）では軽微な損傷にとどまり、大規模の地震（震度6強～7）でも「倒壊または崩壊する危険性が低い」と判断される基準値です',
+      'Is値0.6以上は、震度6強〜7程度の大規模な地震に対して「倒壊または崩壊する危険性が低い」と判定される水準で、1981年（昭和56年）に定められた新耐震基準と同等の耐震性能があるとされています。',
   },
   certification: {
     organization: '特定非営利活動法人 耐震総合安全機構 JASO',
@@ -19,8 +19,10 @@ const seismicData = {
     description:
       '一級建築士事務所 空間設計が実施した耐震診断報告書について、JASOの判定会議において審査が行われ、「建築物の耐震改修の促進に関する法律」及び同法に基づく技術指針に照らし、「妥当なものであると認める」旨の評定を受けています。',
   },
-  valueProposition:
-    'このような高い耐震性能は、建物の資産価値に大きく影響します。地震リスクが低い建物は、保険料の優遇や融資条件の改善につながり、長期的な資産価値の維持に寄与します。また、災害時の安全性が確保されていることは、家族の安心と健康を守る重要な要素です。',
+  valueProposition: {
+    title: '客観的な資料で確かめられる安心',
+    text: '耐震診断の報告書と第三者機関（JASO）の評定がそろっているため、建物の耐震性能を客観的な資料で確かめられます。住まいを選ぶときや売却するときにも、建物の安全性を説明する材料になります。',
+  },
 };
 
 export function SeismicSection() {
@@ -56,7 +58,6 @@ export function SeismicSection() {
             {/* 耐震性能 */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 border-l-4 border-purple-600">
               <div className="flex items-center gap-x-3 mb-6">
-                <div className="h-6 w-6 bg-purple-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                   耐震性能
                 </h3>
@@ -72,7 +73,7 @@ export function SeismicSection() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-1">
-                    基準適合
+                    新耐震基準
                   </p>
                   <p className="text-base font-semibold text-gray-900">
                     {seismicData.performance.standard}
@@ -89,7 +90,6 @@ export function SeismicSection() {
             {/* 耐震診断評定 */}
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200 border-l-4 border-purple-600">
               <div className="flex items-center gap-x-3 mb-6">
-                <div className="h-6 w-6 bg-purple-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-900">
                   耐震診断評定
                 </h3>
@@ -136,18 +136,17 @@ export function SeismicSection() {
             </div>
           </div>
 
-          {/* 資産価値への影響 */}
+          {/* 耐震診断の資料について */}
           <div className="mt-8">
             <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
               <div className="bg-purple-50 rounded-lg p-6">
                 <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 bg-purple-600 rounded flex-shrink-0 mt-0.5"></div>
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 mb-2">
-                      資産価値への影響
+                      {seismicData.valueProposition.title}
                     </h4>
                     <p className="text-sm leading-6 text-gray-700">
-                      {seismicData.valueProposition}
+                      {seismicData.valueProposition.text}
                     </p>
                   </div>
                 </div>

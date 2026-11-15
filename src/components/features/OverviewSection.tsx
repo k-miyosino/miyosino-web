@@ -47,6 +47,16 @@ const overviewData = {
   },
 };
 
+// ひと目で伝えたい数字（詳しい内容は下のカードにある）
+const keyFigures = [
+  { label: '総戸数', value: '548', unit: '戸' },
+  { label: '入居開始', value: '1982', unit: '年' },
+  { label: '敷地面積', value: '約7', unit: '万㎡' },
+  { label: '管理費', value: '5,500', unit: '円/月' },
+  { label: '駐車場', value: '433', unit: '台' },
+  { label: '圏央鶴ヶ島ICから', value: '約5', unit: '分' },
+];
+
 export function OverviewSection() {
   const sectionMeta = featuresSections.find((s) => s.id === 'basic');
 
@@ -69,11 +79,32 @@ export function OverviewSection() {
           </div>
         </div>
 
+        {/* 主な数字 */}
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {keyFigures.map((figure) => (
+            <div
+              key={figure.label}
+              className="flex flex-col-reverse items-center rounded-2xl bg-white px-3 py-5 text-center shadow-sm ring-1 ring-gray-200"
+            >
+              <dt className="mt-1 text-xs sm:text-sm text-gray-600">
+                {figure.label}
+              </dt>
+              <dd className="text-gray-900">
+                <span className="text-3xl font-bold tracking-tight text-green-700">
+                  {figure.value}
+                </span>
+                <span className="ml-0.5 text-sm font-semibold">
+                  {figure.unit}
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
         <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
           <div className="flex flex-col items-start">
             <div className="rounded-2xl bg-gray-50 p-8 shadow-sm ring-1 ring-gray-300">
               <div className="flex items-center gap-x-3">
-                <div className="h-6 w-6 bg-green-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-800">
                   {overviewData.location.title}
                 </h3>
@@ -94,7 +125,6 @@ export function OverviewSection() {
           <div className="flex flex-col items-start">
             <div className="rounded-2xl bg-gray-50 p-8 shadow-sm ring-1 ring-gray-300">
               <div className="flex items-center gap-x-3">
-                <div className="h-6 w-6 bg-green-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-800">
                   {overviewData.scale.title}
                 </h3>
@@ -115,7 +145,6 @@ export function OverviewSection() {
           <div className="flex flex-col items-start">
             <div className="rounded-2xl bg-gray-50 p-8 shadow-sm ring-1 ring-gray-300">
               <div className="flex items-center gap-x-3">
-                <div className="h-6 w-6 bg-green-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-800">
                   {overviewData.layout.title}
                 </h3>
@@ -136,7 +165,6 @@ export function OverviewSection() {
           <div className="flex flex-col items-start">
             <div className="rounded-2xl bg-gray-50 p-8 shadow-sm ring-1 ring-gray-300">
               <div className="flex items-center gap-x-3">
-                <div className="h-6 w-6 bg-green-600 rounded"></div>
                 <h3 className="text-lg font-semibold leading-8 tracking-tight text-gray-800">
                   {overviewData.features.title}
                 </h3>
