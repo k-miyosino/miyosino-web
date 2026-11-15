@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { featuresSections } from './data';
+import { TimelinePlaceholder } from './LoadingPlaceholders';
 import { fetchMaintenanceRepairs } from '@/repositories/kintone/historyRepository';
 import type { MaintenanceRepair } from '@/types/history';
 import { MaintenanceTimeline, repairAnchorId } from './MaintenanceTimeline';
@@ -64,7 +65,11 @@ export function MaintenanceSection() {
             </div>
 
             {loading ? (
-              <p className="text-sm text-gray-500">修繕履歴を読み込み中...</p>
+              <TimelinePlaceholder
+                label="修繕履歴"
+                items={12}
+                dotClassName="bg-blue-200"
+              />
             ) : repairs.length === 0 ? (
               <p className="text-sm text-gray-500">
                 修繕履歴の情報はありません。

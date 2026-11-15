@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { featuresSections } from './data';
+import { TimelinePlaceholder } from './LoadingPlaceholders';
 import { fetchHistoryEvents } from '@/repositories/kintone/historyRepository';
 import type { HistoryYearGroup } from '@/types/history';
 
@@ -46,7 +47,11 @@ export function HistorySection() {
         {/* 団地のあゆみ */}
         <div className="mx-auto mt-16 max-w-4xl">
           {loading ? (
-            <p className="text-sm text-gray-500">団地のあゆみを読み込み中...</p>
+            <TimelinePlaceholder
+              label="団地のあゆみ"
+              items={20}
+              dotClassName="bg-green-200"
+            />
           ) : historyData.length === 0 ? (
             <p className="text-sm text-gray-500">
               団地のあゆみの情報はありません。
