@@ -1,5 +1,13 @@
 import { NearbyFacilitiesSection } from '@/components/surrounding';
 import { TableOfContents } from '@/components/surrounding/TableOfContents';
+import { pageMetadata } from '@/shared/metadata';
+
+export const metadata = pageMetadata({
+  path: '/surrounding/',
+  title: '周辺施設 | かわつる三芳野団地',
+  description:
+    'かわつる三芳野団地の周辺にある公共施設や病院、スーパーなど、暮らしに役立つ施設をご紹介します。',
+});
 
 export default function SurroundingPage() {
   return (

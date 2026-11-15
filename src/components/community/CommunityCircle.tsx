@@ -36,9 +36,9 @@ export default function CommunityCircle() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
           住人サークル紹介
-        </h3>
+        </h2>
         <div className="text-center py-8">
           <p className="text-gray-500">読み込み中...</p>
         </div>
@@ -59,10 +59,10 @@ export default function CommunityCircle() {
         id="circles"
         className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-blue-600 rounded-lg p-6 mb-8 shadow-sm"
       >
-        <h3 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
+        <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
           <span className="text-4xl">{sectionData?.icon}</span>
           <span>{sectionData?.label}</span>
-        </h3>
+        </h2>
       </div>
 
       {/* サークル活動の説明 */}
@@ -78,9 +78,9 @@ export default function CommunityCircle() {
 
         return (
           <div key={name} className="mb-12">
-            <h4 className="text-xl font-bold text-gray-900 mb-6 pb-2 border-b-2 border-green-600">
+            <h3 className="text-xl font-bold text-gray-900 mb-6 pb-2 border-b-2 border-green-600">
               {name}
-            </h4>
+            </h3>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-200">
               {circles.map((circle) => (
                 <div

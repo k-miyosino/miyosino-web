@@ -5,6 +5,14 @@ import {
   FeaturesHighlightSection,
   InstagramSection,
 } from '@/components/home';
+import { pageMetadata } from '@/shared/metadata';
+
+export const metadata = pageMetadata({
+  path: '/',
+  title: 'かわつる三芳野団地（埼玉県川越市） | Miyoshino Apartments',
+  description:
+    'かわつる三芳野団地（埼玉県川越市）のホームページです。東武東上線の鶴ヶ島駅から約2km、緑豊かな団地の特徴やコミュニティ活動、共有施設、周辺施設、アクセスをご紹介します。',
+});
 
 export default function Home() {
   return (

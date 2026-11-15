@@ -99,11 +99,11 @@ export default function FeaturesHighlightSection() {
                       />
                     </div>
                     <div className="flex-1">
-                      <h3
+                      <h2
                         className={`text-xl font-semibold mb-3 ${colors.text} group-hover:underline`}
                       >
                         {highlight.name}
-                      </h3>
+                      </h2>
                       <p className="text-gray-700 leading-relaxed">
                         {highlight.description}
                       </p>

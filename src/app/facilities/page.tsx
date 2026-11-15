@@ -1,4 +1,12 @@
 import { FacilitiesSection, TableOfContents } from '@/components/facilities';
+import { pageMetadata } from '@/shared/metadata';
+
+export const metadata = pageMetadata({
+  path: '/facilities/',
+  title: '共有施設・サービス | かわつる三芳野団地',
+  description:
+    'かわつる三芳野団地の共有施設とサービスをご紹介します。集会所や公園などの施設と、団地内で利用できるサービスを掲載しています。',
+});
 
 export default function FacilitiesPage() {
   return (
