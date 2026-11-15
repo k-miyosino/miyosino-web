@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { Metadata } from 'next';
+import { pageMetadata } from '@/shared/metadata';
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: '/sitemap/',
   title: 'サイトマップ | かわつる三芳野団地',
   description:
     'かわつる三芳野団地のサイトマップです。各ページへのリンクを一覧でご案内しています。',
-};
+});
 
 type SitemapItem = {
   title: string;

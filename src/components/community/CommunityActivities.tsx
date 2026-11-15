@@ -32,9 +32,9 @@ export default function CommunityActivities() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
           自治会活動
-        </h3>
+        </h2>
         <div className="text-center py-8">
           <p className="text-gray-500">読み込み中...</p>
         </div>
@@ -50,10 +50,10 @@ export default function CommunityActivities() {
         id="activities"
         className="bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-600 rounded-lg p-6 mb-8 shadow-sm"
       >
-        <h3 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
+        <h2 className="text-3xl font-bold text-gray-900 flex items-center justify-start gap-3">
           <span className="text-4xl">{sectionData?.icon}</span>
           <span>{sectionData?.label}</span>
-        </h3>
+        </h2>
       </div>
 
       {/* 自治会活動の説明 */}
@@ -79,9 +79,9 @@ export default function CommunityActivities() {
                   <div className="text-4xl">{activity.icon}</div>
                 )}
                 <div className="flex-1">
-                  <h4 className="text-xl font-bold text-gray-900 mb-3">
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">
                     {activity.title}
-                  </h4>
+                  </h3>
                   <div
                     className="text-gray-600 mb-4 leading-relaxed prose prose-sm max-w-none"
                     dangerouslySetInnerHTML={{ __html: activity.body }}

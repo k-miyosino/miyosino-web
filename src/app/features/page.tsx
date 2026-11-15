@@ -8,12 +8,14 @@ import {
   HistorySection,
 } from '@/components/features';
 import { TableOfContents } from '@/components/features/TableOfContents';
+import { pageMetadata } from '@/shared/metadata';
 
-export const metadata = {
+export const metadata = pageMetadata({
+  path: '/features/',
   title: '団地の特徴 | かわつる三芳野団地',
   description:
     'かわつる三芳野団地の特徴をご紹介します。運営体制やあゆみ、四季の様子など、団地の魅力を解説します。',
-};
+});
 
 export default function FeaturesPage() {
   return (
