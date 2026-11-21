@@ -44,6 +44,6 @@
     "wrangler": "^4.166.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.6.0"
+    "@anthropic-ai/sdk": "^1.10.0"
   }
 }
