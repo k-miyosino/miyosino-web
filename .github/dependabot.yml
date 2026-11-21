@@ -1,0 +1,51 @@
+# Dependabot：依存パッケージとアクションの更新 PR を、月に1回 develop 向けに作る
+# https://docs.github.com/ja/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# - マイナー・パッチの更新は、場所ごとに1つの PR にまとめる
+# - メジャーの更新は、パッケージごとに別の PR になる（変更点を確かめてからマージする）
+# - 作られた PR は、ほかの PR と同じく develop → staging → main の順に進める
+version: 2
+updates:
+  # フロントエンド（ルートの package.json）
+  - package-ecosystem: npm
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Next.js 16 への移行は別の作業として行う
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major]
+      # 型定義は、ワークフローで使う Node.js のバージョン（22）に合わせる
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+
+  # Cloudflare Workers（workers/package.json）
+  - package-ecosystem: npm
+    directory: /workers
+    target-branch: develop
+    schedule:
+      interval: monthly
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    groups:
+      workers-minor-patch:
+        update-types: [minor, patch]
+
+  # GitHub Actions のアクション（.github/workflows/）
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+      timezone: Asia/Tokyo
+    groups:
+      actions:
+        patterns: ['*']
