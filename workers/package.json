@@ -39,9 +39,9 @@
     "build:watch": "tsc --watch"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241106.0",
+    "@cloudflare/workers-types": "^5.20261121.1",
     "typescript": "^5",
-    "wrangler": "^4.47.0"
+    "wrangler": "^4.166.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0"
