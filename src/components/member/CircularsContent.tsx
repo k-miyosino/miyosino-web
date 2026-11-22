@@ -10,6 +10,7 @@ import {
 import { getToken, redirectToLogin } from '@/shared/utils/auth';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
 import FilePreviewModal from '@/components/shared/FilePreviewModal';
+import { useMonthForYear } from './useMonthForYear';
 
 // 日付をフォーマットする関数
 function formatDate(dateString: string): string {
@@ -170,17 +171,8 @@ export default function CircularsContent() {
     });
   }, [circulars, selectedYear, selectedMonth, selectedCategory]);
 
-  // 年が変更されたら月をリセット
-  useEffect(() => {
-    if (selectedYear && months.length > 0) {
-      // 選択された年に対応する月が存在する場合、最初の月を選択
-      if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
-        setSelectedMonth(months[0].toString());
-      }
-    } else {
-      setSelectedMonth('');
-    }
-  }, [selectedYear, months, selectedMonth]);
+  // 年が変わって、その年にない月が選ばれていたら月を直す
+  useMonthForYear(selectedYear, months, selectedMonth, setSelectedMonth);
 
   return (
     <>

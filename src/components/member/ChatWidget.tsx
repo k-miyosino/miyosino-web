@@ -74,16 +74,21 @@ export default function ChatWidget() {
   const pathname = usePathname();
   const [status, setStatus] = useState<ChatStatus | null>(null);
   const isEnabled = status?.enabled === true;
-  const [noLog, setNoLog] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 前のページで続けていた会話を、最初の状態として読み込む。
+  // チャット欄はログインを確かめてからブラウザでだけ表示する（ChatWidgetGate）ので、ここで sessionStorage を読んでよい
+  const [saved] = useState(loadChatSession);
+  const [noLog, setNoLog] = useState(loadNoLogPreference);
+  const [isOpen, setIsOpen] = useState(saved?.isOpen ?? false);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    saved?.messages ?? []
+  );
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [usage, setUsage] = useState<ChatUsage | null>(null);
   const [errorCode, setErrorCode] = useState<ChatErrorCode | null>(null);
-  const [conversationId, setConversationId] = useState('');
-  // sessionStorage から読み込み終わるまでは保存しない（空の会話で上書きしないため）
-  const [isRestored, setIsRestored] = useState(false);
+  const [conversationId, setConversationId] = useState(
+    saved?.conversationId ?? ''
+  );
   // スマートフォンの幅のとき、見えている範囲に合わせた高さと位置（閉じるボタンが画面の外に出ないように）
   const mobileFrame = useMobileChatFrame(isOpen);
   const hasLoadedUsage = useRef(false);
@@ -105,22 +110,10 @@ export default function ChatWidget() {
     };
   }, []);
 
-  // 前のページで続けていた会話を読み込む
+  // 会話と開いているかどうかを sessionStorage に残す（最初から読み込み済みなので、空の会話で上書きすることはない）
   useEffect(() => {
-    setNoLog(loadNoLogPreference());
-    const saved = loadChatSession();
-    if (saved) {
-      setMessages(saved.messages);
-      setIsOpen(saved.isOpen);
-      setConversationId(saved.conversationId);
-    }
-    setIsRestored(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isRestored) return;
     saveChatSession({ messages, isOpen, conversationId });
-  }, [isRestored, messages, isOpen, conversationId]);
+  }, [messages, isOpen, conversationId]);
 
   // 初めて開いたときに今日の残り回数を取得する（識別できない利用者もここでわかる）
   useEffect(() => {
