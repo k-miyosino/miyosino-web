@@ -491,13 +491,14 @@ docker-compose exec web git config --global --add safe.directory /app
 
 | ブランチ / 操作 | 実行内容 | ワークフロー |
 | --- | --- | --- |
-| `develop` へのpush | なし | - |
+| PR、`develop`・`staging` へのpush（`workers/` に変更がある場合） | Workers のテスト（`workers/test/`） | `test-workers.yml` |
 | `staging` へのマージ | フロントエンドをビルドし GitHub Pages（`https://k-miyosino.github.io/miyosino-web/`）へデプロイ | `deploy.yml` |
 | `main` へのマージ | フロントエンドをビルド（さくらインターネットへのデプロイは現在停止中） | `deploy.yml` |
-| `main` へのマージ（`workers/` に変更がある場合） | 変更のあったCloudflare Workersのみデプロイ | `deploy-workers.yml` |
+| `main` へのマージ（`workers/` に変更がある場合） | Workers のテストが通ったら、変更のあったCloudflare Workersのみデプロイ | `deploy-workers.yml` |
 | 手動実行 | 指定ブランチをビルドし、さくらインターネットの `/v2` へデプロイ（更改版のテスト用） | `deploy-v2-test.yml` |
 | 手動実行 | Workerを選んでデプロイ | `deploy-workers.yml` |
 | 毎週月曜 3:00（JST） | Google Placesの周辺施設データをKintoneへ同期 | `sync.yml` |
+| 毎日 9:00（JST） | 直近24時間の Workers のエラーを調べ、あれば失敗させてメールで知らせる（OPS.md） | `check-workers.yml` |
 
 **注意:** Cloudflare Workersは本番・テスト共通の1組のみです。main へのマージ前に staging で新しいWorkerを試したい場合は、「Deploy Workers」を手動実行してください。
 
