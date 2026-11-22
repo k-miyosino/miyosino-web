@@ -28,13 +28,33 @@ export interface OpsTask {
   links?: OpsLink[];
 }
 
+export type OpsSecretCategoryId =
+  'login' | 'data' | 'chat' | 'form' | 'deploy' | 'personal' | 'public';
+
+/** 登録先の1か所。url があれば、その設定画面へのリンクにする */
+export interface OpsPlace {
+  /** 場所の種類（画面ではこの単位でまとめる。例: Cloudflare Workers、GitHub Secrets） */
+  place: string;
+  label: string;
+  url?: string;
+}
+
+export interface OpsSecretCategory {
+  id: OpsSecretCategoryId;
+  label: string;
+  description: string;
+}
+
 export interface OpsSecret {
   id: string;
+  category: OpsSecretCategoryId;
   name: string;
-  /** どこに保存してあるか */
-  location: string;
-  /** どこで使っているか */
-  usedBy: string;
+  /** 何に使っているか */
+  purpose: string;
+  /** 登録先: 入れ替えたあとに新しい値を設定し直す場所 */
+  registeredIn: OpsPlace[];
+  /** 発行元: 新しい値を作る場所 */
+  issuer: { label: string; url?: string };
   /** 漏れたとき（または担当交代のとき）の入れ替え手順 */
   rotate: string[];
   /** 入れ替えたあとに起きること・やること */
@@ -173,15 +193,83 @@ export const OPS_TASKS: OpsTask[] = [
   },
 ];
 
-const ALL_JWT_WORKERS =
-  'miyosino-auth・announcements・applications・chat・circulars・events・greenwellness・minutes・ops';
+/** 秘密情報の種類（画面ではこの順に表を分ける） */
+export const OPS_SECRET_CATEGORIES: OpsSecretCategory[] = [
+  { id: 'login', label: 'ログイン', description: '組合員のログインに使うもの' },
+  {
+    id: 'data',
+    label: 'データの読み込み',
+    description: 'kintone・microCMS・Google からデータを読むためのもの',
+  },
+  {
+    id: 'chat',
+    label: 'チャット（AI）',
+    description: 'サイト案内チャットに使うもの',
+  },
+  {
+    id: 'form',
+    label: 'お問い合わせフォーム',
+    description: 'フォームのロボット対策に使うもの',
+  },
+  {
+    id: 'deploy',
+    label: 'デプロイ（公開の作業）',
+    description: 'GitHub Actions がサイトや Worker を公開するときに使うもの',
+  },
+  {
+    id: 'personal',
+    label: '各自の PC で使うもの',
+    description: '管理者が自分の PC の道具で使うもの',
+  },
+  {
+    id: 'public',
+    label: '公開してよいキー',
+    description:
+      'ブラウザに出る前提のキー。漏れても入れ替えは不要で、使える場所の制限がかかっているかを確かめる',
+  },
+];
+
+// Cloudflare のアカウント（wrangler.*.toml の account_id と同じ）
+const CLOUDFLARE_ACCOUNT_ID = 'e6544c934cee9bfb0cdfc5b155ce8aeb';
+
+/** Cloudflare Workers の設定画面（変数とシークレット）へのリンク。name は Worker の名前（miyosino-… の後ろ） */
+function worker(name: string, note?: string): OpsPlace {
+  return {
+    place: 'Cloudflare Workers',
+    label: note ? `${name}（${note}）` : name,
+    url: `https://dash.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/workers/services/view/miyosino-${name}/production/settings`,
+  };
+}
+
+/** GitHub の Actions の Secrets の画面へのリンク */
+function githubSecret(name: string): OpsPlace {
+  return {
+    place: 'GitHub Secrets',
+    label: name,
+    url: `${REPO_URL}/settings/secrets/actions`,
+  };
+}
+
+const JWT_WORKERS = [
+  'auth',
+  'announcements',
+  'applications',
+  'chat',
+  'circulars',
+  'events',
+  'greenwellness',
+  'minutes',
+  'ops',
+];
 
 export const OPS_SECRETS: OpsSecret[] = [
   {
     id: 'jwt-secret',
+    category: 'login',
     name: 'JWT_SECRET',
-    location: 'Cloudflare Workers の secrets',
-    usedBy: `ログインの署名と確認（${ALL_JWT_WORKERS}）`,
+    purpose: 'ログインの印（トークン）に署名し、本物かを確かめる',
+    registeredIn: JWT_WORKERS.map((name) => worker(name)),
+    issuer: { label: '自分で作る（npm run generate-jwt-secret）' },
     rotate: [
       'workers/ で npm run generate-jwt-secret を実行して新しい値を作る',
       'npm run set-jwt-secret で、使っているすべての Worker にまとめて設定する',
@@ -189,21 +277,12 @@ export const OPS_SECRETS: OpsSecret[] = [
     after: 'ログイン中の全員がログアウトされ、ログインし直しになる',
   },
   {
-    id: 'anthropic-api-key',
-    name: 'ANTHROPIC_API_KEY',
-    location: 'Cloudflare Workers の secrets（miyosino-chat）',
-    usedBy: 'サイト案内チャット',
-    rotate: [
-      'Anthropic コンソールで新しいキーを作る',
-      'wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml で設定する',
-      'コンソールで古いキーを削除する',
-    ],
-  },
-  {
     id: 'kintone-client-secret',
+    category: 'login',
     name: 'KINTONE_CLIENT_SECRET',
-    location: 'Cloudflare Workers の secrets（miyosino-auth）',
-    usedBy: 'kintone での OAuth ログイン',
+    purpose: 'kintone のアカウントでログインする（OAuth）',
+    registeredIn: [worker('auth')],
+    issuer: { label: 'cybozu.com 共通管理 → 外部連携 → OAuth クライアント' },
     rotate: [
       'cybozu.com 共通管理 → 外部連携 → OAuth クライアントで、クライアントシークレットを作り直す',
       'wrangler secret put KINTONE_CLIENT_SECRET --config wrangler.auth.toml で設定する',
@@ -212,10 +291,22 @@ export const OPS_SECRETS: OpsSecret[] = [
   },
   {
     id: 'kintone-api-tokens',
+    category: 'data',
     name: 'kintone の API トークン（アプリごと）',
-    location:
-      'Cloudflare Workers の secrets（KINTONE_API_TOKEN: announcements・greenwellness／KINTONE_API_TOKEN_APPLICATIONS・_CIRCULARS・_EVENTS・_HISTORY・_MINUTES・_PLACES: 名前の Worker）、GitHub Secrets（KINTONE_API_TOKEN_PLACES）',
-    usedBy: '組合員専用ページのデータ、あゆみ・周辺施設、Sync Places',
+    purpose:
+      '組合員専用ページのデータ（お知らせ・回覧板・議事録など）と、あゆみ・周辺施設を kintone から読む',
+    registeredIn: [
+      worker('announcements', 'KINTONE_API_TOKEN'),
+      worker('greenwellness', 'KINTONE_API_TOKEN'),
+      worker('applications', 'KINTONE_API_TOKEN_APPLICATIONS'),
+      worker('circulars', 'KINTONE_API_TOKEN_CIRCULARS'),
+      worker('events', 'KINTONE_API_TOKEN_EVENTS'),
+      worker('history-api', 'KINTONE_API_TOKEN_HISTORY'),
+      worker('minutes', 'KINTONE_API_TOKEN_MINUTES'),
+      worker('places-api', 'KINTONE_API_TOKEN_PLACES'),
+      githubSecret('KINTONE_API_TOKEN_PLACES（Sync Places）'),
+    ],
+    issuer: { label: 'kintone の各アプリの設定 → API トークン' },
     rotate: [
       '漏れたトークンのアプリで「アプリの設定 → API トークン」を開き、トークンを作り直して「アプリを更新」する',
       '対応する Worker に wrangler secret put で設定する（周辺施設は GitHub Secrets の KINTONE_API_TOKEN_PLACES も）',
@@ -223,29 +314,57 @@ export const OPS_SECRETS: OpsSecret[] = [
   },
   {
     id: 'microcms-api-key',
+    category: 'data',
     name: 'MICROCMS_API_KEY',
-    location: 'Cloudflare Workers の secrets（miyosino-contents-api）',
-    usedBy: 'お知らせ・トップの写真など microCMS の中身',
+    purpose: 'お知らせ・トップの写真など、microCMS の中身を読む',
+    registeredIn: [worker('contents-api')],
+    issuer: { label: 'microCMS の API キー', url: 'https://app.microcms.io/' },
     rotate: [
       'microCMS の「API キー」で新しいキーを作る（読み取りだけの権限）',
       'wrangler secret put MICROCMS_API_KEY --config wrangler.contents.toml で設定し、古いキーを削除する',
     ],
   },
   {
-    id: 'microcms-mcp-key',
-    name: 'microCMS の MCP 用キー',
-    location: '各自の PC の MCP の設定（.mcp.json で参照する環境変数）',
-    usedBy: 'Claude から microCMS の中身を編集する',
+    id: 'google-places-api-key',
+    category: 'data',
+    name: 'GOOGLE_PLACES_API_KEY',
+    purpose: 'Sync Places が周辺施設の情報を Google から取ってくる',
+    registeredIn: [githubSecret('GOOGLE_PLACES_API_KEY')],
+    issuer: {
+      label: 'Google Cloud の認証情報',
+      url: 'https://console.cloud.google.com/apis/credentials',
+    },
     rotate: [
-      'microCMS の「API キー」で漏れたキーを削除し、新しいキーを作る',
-      '使っている人の PC の環境変数を書き換える（MICROCMS_MCP.md）',
+      'Google Cloud の「認証情報」で新しいキーを作り、Places API だけに制限する',
+      'GitHub Secrets を書き換え、Sync Places を手動で実行して確かめてから古いキーを削除する',
+    ],
+  },
+  {
+    id: 'anthropic-api-key',
+    category: 'chat',
+    name: 'ANTHROPIC_API_KEY',
+    purpose: 'サイト案内チャットの答えを作る（Claude）',
+    registeredIn: [worker('chat')],
+    issuer: {
+      label: 'Anthropic コンソール',
+      url: 'https://console.anthropic.com/',
+    },
+    rotate: [
+      'Anthropic コンソールで新しいキーを作る',
+      'wrangler secret put ANTHROPIC_API_KEY --config wrangler.chat.toml で設定する',
+      'コンソールで古いキーを削除する',
     ],
   },
   {
     id: 'turnstile-secret-key',
+    category: 'form',
     name: 'TURNSTILE_SECRET_KEY',
-    location: 'Cloudflare Workers の secrets（miyosino-contact-api）',
-    usedBy: 'お問い合わせフォームのロボット対策',
+    purpose: 'お問い合わせフォームがロボットからの送信でないかを確かめる',
+    registeredIn: [worker('contact-api')],
+    issuer: {
+      label: 'Cloudflare の Turnstile',
+      url: 'https://dash.cloudflare.com/',
+    },
     rotate: [
       'Cloudflare の Turnstile でシークレットキーを入れ替える（Rotate secret key）',
       'wrangler secret put TURNSTILE_SECRET_KEY --config wrangler.contact.toml で設定する',
@@ -253,9 +372,17 @@ export const OPS_SECRETS: OpsSecret[] = [
   },
   {
     id: 'cloudflare-api-token',
+    category: 'deploy',
     name: 'CLOUDFLARE_API_TOKEN',
-    location: 'GitHub Secrets（各自の workers/.dev.vars にもある場合がある）',
-    usedBy: 'GitHub Actions からの Workers のデプロイ',
+    purpose: 'GitHub Actions から Cloudflare Workers をデプロイする',
+    registeredIn: [
+      githubSecret('CLOUDFLARE_API_TOKEN'),
+      { place: '各自の PC', label: 'workers/.dev.vars（ある場合）' },
+    ],
+    issuer: {
+      label: 'Cloudflare → My Profile → API Tokens',
+      url: 'https://dash.cloudflare.com/profile/api-tokens',
+    },
     rotate: [
       'Cloudflare → My Profile → API Tokens で「GitHub Actions - miyosino-web」を Roll する',
       'GitHub の Settings → Secrets and variables → Actions で CLOUDFLARE_API_TOKEN を書き換える',
@@ -263,9 +390,14 @@ export const OPS_SECRETS: OpsSecret[] = [
   },
   {
     id: 'sakura-ssh-key',
+    category: 'deploy',
     name: 'SAKURA_SSH_KEY',
-    location: 'GitHub Secrets',
-    usedBy: 'さくらへのデプロイ（/v2 のテスト、本番）',
+    purpose: 'さくらのサーバーにサイトのファイルを送る（/v2 のテスト、本番）',
+    registeredIn: [
+      githubSecret('SAKURA_SSH_KEY'),
+      { place: 'さくらのサーバー', label: '~/.ssh/authorized_keys（公開鍵）' },
+    ],
+    issuer: { label: '自分で作る（ssh-keygen）' },
     rotate: [
       '新しい鍵の組を作り、公開鍵をさくらの ~/.ssh/authorized_keys に足す',
       'GitHub Secrets の SAKURA_SSH_KEY を新しい秘密鍵に書き換え、Deploy v2 Test で確かめる',
@@ -273,20 +405,37 @@ export const OPS_SECRETS: OpsSecret[] = [
     ],
   },
   {
-    id: 'google-places-api-key',
-    name: 'GOOGLE_PLACES_API_KEY',
-    location: 'GitHub Secrets',
-    usedBy: 'Sync Places（周辺施設の取得）',
+    id: 'microcms-mcp-key',
+    category: 'personal',
+    name: 'microCMS の MCP 用キー',
+    purpose: 'Claude から microCMS の中身を編集する',
+    registeredIn: [
+      {
+        place: '各自の PC',
+        label: 'MCP の設定（.mcp.json で参照する環境変数）',
+      },
+    ],
+    issuer: { label: 'microCMS の API キー', url: 'https://app.microcms.io/' },
     rotate: [
-      'Google Cloud の「認証情報」で新しいキーを作り、Places API だけに制限する',
-      'GitHub Secrets を書き換え、Sync Places を手動で実行して確かめてから古いキーを削除する',
+      'microCMS の「API キー」で漏れたキーを削除し、新しいキーを作る',
+      '使っている人の PC の環境変数を書き換える（MICROCMS_MCP.md）',
     ],
   },
   {
     id: 'google-maps-api-key',
+    category: 'public',
     name: 'Google Maps の API キー（NEXT_PUBLIC_GOOGLE_MAPS_API_KEY）',
-    location: 'フロントエンドの環境変数（.env.local、ビルドの環境）',
-    usedBy: 'アクセスページの地図',
+    purpose: 'アクセスページの地図を表示する',
+    registeredIn: [
+      {
+        place: 'フロントエンドの環境変数',
+        label: '.env.local、ビルドの環境',
+      },
+    ],
+    issuer: {
+      label: 'Google Cloud の認証情報',
+      url: 'https://console.cloud.google.com/apis/credentials',
+    },
     rotate: [
       'ブラウザに出る前提のキー。漏れたというより、HTTP リファラーの制限（k-miyosino.com・github.io）がかかっているかを確かめる',
       '入れ替えるときは Google Cloud で新しいキーを作って制限をかけ、環境変数を書き換えて再ビルドする',
