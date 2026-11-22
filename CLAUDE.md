@@ -7,17 +7,19 @@ API キーを預かる Cloudflare Workers（`workers/`）。構成の詳細は `
 
 ## 確認のコマンド
 
-変更は型チェックと ESLint で確かめる。Workers には、ログイン・JWT・管理者の判定などのテストがある（`workers/test/`、Vitest）。
+変更は型チェックと ESLint、テスト（Vitest）で確かめる。フロントエンドのテストは `src/` の `*.test.ts(x)`（チャットの答えのリンク、ログインのトークン、モーダルの開閉など）、Workers のテストは `workers/test/`（ログイン・JWT・管理者の判定など）。
 
 ```bash
 npx tsc --noEmit                 # フロントエンド（ルートの tsconfig.json）
 npx tsc --noEmit -p workers      # Workers とそのテスト（以前からの型エラーが数件ある）
 npx eslint src                   # src/ だけ。workers/ は Prettier の既存エラーが多いので対象外
+npm test                         # フロントエンドのテスト（画面を使うものは jsdom で動かす）
 cd workers && npm test           # Workers のテスト（外への通信は差し替えるので、秘密情報なしで動く）
 ```
 
-Workers のテストは、PR と develop・staging への push で `Test Workers` が、main へのマージでは Deploy Workers がデプロイの前に動かす（通らなければデプロイしない）。
-認証（`auth.ts`）・JWT（`_jwt.ts`）・運用ダッシュボード（`ops.ts`）を変えたら、テストも直すか足す。
+フロントエンドのテストは、PR と develop への push で `Test Frontend` が、staging・main では Deploy がビルドの前に動かす。
+Workers のテストは、PR と develop・staging への push で `Test Workers` が、main へのマージでは Deploy Workers がデプロイの前に動かす。どちらも通らなければ公開しない。
+チャットの答えの表示（`ChatAnswer.tsx`）・ログインのトークン（`src/shared/utils/auth.ts`）・認証の Worker（`auth.ts`・`_jwt.ts`）・運用ダッシュボード（`ops.ts`）を変えたら、テストも直すか足す。
 
 `npm run build` は GitHub Secrets の環境変数（`NEXT_PUBLIC_*`）が前提なので、ローカルやクラウドでは通らないことがある。
 
