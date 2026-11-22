@@ -299,22 +299,37 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
     .bind(monthStart)
     .first<{ n: number; input: number; output: number }>();
 
-  // 直近30日の評価の集計と「わからなかった」の質問と答え（chat-admin.mjs の ratings と同じ）
+  // 直近30日の評価の集計
   const { results: ratingCounts } = await db
     .prepare(
       `SELECT rating, COUNT(*) AS n FROM chat_feedback
         WHERE created_at >= datetime('now', '-30 days') GROUP BY rating`
     )
     .all<{ rating: string; n: number }>();
-  const { results: notUnderstood } = await db
+  // 直近30日の評価ごとの質問と答え（評価ごとに新しい順に最大30件）。
+  // 質問と答えは、質問ログを保存していて、利用者が「この会話を保存しない」を選ばなかったときだけ残っている
+  const { results: feedback } = await db
     .prepare(
-      `SELECT datetime(f.created_at, '+9 hours') AS at, f.page, l.question, l.answer
-         FROM chat_feedback f
-         LEFT JOIN chat_logs l ON l.conversation_id = f.conversation_id AND l.turn = f.turn
-        WHERE f.rating = 'not' AND f.created_at >= datetime('now', '-30 days')
-        ORDER BY f.id DESC LIMIT 20`
+      `SELECT rating, at, page, question, answer FROM (
+         SELECT f.rating, datetime(f.created_at, '+9 hours') AS at, f.page, l.question, l.answer,
+                ROW_NUMBER() OVER (PARTITION BY f.rating ORDER BY f.id DESC) AS rn
+           FROM chat_feedback f
+           LEFT JOIN chat_logs l ON l.conversation_id = f.conversation_id AND l.turn = f.turn
+          WHERE f.created_at >= datetime('now', '-30 days')
+       ) WHERE rn <= 30 ORDER BY at DESC`
     )
-    .all<{ at: string; page: string; question: string | null; answer: string | null }>();
+    .all<{
+      rating: string;
+      at: string;
+      page: string;
+      question: string | null;
+      answer: string | null;
+    }>();
+  // 古い画面のため（「わからなかった」だけ）
+  const notUnderstood = feedback
+    .filter((item) => item.rating === 'not')
+    .slice(0, 20)
+    .map(({ at, page, question, answer }) => ({ at, page, question, answer }));
 
   const yenPerRequest = Number.parseFloat(env.CHAT_YEN_PER_REQUEST ?? '0.1') || 0;
   const weekCount = daily.reduce((sum, row) => sum + row.count, 0);
@@ -337,6 +352,7 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
       },
       logs,
       ratings: Object.fromEntries(ratingCounts.map((row) => [row.rating, row.n])),
+      feedback,
       notUnderstood,
     },
     200,
