@@ -37,6 +37,7 @@ WORKERS=(
   "wrangler.events.toml"
   "wrangler.applications.toml"
   "wrangler.chat.toml"
+  "wrangler.ops.toml"
 )
 
 cd "$WORKERS_DIR"

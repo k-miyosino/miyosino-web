@@ -3,6 +3,7 @@
 かわつる三芳野団地のホームページ（Next.js 15 + TypeScript + Tailwind CSS、静的エクスポート）と、
 API キーを預かる Cloudflare Workers（`workers/`）。構成の詳細は `README.md` と `.claude/commands/architect.md` を参照。
 組合員向けチャットボット（`miyosino-chat`）の運用・設定は `CHATBOT.md` を参照。
+管理者向けの運用ダッシュボード（`/member/ops`・`miyosino-ops`）と定期タスク・秘密情報の一覧は `OPS.md` を参照。
 
 ## 確認のコマンド
 

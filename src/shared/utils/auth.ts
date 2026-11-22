@@ -31,7 +31,7 @@ export interface AuthStatus {
  */
 function decodeJwtPayload(
   token: string
-): { exp?: number; sub?: string } | null {
+): { exp?: number; sub?: string; admin?: boolean } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -41,7 +41,7 @@ function decodeJwtPayload(
       (c) => c.charCodeAt(0)
     );
     const payload = JSON.parse(new TextDecoder().decode(bytes));
-    return payload as { exp?: number; sub?: string };
+    return payload as { exp?: number; sub?: string; admin?: boolean };
   } catch {
     return null;
   }
@@ -56,6 +56,16 @@ function isTokenExpired(token: string): boolean {
   if (!payload?.exp) return true;
   // 30秒のバッファを持たせる
   return payload.exp < Math.floor(Date.now() / 1000) + 30;
+}
+
+/**
+ * 運用ダッシュボードの管理者として発行されたトークンか（画面の側だけで確かめる。署名は確かめない）。
+ * リンクを出すかどうかを決めるだけに使う。実際に見せるかどうかは ops Worker が確かめる
+ */
+export function isOpsAdmin(): boolean {
+  const token = getToken();
+  if (!token || isTokenExpired(token)) return false;
+  return decodeJwtPayload(token)?.admin === true;
 }
 
 /** ログインの状態が変わったときに window に送るイベントの名前（チャット欄が表示を切り替えるのに使う） */
