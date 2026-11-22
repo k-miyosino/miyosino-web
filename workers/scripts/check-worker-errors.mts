@@ -9,6 +9,17 @@
 import { appendFileSync } from 'node:fs';
 import { fetchWorkerErrors } from '../api/_worker-errors.ts';
 
+/**
+ * API から来た文字列をログと表に出せる形にする。
+ * 改行や制御文字で偽のログ行を作られないよう空白にし、表を崩す | もエスケープする
+ */
+function toLogText(value: unknown): string {
+  // eslint-disable-next-line no-control-regex
+  return String(value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\|/g, String.raw`\|`);
+}
+
 // process.exit() は Windows で通信の後始末と重なると落ちるので、終了コードだけを決めて最後まで進む
 async function main(token: string): Promise<boolean> {
   const until = new Date();
@@ -27,10 +38,10 @@ async function main(token: string): Promise<boolean> {
     '| --- | ---: | ---: | --- |',
     ...stats.map(
       (stat) =>
-        `| ${stat.name} | ${stat.requests} | ${stat.errors} | ${Object.entries(
+        `| ${toLogText(stat.name)} | ${stat.requests} | ${stat.errors} | ${Object.entries(
           stat.errorStatuses
         )
-          .map(([status, count]) => `${status}: ${count}`)
+          .map(([status, count]) => `${toLogText(status)}: ${count}`)
           .join(', ')} |`
     ),
   ];
@@ -47,7 +58,7 @@ if (token) {
   try {
     if (!(await main(token))) process.exitCode = 1;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(toLogText(error instanceof Error ? error.message : error));
     process.exitCode = 1;
   }
 } else {
