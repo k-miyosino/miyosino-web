@@ -15,8 +15,9 @@ services:
       - /app/node_modules
       # 💡 ホストのDockerソケットをコンテナ内にマウント
       - /var/run/docker.sock:/var/run/docker.sock
-    # 開発サーバーの起動コマンド
-    command: npm run dev
+    # 開発サーバーの起動コマンド。Docker ではファイルの変更通知が届きにくいので、
+    # Turbopack ではなく webpack で動かし、WATCHPACK_POLLING（変更を一定間隔で見に行く）を効かせる
+    command: npx next dev --webpack --hostname 0.0.0.0
     environment:
       - NODE_ENV=development
       # ホットリロードの安定性のための設定（推奨）
