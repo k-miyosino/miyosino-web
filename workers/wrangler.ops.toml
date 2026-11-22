@@ -26,6 +26,6 @@ database_id = "829829c4-3b89-45ba-804e-fe29d31b0f88"
 
 [vars]
 # Looker Studio のレポートの埋め込み URL（「ファイル → 埋め込みレポート」で表示される URL）。空なら埋め込まない
-LOOKER_STUDIO_EMBED_URL = ""
+LOOKER_STUDIO_EMBED_URL = "https://datastudio.google.com/embed/reporting/65186581-ee91-4388-ad43-3b21f6c36077/page/KJ7DG"
 # チャット1回あたりの費用の目安（円）。CHATBOT.md の目安に合わせる
 CHAT_YEN_PER_REQUEST = "0.1"
