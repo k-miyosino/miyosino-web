@@ -1,31 +1,31 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
+import prettierConfig from 'eslint-config-prettier/flat';
+import prettierPlugin from 'eslint-plugin-prettier';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript', 'prettier'),
+// eslint-config-next 16 から、設定は ESLint の Flat Config の形で直接読み込む
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Prettier と重なる書き方のルールを切る（Prettier の整形を優先する）
+  prettierConfig,
   {
-    plugins: {
-      prettier: (await import('eslint-plugin-prettier')).default,
-    },
+    plugins: { prettier: prettierPlugin },
     rules: {
       'prettier/prettier': 'error',
+      // eslint-config-next 16 で入った React Compiler 向けのルール。今までのコードに 8 か所あり、
+      // 直すと画面の動きに関わるため、別の作業で直すまでは警告にとどめる
+      'react-hooks/set-state-in-effect': 'warn',
     },
-    ignores: [
-      'node_modules/**',
-      '.next/**',
-      'out/**',
-      'build/**',
-      'next-env.d.ts',
-    ],
   },
-];
+  globalIgnores([
+    'node_modules/**',
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
+]);
 
 export default eslintConfig;

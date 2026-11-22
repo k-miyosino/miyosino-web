@@ -29,30 +29,9 @@ const nextConfig: NextConfig = {
   },
   basePath,
   assetPrefix: basePath,
-  // 静的エクスポート時のRSCプリフェッチエラーを防ぐ
-  experimental: {
-    // RSCプリフェッチを無効化（静的エクスポートでは不要）
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
-  },
-  // Docker環境でのホットリロード対応（開発時のみ）
-  webpack: (config, { isServer, dev }) => {
-    // ファイル監視設定を強化（Windows Docker対応）
-    config.watchOptions = {
-      poll: 1000, // 1秒ごとにファイル変更をチェック
-      aggregateTimeout: 300, // 変更検知後300ms待ってからリロード
-      ignored: /node_modules/, // node_modulesは監視対象外
-    };
-
-    // WSL2環境でのwebpackキャッシュエラー対策
-    if (dev && !isServer) {
-      // 開発環境のクライアント側でキャッシュを無効化（WSL2のファイルシステム問題を回避）
-      config.cache = false;
-    }
-
-    return config;
-  },
+  // Next.js 16 から、dev とビルドは Turbopack で動く。webpack の設定があると next build が失敗するので置かない。
+  // Docker で開発するときだけ、docker-compose.yml で `next dev --webpack` を使い、
+  // ファイル監視は WATCHPACK_POLLING（変更を一定間隔で見に行く）に任せる
 };
 
 export default nextConfig;
