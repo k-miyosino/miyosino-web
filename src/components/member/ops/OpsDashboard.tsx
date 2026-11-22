@@ -10,11 +10,13 @@ import OpsChatSection from './OpsChatSection';
 import OpsSecretsSection from './OpsSecretsSection';
 import OpsLinksSection from './OpsLinksSection';
 import OpsLookerStudioFrame from './OpsLookerStudioFrame';
+import OpsWorkersSection from './OpsWorkersSection';
 
 const TABS = [
   { id: 'overview', label: '概要' },
   { id: 'tasks', label: '定期タスク' },
   { id: 'chat', label: 'チャット' },
+  { id: 'workers', label: 'Worker' },
   { id: 'analytics', label: 'アクセス解析' },
   { id: 'secrets', label: '秘密情報' },
 ] as const;
@@ -43,7 +45,8 @@ function SectionTitle({
  * 上にまとめの数字、その下にタブ。開いたタブは URL の #（例: #tasks）に残す
  */
 export default function OpsDashboard() {
-  const { forbidden, overview, chat, github, reloadOverview } = useOpsData();
+  const { forbidden, overview, chat, github, workers, reloadOverview } =
+    useOpsData();
   const [tab, setTab] = useState<TabId>('overview');
 
   // URL の # から開くタブを決める（リロードしても、# だけを変えて開き直しても、同じタブになる）
@@ -88,7 +91,12 @@ export default function OpsDashboard() {
         <OpsLinksSection groups={data.linkGroups} />
       </div>
 
-      <OpsSummaryCards overview={data} github={github} chat={chat} />
+      <OpsSummaryCards
+        overview={data}
+        github={github}
+        chat={chat}
+        workers={workers}
+      />
 
       <div
         role="tablist"
@@ -171,6 +179,16 @@ export default function OpsDashboard() {
               description="質問ログには、だれの質問かは保存していません"
             />
             <OpsChatSection chat={chat} />
+          </section>
+        )}
+
+        {tab === 'workers' && (
+          <section>
+            <SectionTitle
+              title="Worker のエラー"
+              description="Cloudflare の分析 API の数字です。Worker の中で例外が起きた・上限を超えたものを数えます（Worker が自分で受け止めて 500 を返したものは入りません）。名前を押すと Cloudflare のログが開きます。毎日 9:00 に直近24時間を調べ、エラーがあれば GitHub からメールが届きます"
+            />
+            <OpsWorkersSection workers={workers} />
           </section>
         )}
 

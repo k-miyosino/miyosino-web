@@ -18,13 +18,16 @@
 | 区画 | 中身 | データの出どころ |
 |---|---|---|
 | 定期タスク | 月1・年1・期限付き・担当交代時の作業。最後に対応した日と次の期限、状態（期限切れ・もうすぐ・対応済み）。「対応した」で記録 | `workers/api/_ops-catalog.ts` の `OPS_TASKS`＋D1 の記録 |
-| GitHub の状態 | Deploy・Deploy Workers・Sync Places の最新の結果、開いている Dependabot の PR | GitHub の API（公開リポジトリなので、ブラウザから認証なしで取る） |
+| GitHub の状態 | Deploy・Deploy Workers・Sync Places・Check Worker Errors の最新の結果、開いている Dependabot の PR | GitHub の API（公開リポジトリなので、ブラウザから認証なしで取る） |
 | チャット | 設定、直近7日の回数、利用料の目安、直近30日の評価と「わからなかった」の質問、直近の質問ログ | D1 `miyosino-chat`（読むだけ） |
+| Worker | Worker ごとの直近24時間・7日のエラー数とリクエスト数、エラーの内訳。名前から Cloudflare のログへ | Cloudflare の分析 API（GraphQL）。ops Worker の `CLOUDFLARE_ANALYTICS_TOKEN` で取る |
 | アクセス解析 | Looker Studio のレポートの埋め込み | Looker Studio（GA をデータソースにしたもの） |
 | 秘密情報 | 漏れたとき・担当交代のときに払い出し直すものを、種類ごとの表で。用途・登録先（設定し直す場所）・発行元（作り直す場所）・入れ替え手順。「入れ替えた」で記録 | `_ops-catalog.ts` の `OPS_SECRET_CATEGORIES`・`OPS_SECRETS`＋D1 の記録 |
 | リンク集 | GA・Cloudflare・Anthropic・Google Cloud・さくら・microCMS・kintone・GitHub | `_ops-catalog.ts` の `buildLinkGroups` |
 
 利用料の目安は、直近7日のチャットの回数 × 1回あたりの目安（`wrangler.ops.toml` の `CHAT_YEN_PER_REQUEST`、既定 0.1 円）から1か月分を見積もったものです。実際の金額は Anthropic コンソールで確かめてください。回数はチャット Worker が7日で消すので、直近7日分だけが見られます。
+
+Worker のエラーに数えられるのは、Worker の中で例外が起きた・CPU 時間などの上限を超えた、といった失敗です。Worker が自分でエラーを受け止めて 500 を返したものは入りません。あわせて GitHub Actions の **Check Worker Errors**（`.github/workflows/check-workers.yml`）が毎日 9:00 に直近24時間を調べ、エラーがあれば失敗します。失敗のメールは、GitHub の決まりで **このファイルの cron を最後に変えた人** に届きます（担当が替わったら、新しい担当がこのファイルの cron の行を変える PR を出すと、届く先が替わります）。手で動かすときは Actions の画面から実行します。手元では `CLOUDFLARE_ANALYTICS_TOKEN=... node workers/scripts/check-worker-errors.mts` でも調べられます。
 
 ページの HTML は静的エクスポートなので、だれでも取得できます。タスクや秘密情報の一覧はページのコードには書かず、`miyosino-ops` が管理者にだけ返します。
 
@@ -77,7 +80,19 @@ npx wrangler secret put KINTONE_OPS_ADMIN_APP_ID --config wrangler.auth.toml
 3. `wrangler.ops.toml` の `LOOKER_STUDIO_EMBED_URL` に書き、PR でマージする
 4. レポートの共有は「特定のユーザー」にしておく（見る人は、その Google アカウントでログインしているとダッシュボードに表示される）
 
-### 3-4. デプロイと確認
+### 3-4. Worker のエラー（Cloudflare の分析 API）
+
+1. Cloudflare → My Profile → [API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Token → Create Custom Token で、名前を「Worker のエラー確認 - miyosino-web」、権限を **Account → Account Analytics → Read** だけにしてトークンを作る（対象のアカウントは三芳野のものだけ）
+2. ops Worker に設定する（`workers/` で実行。値は画面に貼り付けるだけで、ファイルには残さない）
+
+   ```bash
+   npx wrangler secret put CLOUDFLARE_ANALYTICS_TOKEN --config wrangler.ops.toml
+   ```
+
+3. GitHub の Settings → Secrets and variables → Actions に、同じ値を `CLOUDFLARE_ANALYTICS_TOKEN` として登録する
+4. Actions の「Check Worker Errors」を手で実行し、Summary に Worker ごとの表が出ることを確かめる
+
+### 3-5. デプロイと確認
 
 1. 上の変更を develop → staging → main とマージすると、Deploy Workers が `miyosino-auth` と `miyosino-ops` をデプロイする
 2. 管理者は一度ログアウトしてログインし直す（JWT に `admin` が入る）
