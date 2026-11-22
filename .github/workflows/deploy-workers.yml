@@ -30,6 +30,7 @@ on:
           - greenwellness
           - history
           - minutes
+          - ops
           - places
 
 permissions:
