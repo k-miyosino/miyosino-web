@@ -1,60 +1,65 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { OpsOverview } from '@/types/ops';
-import {
-  OpsForbiddenError,
-  fetchOpsOverview,
-} from '@/repositories/ops/opsRepository';
+import { useEffect, useState } from 'react';
+import { useOpsData } from './useOpsData';
+import { needsAttention } from './opsStatus';
+import OpsSummaryCards from './OpsSummaryCards';
 import OpsTasksSection from './OpsTasksSection';
 import OpsGithubSection from './OpsGithubSection';
 import OpsChatSection from './OpsChatSection';
 import OpsSecretsSection from './OpsSecretsSection';
 import OpsLinksSection from './OpsLinksSection';
 
-function Section({
-  id,
+const TABS = [
+  { id: 'overview', label: '概要' },
+  { id: 'tasks', label: '定期タスク' },
+  { id: 'chat', label: 'チャット' },
+  { id: 'analytics', label: 'アクセス解析' },
+  { id: 'secrets', label: '秘密情報' },
+] as const;
+type TabId = (typeof TABS)[number]['id'];
+
+function isTabId(value: string): value is TabId {
+  return TABS.some((tab) => tab.id === value);
+}
+
+function SectionTitle({
   title,
   description,
-  children,
-}: Readonly<{
-  id: string;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ title: string; description?: string }>) {
   return (
-    <section id={id} className="scroll-mt-20">
-      <h2 className="text-xl font-bold text-gray-900 mb-1">{title}</h2>
+    <div className="mb-3">
+      <h2 className="text-lg font-bold text-gray-900">{title}</h2>
       {description && (
-        <p className="text-sm text-gray-600 mb-4">{description}</p>
+        <p className="text-sm text-gray-600 mt-0.5">{description}</p>
       )}
-      <div className={description ? '' : 'mt-3'}>{children}</div>
-    </section>
+    </div>
   );
 }
 
-/** 運用ダッシュボードの本体。中身はすべて ops Worker から管理者にだけ返ってくる */
+/**
+ * 運用ダッシュボードの本体。中身はすべて ops Worker から管理者にだけ返ってくる。
+ * 上にまとめの数字、その下にタブ。開いたタブは URL の #（例: #tasks）に残す
+ */
 export default function OpsDashboard() {
-  const [overview, setOverview] = useState<OpsOverview | null>(null);
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { forbidden, overview, chat, github, reloadOverview } = useOpsData();
+  const [tab, setTab] = useState<TabId>('overview');
 
-  const load = useCallback(() => {
-    fetchOpsOverview()
-      .then((data) => {
-        setOverview(data);
-        setError(null);
-      })
-      .catch((e) => {
-        if (e instanceof OpsForbiddenError) setForbidden(true);
-        else setError(e instanceof Error ? e.message : '読み込めませんでした');
-      });
+  // URL の # から開くタブを決める（リロードしても、# だけを変えて開き直しても、同じタブになる）
+  useEffect(() => {
+    const syncFromHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (isTabId(hash)) setTab(hash);
+    };
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const selectTab = (id: TabId) => {
+    setTab(id);
+    window.history.replaceState(null, '', `#${id}`);
+  };
 
   if (forbidden) {
     return (
@@ -69,91 +74,135 @@ export default function OpsDashboard() {
       </div>
     );
   }
-  if (error) return <p className="text-red-700">{error}</p>;
-  if (!overview) return <p className="text-gray-500">読み込み中...</p>;
+  if (overview.error) return <p className="text-red-700">{overview.error}</p>;
+  if (!overview.data) return <p className="text-gray-500">読み込み中...</p>;
 
-  const attention = overview.tasks.filter(
-    (task) => task.status === 'overdue' || task.status === 'soon'
-  ).length;
+  const data = overview.data;
+  const attentionTasks = data.tasks.filter(needsAttention);
 
   return (
-    <div className="space-y-12">
-      <nav className="flex flex-wrap gap-3 text-sm">
-        {[
-          ['tasks', '定期タスク'],
-          ['github', 'GitHub の状態'],
-          ['chat', 'チャット'],
-          ['analytics', 'アクセス解析'],
-          ['secrets', '秘密情報'],
-          ['links', 'リンク集'],
-        ].map(([id, label]) => (
-          <a
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-600">今日 {data.today}</p>
+        <OpsLinksSection groups={data.linkGroups} />
+      </div>
+
+      <OpsSummaryCards overview={data} github={github} chat={chat} />
+
+      <div
+        role="tablist"
+        aria-label="運用ダッシュボードの区画"
+        className="flex gap-6 border-b border-gray-200 overflow-x-auto overflow-y-hidden"
+      >
+        {TABS.map(({ id, label }) => (
+          <button
             key={id}
-            href={`#${id}`}
-            className="px-3 py-1 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`ops-panel-${id}`}
+            onClick={() => selectTab(id)}
+            className={`py-2 -mb-px whitespace-nowrap text-sm border-b-2 transition-colors ${
+              tab === id
+                ? 'border-slate-800 text-slate-900 font-semibold'
+                : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
           >
             {label}
-          </a>
+            {id === 'tasks' && attentionTasks.length > 0 && (
+              <span className="ml-1.5 text-xs bg-red-100 text-red-800 rounded-full px-1.5">
+                {attentionTasks.length}
+              </span>
+            )}
+          </button>
         ))}
-      </nav>
+      </div>
 
-      <Section
-        id="tasks"
-        title="定期タスク"
-        description={
-          attention > 0
-            ? `期限切れ・もうすぐのタスクが ${attention} 件あります。対応したら「対応した」で記録してください（今日 ${overview.today}）`
-            : `期限が近いタスクはありません（今日 ${overview.today}）`
-        }
-      >
-        <OpsTasksSection tasks={overview.tasks} onRecorded={load} />
-      </Section>
-
-      <Section id="github" title="GitHub の状態">
-        <OpsGithubSection />
-      </Section>
-
-      <Section
-        id="chat"
-        title="チャット"
-        description="質問ログには、だれの質問かは保存していません"
-      >
-        <OpsChatSection />
-      </Section>
-
-      <Section id="analytics" title="アクセス解析">
-        {overview.lookerStudioEmbedUrl ? (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <iframe
-              src={overview.lookerStudioEmbedUrl}
-              title="アクセス解析（Looker Studio）"
-              className="w-full h-[720px] border-0"
-              sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            />
-            <p className="text-xs text-gray-500 px-4 py-2">
-              表示されないときは、レポートを見る権限のある Google
-              アカウントでログインしてください
-            </p>
+      <div id={`ops-panel-${tab}`} role="tabpanel">
+        {tab === 'overview' && (
+          <div className="space-y-8">
+            <section>
+              <SectionTitle
+                title="今やること"
+                description={
+                  attentionTasks.length > 0
+                    ? '期限切れ・もうすぐのタスクです。行を押すと手順が開き、「対応した」で記録できます'
+                    : undefined
+                }
+              />
+              {attentionTasks.length > 0 ? (
+                <OpsTasksSection
+                  tasks={attentionTasks}
+                  onRecorded={reloadOverview}
+                  showColumns={false}
+                />
+              ) : (
+                <p className="text-sm text-gray-600 bg-white rounded-lg border border-gray-200 p-4">
+                  期限が近いタスクはありません
+                </p>
+              )}
+              <p className="text-sm text-gray-500 mt-2">
+                ほかの {data.tasks.length - attentionTasks.length}{' '}
+                件は「定期タスク」のタブで見られます
+              </p>
+            </section>
+            <section>
+              <SectionTitle title="GitHub の状態" />
+              <OpsGithubSection github={github} />
+            </section>
           </div>
-        ) : (
-          <p className="text-sm text-gray-600">
-            Looker Studio のレポートがまだ設定されていません（OPS.md の手順で
-            wrangler.ops.toml の LOOKER_STUDIO_EMBED_URL に設定します）
-          </p>
         )}
-      </Section>
 
-      <Section
-        id="secrets"
-        title="秘密情報"
-        description="漏れたとき・担当が替わったときに払い出し直すもの。値はここには出しません"
-      >
-        <OpsSecretsSection secrets={overview.secrets} onRecorded={load} />
-      </Section>
+        {tab === 'tasks' && (
+          <section>
+            <SectionTitle
+              title="定期タスク"
+              description="期限切れ・もうすぐのものが上に来ます。行を押すと手順・これまでの記録・「対応した」が開きます"
+            />
+            <OpsTasksSection tasks={data.tasks} onRecorded={reloadOverview} />
+          </section>
+        )}
 
-      <Section id="links" title="リンク集">
-        <OpsLinksSection groups={overview.linkGroups} />
-      </Section>
+        {tab === 'chat' && (
+          <section>
+            <SectionTitle
+              title="チャット"
+              description="質問ログには、だれの質問かは保存していません"
+            />
+            <OpsChatSection chat={chat} />
+          </section>
+        )}
+
+        {tab === 'analytics' &&
+          (data.lookerStudioEmbedUrl ? (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <iframe
+                src={data.lookerStudioEmbedUrl}
+                title="アクセス解析（Looker Studio）"
+                className="w-full h-[80vh] min-h-[600px] border-0"
+                sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Looker Studio のレポートがまだ設定されていません（OPS.md の手順で
+              wrangler.ops.toml の LOOKER_STUDIO_EMBED_URL に設定します）
+            </p>
+          ))}
+
+        {tab === 'secrets' && (
+          <section>
+            <SectionTitle
+              title="秘密情報"
+              description="漏れたとき・担当が替わったときに払い出し直すもの。値はここには出しません。行を押すと置き場所と入れ替え手順が開きます"
+            />
+            <OpsSecretsSection
+              secrets={data.secrets}
+              onRecorded={reloadOverview}
+            />
+          </section>
+        )}
+      </div>
     </div>
   );
 }
