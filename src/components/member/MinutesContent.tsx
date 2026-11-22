@@ -364,17 +364,15 @@ export default function MinutesContent() {
     loadData();
   }, []);
 
-  // 年が変更されたら月をリセット
-  useEffect(() => {
-    if (selectedYear && months.length > 0) {
-      // 選択された年に対応する月が存在する場合、最初の月を選択
-      if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
-        setSelectedMonth(months[0].toString());
-      }
-    } else {
-      setSelectedMonth('');
+  // 年が変わって、その年にない月が選ばれていたら月を直す（effect ではなく、描画の中で食い違いを見つけたときだけ直す）
+  // 月が「すべて」（空文字列）のときはそのまま。年が「すべて」のとき（月の一覧がないとき）は月も「すべて」に戻す
+  if (selectedYear && months.length > 0) {
+    if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
+      setSelectedMonth(months[0].toString());
     }
-  }, [selectedYear, months, selectedMonth]);
+  } else if (selectedMonth !== '') {
+    setSelectedMonth('');
+  }
 
   return (
     <>

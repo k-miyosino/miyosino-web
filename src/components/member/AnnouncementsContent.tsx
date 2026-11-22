@@ -192,18 +192,15 @@ export default function AnnouncementsContent({
     loadAnnouncements();
   }, [selectedYear, selectedMonth]);
 
-  // 年が変更されたら月をリセット
-  useEffect(() => {
-    if (selectedYear && months.length > 0) {
-      // 選択された年に対応する月が存在する場合、最初の月を選択
-      // ただし、selectedMonthが空文字列（「すべて」）の場合はリセットしない
-      if (selectedMonth && !months.includes(parseInt(selectedMonth))) {
-        setSelectedMonth(months[0].toString());
-      }
-    } else {
-      setSelectedMonth('');
+  // 年が変わって、その年にない月が選ばれていたら月を直す（effect ではなく、描画の中で食い違いを見つけたときだけ直す）
+  // 月が「すべて」（空文字列）のときはそのまま。年が「すべて」のとき（月の一覧がないとき）は月も「すべて」に戻す
+  if (selectedYear && months.length > 0) {
+    if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
+      setSelectedMonth(months[0].toString());
     }
-  }, [selectedYear, months]);
+  } else if (selectedMonth !== '') {
+    setSelectedMonth('');
+  }
 
   // 選択された年月のお知らせをフィルタリング（未来の日付と「準備中」を除外）してソート
   const filteredAnnouncements = useMemo(() => {

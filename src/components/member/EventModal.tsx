@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useModalTransition } from './useModalTransition';
 import { Event } from '@/types/events';
 import { ColorScheme, DEFAULT_COLOR } from './colorSchemes';
 
@@ -18,29 +19,10 @@ export default function EventModal({
   categoryColorMap,
 }: EventModalProps) {
   // アニメーション用の状態（閉じる時のアニメーションを完了させるため）
-  const [shouldRender, setShouldRender] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  // モーダルの開閉アニメーション制御
-  useEffect(() => {
-    if (isOpen && event) {
-      // モーダルを表示
-      setShouldRender(true);
-      // DOMの更新を待ってからアニメーションを開始
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-      }, 10);
-      return () => clearTimeout(timer);
-    } else if (!isOpen) {
-      // 閉じる時はアニメーションを開始
-      setIsVisible(false);
-      // アニメーション完了後にDOMから削除
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-      }, 300); // duration-300に合わせる
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, event]);
+  const { shouldRender, isVisible } = useModalTransition(
+    isOpen && event !== null,
+    isOpen
+  );
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {

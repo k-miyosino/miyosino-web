@@ -457,23 +457,28 @@ export default function EventsContent({
       });
   }, [filteredEvents]);
 
-  // 年が変更されたら月をリセット
-  useEffect(() => {
-    if (selectedYear && months.length > 0) {
-      // 選択された年に対応する月が存在する場合、最初の月を選択
-      // selectedMonthが空文字列（「すべて」）の場合はリセットしない
-      if (selectedMonth && !months.includes(parseInt(selectedMonth))) {
-        setSelectedMonth(months[0].toString());
-      }
-    } else {
-      setSelectedMonth('');
+  // 年が変わって、その年にない月が選ばれていたら月を直す（effect ではなく、描画の中で食い違いを見つけたときだけ直す）
+  // 月が「すべて」（空文字列）のときはそのまま。年が「すべて」のとき（月の一覧がないとき）は月も「すべて」に戻す
+  if (selectedYear && months.length > 0) {
+    if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
+      setSelectedMonth(months[0].toString());
     }
-  }, [selectedYear, months, selectedMonth]);
+  } else if (selectedMonth !== '') {
+    setSelectedMonth('');
+  }
 
-  // フィルタが変更されたら過去のイベントの表示件数をリセット
-  useEffect(() => {
+  // 絞り込みが変わったら、過去のイベントの表示件数を戻す（描画の中で、前回の絞り込みと比べて変わったときだけ）
+  const filterKey = [
+    selectedYear,
+    selectedMonth,
+    selectedCategory,
+    selectedOwner,
+  ].join('\u0000');
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
     setPastEventsDisplayLimit(10);
-  }, [selectedYear, selectedMonth, selectedCategory, selectedOwner]);
+  }
 
   // カレンダー用: 日付をキーとしてイベントをグループ化
   const eventsByDate = useMemo(() => {
