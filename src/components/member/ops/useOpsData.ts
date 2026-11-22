@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { OpsChatSummary, OpsOverview } from '@/types/ops';
+import { OpsChatSummary, OpsOverview, OpsWorkersSummary } from '@/types/ops';
 import {
   GithubPullRequest,
   GithubWorkflowRun,
@@ -9,6 +9,7 @@ import {
   fetchGithubStatus,
   fetchOpsChat,
   fetchOpsOverview,
+  fetchOpsWorkers,
 } from '@/repositories/ops/opsRepository';
 
 export interface GithubStatus {
@@ -30,13 +31,14 @@ function toMessage(error: unknown): string {
 
 /**
  * ダッシュボードで使うデータをまとめて読み込む。
- * まとめの数字（上のカード）がタスク・GitHub・チャットのすべてを使うため、各タブではなくここで取る。
+ * まとめの数字（上のカード）がタスク・GitHub・チャット・Worker のすべてを使うため、各タブではなくここで取る。
  */
 export function useOpsData() {
   const [forbidden, setForbidden] = useState(false);
   const [overview, setOverview] = useState<Loadable<OpsOverview>>(LOADING);
   const [chat, setChat] = useState<Loadable<OpsChatSummary>>(LOADING);
   const [github, setGithub] = useState<Loadable<GithubStatus>>(LOADING);
+  const [workers, setWorkers] = useState<Loadable<OpsWorkersSummary>>(LOADING);
 
   const reloadOverview = useCallback(() => {
     fetchOpsOverview()
@@ -56,6 +58,13 @@ export function useOpsData() {
           setChat({ data: null, error: toMessage(e) });
         }
       });
+    fetchOpsWorkers()
+      .then((data) => setWorkers({ data, error: null }))
+      .catch((e) => {
+        if (!(e instanceof OpsForbiddenError)) {
+          setWorkers({ data: null, error: toMessage(e) });
+        }
+      });
     fetchGithubStatus()
       .then((data) => setGithub({ data, error: null }))
       .catch(() =>
@@ -67,5 +76,5 @@ export function useOpsData() {
       );
   }, [reloadOverview]);
 
-  return { forbidden, overview, chat, github, reloadOverview };
+  return { forbidden, overview, chat, github, workers, reloadOverview };
 }

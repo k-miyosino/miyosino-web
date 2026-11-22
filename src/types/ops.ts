@@ -124,3 +124,24 @@ export interface OpsChatFeedback {
   question: string | null;
   answer: string | null;
 }
+
+/** Worker ごとのリクエスト数とエラー数（workers/api/_worker-errors.ts と合わせる） */
+export interface OpsWorkerErrorStat {
+  /** Worker の名前（miyosino-… の後ろ） */
+  name: string;
+  requests: number;
+  errors: number;
+  /** エラーの内訳（scriptThrewException など） */
+  errorStatuses: Record<string, number>;
+}
+
+export interface OpsWorkersSummary {
+  /** ops Worker に分析 API のトークンが設定されていなければ false */
+  available: boolean;
+  /** 直近24時間 */
+  day?: OpsWorkerErrorStat[];
+  /** 直近7日 */
+  week?: OpsWorkerErrorStat[];
+  /** 分析 API から読めなかったときの理由 */
+  error?: string;
+}

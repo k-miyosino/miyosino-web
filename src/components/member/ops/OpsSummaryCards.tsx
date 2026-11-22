@@ -1,4 +1,4 @@
-import { OpsChatSummary, OpsOverview } from '@/types/ops';
+import { OpsChatSummary, OpsOverview, OpsWorkersSummary } from '@/types/ops';
 import { GithubStatus, Loadable } from './useOpsData';
 import { needsAttention } from './opsStatus';
 
@@ -67,24 +67,43 @@ function chatCard(chat: Loadable<OpsChatSummary>): Card {
   };
 }
 
+function workersCard(workers: Loadable<OpsWorkersSummary>): Card {
+  const label = 'Worker のエラー（24時間）';
+  if (workers.error || workers.data?.error)
+    return { label, value: '読み込めず', tone: 'neutral' };
+  if (!workers.data) return { label, value: '…', tone: 'neutral' };
+  if (!workers.data.available)
+    return { label, value: '未設定', tone: 'neutral' };
+  const errors = (workers.data.day ?? []).reduce(
+    (sum, stat) => sum + stat.errors,
+    0
+  );
+  return errors > 0
+    ? { label, value: `${errors.toLocaleString('ja-JP')} 件`, tone: 'danger' }
+    : { label, value: 'なし', tone: 'success' };
+}
+
 /** 一番上のまとめの数字（開いた瞬間に、今日やることがあるかがわかるように） */
 export default function OpsSummaryCards({
   overview,
   github,
   chat,
+  workers,
 }: Readonly<{
   overview: OpsOverview;
   github: Loadable<GithubStatus>;
   chat: Loadable<OpsChatSummary>;
+  workers: Loadable<OpsWorkersSummary>;
 }>) {
   const cards = [
     tasksCard(overview),
     runsCard(github),
+    workersCard(workers),
     pullsCard(github),
     chatCard(chat),
   ];
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {cards.map((card) => (
         <div
           key={card.label}

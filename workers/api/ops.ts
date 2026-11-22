@@ -9,6 +9,7 @@
  * - POST /ops/tasks/:id/done       タスクを対応した記録を残す（{ note?: string }）
  * - POST /ops/secrets/:id/rotated  秘密情報を入れ替えた記録を残す（{ note?: string }）
  * - GET  /ops/chat                 チャットの設定・質問ログ・評価・回数・利用料の目安
+ * - GET  /ops/workers              Worker ごとのリクエスト数とエラー数（直近24時間・7日）
  *
  * D1: OPS_DB（miyosino-ops、記録）、CHAT_DB（miyosino-chat、読むだけ）
  */
@@ -22,6 +23,7 @@ import {
   buildLinkGroups,
 } from './_ops-catalog';
 import { JWTPayload, verifyJWT } from './_jwt';
+import { fetchWorkerErrors } from './_worker-errors';
 
 interface Env {
   JWT_SECRET: string;
@@ -29,6 +31,8 @@ interface Env {
   CHAT_DB?: D1Database;
   LOOKER_STUDIO_EMBED_URL?: string;
   CHAT_YEN_PER_REQUEST?: string;
+  // Cloudflare の分析 API のトークン（Account Analytics: Read だけ）。無ければ Worker のエラーは出さない
+  CLOUDFLARE_ANALYTICS_TOKEN?: string;
   // リンク集に kintone を出すため（任意）
   KINTONE_DOMAIN?: string;
 }
@@ -360,6 +364,26 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
   );
 }
 
+async function handleWorkers(env: Env, origin?: string): Promise<Response> {
+  if (!env.CLOUDFLARE_ANALYTICS_TOKEN) {
+    return jsonResponse({ available: false }, 200, origin);
+  }
+  const now = new Date();
+  const hour = 60 * 60 * 1000;
+  try {
+    const [day, week] = await Promise.all([
+      fetchWorkerErrors(env.CLOUDFLARE_ANALYTICS_TOKEN, new Date(now.getTime() - 24 * hour), now),
+      fetchWorkerErrors(env.CLOUDFLARE_ANALYTICS_TOKEN, new Date(now.getTime() - 7 * 24 * hour), now),
+    ]);
+    return jsonResponse({ available: true, day, week }, 200, origin);
+  } catch (error) {
+    // トークンの権限違いなどは、画面に理由を出して直せるようにする
+    console.error('[Ops] Worker analytics:', error);
+    const reason = error instanceof Error ? error.message : String(error);
+    return jsonResponse({ available: true, error: reason }, 200, origin);
+  }
+}
+
 /** 管理者の JWT なら中身を返す。そうでなければ返すべきエラーの Response */
 async function authenticateAdmin(
   request: Request,
@@ -397,6 +421,9 @@ async function route(
   }
   if (request.method === 'GET' && path === '/ops/chat') {
     return handleChat(env, origin);
+  }
+  if (request.method === 'GET' && path === '/ops/workers') {
+    return handleWorkers(env, origin);
   }
   const record = /^\/ops\/(tasks|secrets)\/([a-z0-9-]+)\/(done|rotated)$/.exec(path);
   if (request.method === 'POST' && record) {
