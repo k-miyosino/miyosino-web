@@ -188,10 +188,11 @@ export default function OpsDashboard() {
           <section>
             <SectionTitle
               title="秘密情報"
-              description="漏れたとき・担当が替わったときに払い出し直すもの。値はここには出しません。行を押すと置き場所と入れ替え手順が開きます"
+              description="漏れたとき・担当が替わったときに払い出し直すもの。値はここには出しません。入れ替えるときは「発行元」で新しい値を作り、「登録先」に設定し直します。名前を押すと手順が開きます"
             />
             <OpsSecretsSection
               secrets={data.secrets}
+              categories={data.secretCategories}
               onRecorded={reloadOverview}
             />
           </section>

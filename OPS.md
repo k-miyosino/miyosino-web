@@ -21,7 +21,7 @@
 | GitHub の状態 | Deploy・Deploy Workers・Sync Places の最新の結果、開いている Dependabot の PR | GitHub の API（公開リポジトリなので、ブラウザから認証なしで取る） |
 | チャット | 設定、直近7日の回数、利用料の目安、直近30日の評価と「わからなかった」の質問、直近の質問ログ | D1 `miyosino-chat`（読むだけ） |
 | アクセス解析 | Looker Studio のレポートの埋め込み | Looker Studio（GA をデータソースにしたもの） |
-| 秘密情報 | 漏れたとき・担当交代のときに払い出し直すものの、置き場所・使っている所・入れ替え手順。「入れ替えた」で記録 | `_ops-catalog.ts` の `OPS_SECRETS`＋D1 の記録 |
+| 秘密情報 | 漏れたとき・担当交代のときに払い出し直すものを、種類ごとの表で。用途・登録先（設定し直す場所）・発行元（作り直す場所）・入れ替え手順。「入れ替えた」で記録 | `_ops-catalog.ts` の `OPS_SECRET_CATEGORIES`・`OPS_SECRETS`＋D1 の記録 |
 | リンク集 | GA・Cloudflare・Anthropic・Google Cloud・さくら・microCMS・kintone・GitHub | `_ops-catalog.ts` の `buildLinkGroups` |
 
 利用料の目安は、直近7日のチャットの回数 × 1回あたりの目安（`wrangler.ops.toml` の `CHAT_YEN_PER_REQUEST`、既定 0.1 円）から1か月分を見積もったものです。実際の金額は Anthropic コンソールで確かめてください。回数はチャット Worker が7日で消すので、直近7日分だけが見られます。
@@ -89,7 +89,8 @@ npx wrangler secret put KINTONE_OPS_ADMIN_APP_ID --config wrangler.auth.toml
 `workers/api/_ops-catalog.ts` を書き換えて PR を出します。main にマージすると ops Worker がデプロイされ、ダッシュボードに反映されます。
 
 - **タスク**（`OPS_TASKS`）: `id`（英小文字とハイフン。記録と結びつくので、あとから変えない）、`title`、`cadence`（`monthly`・`yearly`・`deadline`（`date` に期限日）・`event`（`when` にきっかけ））、`steps`、`links`
-- **秘密情報**（`OPS_SECRETS`）: `id`、`name`、`location`（置き場所）、`usedBy`、`rotate`（入れ替え手順）、`after`（入れ替えたあとに起きること）。**値は絶対に書かない**
+- **秘密情報**（`OPS_SECRETS`）: `id`、`category`（種類。`OPS_SECRET_CATEGORIES` の `id`）、`name`、`purpose`（用途）、`registeredIn`（登録先。入れ替えたあとに新しい値を設定し直す場所を、「Cloudflare Workers：chat」「GitHub Secrets」「各自の PC：…」のような短いラベルで）、`issuer`（発行元。新しい値を作る場所。`label` と、あれば `url`）、`rotate`（入れ替え手順）、`after`（入れ替えたあとに起きること）。**値は絶対に書かない**
+- **秘密情報の種類**（`OPS_SECRET_CATEGORIES`）: 画面ではこの順に表を分ける。新しい種類を足すときは `OpsSecretCategoryId` にも足す
 - **リンク**（`buildLinkGroups`）: 見出しごとのリンクの一覧
 
 秘密情報を新しく増やしたとき（Worker に secret を足した、GitHub Secrets を足したなど）は、ここにも足してください。

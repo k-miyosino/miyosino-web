@@ -15,6 +15,7 @@
 
 import {
   OPS_SECRETS,
+  OPS_SECRET_CATEGORIES,
   OPS_TASKS,
   OpsCadence,
   OpsTask,
@@ -196,6 +197,7 @@ async function handleOverview(env: Env, origin?: string): Promise<Response> {
       today: todayJst(),
       tasks,
       secrets,
+      secretCategories: OPS_SECRET_CATEGORIES,
       linkGroups: buildLinkGroups(env.KINTONE_DOMAIN),
       lookerStudioEmbedUrl: env.LOOKER_STUDIO_EMBED_URL || null,
     },

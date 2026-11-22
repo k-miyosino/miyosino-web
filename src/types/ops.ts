@@ -33,11 +33,33 @@ export interface OpsTask {
 export interface OpsSecret {
   id: string;
   name: string;
-  location: string;
-  usedBy: string;
+  /** 種類（OpsSecretCategory の id） */
+  category?: string;
+  /** 何に使っているか */
+  purpose?: string;
+  /** 登録先: 入れ替えたあとに新しい値を設定し直す場所 */
+  registeredIn?: (string | OpsPlace)[];
+  /** 発行元: 新しい値を作る場所 */
+  issuer?: { label: string; url?: string };
+  /** 古い ops Worker の形（main にデプロイされるまでの間、staging で受け取ることがある） */
+  location?: string;
+  usedBy?: string;
   rotate: string[];
   after?: string;
   history: OpsHistoryEntry[];
+}
+
+/** 登録先の1か所。url があれば、その設定画面へのリンクにする */
+export interface OpsPlace {
+  place: string;
+  label: string;
+  url?: string;
+}
+
+export interface OpsSecretCategory {
+  id: string;
+  label: string;
+  description: string;
 }
 
 export interface OpsLinkGroup {
@@ -49,6 +71,8 @@ export interface OpsOverview {
   today: string;
   tasks: OpsTask[];
   secrets: OpsSecret[];
+  /** 古い ops Worker は返さない */
+  secretCategories?: OpsSecretCategory[];
   linkGroups: OpsLinkGroup[];
   lookerStudioEmbedUrl: string | null;
 }
