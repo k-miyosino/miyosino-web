@@ -107,6 +107,8 @@ export interface OpsChatSummary {
   ratings?: Partial<Record<'understood' | 'partly' | 'not', number>>;
   /** 評価ごとの質問と答え（古い ops Worker は返さない） */
   feedback?: OpsChatFeedback[];
+  /** 見直しの一覧（古い ops Worker は返さない。記録の表が無いときなどは error） */
+  review?: OpsChatReview | { error: string };
   notUnderstood?: {
     at: string;
     page: string;
@@ -144,4 +146,32 @@ export interface OpsWorkersSummary {
   week?: OpsWorkerErrorStat[];
   /** 分析 API から読めなかったときの理由 */
   error?: string;
+}
+
+/** 見直しに入った理由（workers/api/_ops-chat-review.ts と合わせる） */
+export type OpsChatReviewReason =
+  'not' | 'partly' | 'refused' | 'cannot' | 'offtopic';
+
+export type OpsChatReviewStatus = 'fixed' | 'skipped' | 'open';
+
+export interface OpsChatReviewItem {
+  /** 「会話の番号:何番目の質問か」 */
+  key: string;
+  at: string;
+  page: string;
+  question: string | null;
+  answer: string | null;
+  reasons: OpsChatReviewReason[];
+  /** いちばん新しい記録（無ければ未対応） */
+  review: {
+    status: OpsChatReviewStatus;
+    note: string;
+    done_by: string;
+    done_at: string;
+  } | null;
+}
+
+export interface OpsChatReview {
+  items: OpsChatReviewItem[];
+  openCount: number;
 }
