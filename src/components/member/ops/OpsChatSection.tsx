@@ -2,6 +2,8 @@
 
 import { OpsChatSummary } from '@/types/ops';
 import { Loadable } from './useOpsData';
+import OpsChatLogCard from './OpsChatLogCard';
+import OpsChatLogList from './OpsChatLogList';
 
 const RATING_LABELS = {
   understood: 'わかった',
@@ -106,11 +108,11 @@ export default function OpsChatSection({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-4 text-sm">
+      <section className="bg-white rounded-lg border border-gray-200 p-4 text-sm">
         <h3 className="font-medium text-gray-900 mb-2">
           直近30日の評価（{ratingTotal}件）
         </h3>
-        <p className="mb-3 space-x-4">
+        <p className="flex flex-wrap gap-x-4 gap-y-1">
           {(Object.keys(RATING_LABELS) as (keyof typeof RATING_LABELS)[]).map(
             (key) => (
               <span key={key}>
@@ -119,60 +121,22 @@ export default function OpsChatSection({
             )
           )}
         </p>
-        {notUnderstood.length > 0 && (
-          <>
-            <p className="font-medium text-gray-700 mb-1">
-              「わからなかった」の質問と答え
-            </p>
-            <ul className="space-y-2">
-              {notUnderstood.map((item) => (
-                <li
-                  key={`${item.at}-${item.page}`}
-                  className="border-l-4 border-red-200 pl-3"
-                >
-                  <p className="text-gray-500">
-                    {item.at}・{item.page || '（ページ不明）'}
-                  </p>
-                  <p>Q：{item.question ?? '（質問ログなし）'}</p>
-                  {item.answer && (
-                    <p className="text-gray-700 whitespace-pre-wrap">
-                      A：{item.answer}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+      </section>
 
-      <details className="bg-white rounded-lg border border-gray-200 p-4 text-sm">
-        <summary className="font-medium text-gray-900 cursor-pointer">
-          直近の質問ログ（{logs.length}件）
-        </summary>
-        {!settings.logging && (
-          <p className="mt-2 text-gray-600">
-            質問ログは保存していません（npm run chat:log -- on でオンにする）
-          </p>
-        )}
-        <ul className="mt-3 space-y-3">
-          {logs.map((log) => (
-            <li
-              key={`${log.at}-${log.question}`}
-              className="border-l-4 border-gray-200 pl-3"
-            >
-              <p className="text-gray-500">
-                {log.at}・{log.page || '（ページ不明）'}
-                {log.outcome === 'refused' && '・断った'}
-              </p>
-              <p>Q：{log.question}</p>
-              <p className="text-gray-700 whitespace-pre-wrap">
-                A：{log.answer}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </details>
+      {notUnderstood.length > 0 && (
+        <section>
+          <h3 className="font-medium text-gray-900 mb-2">
+            「わからなかった」の質問と答え（{notUnderstood.length}件）
+          </h3>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {notUnderstood.map((item) => (
+              <OpsChatLogCard key={`${item.at}-${item.page}`} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <OpsChatLogList logs={logs} logging={settings.logging} />
     </div>
   );
 }
