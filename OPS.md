@@ -19,7 +19,7 @@
 |---|---|---|
 | 定期タスク | 月1・年1・期限付き・担当交代時の作業。最後に対応した日と次の期限、状態（期限切れ・もうすぐ・対応済み）。「対応した」で記録 | `workers/api/_ops-catalog.ts` の `OPS_TASKS`＋D1 の記録 |
 | GitHub の状態 | Deploy・Deploy Workers・Sync Places・Check Worker Errors の最新の結果、開いている Dependabot の PR | GitHub の API（公開リポジトリなので、ブラウザから認証なしで取る） |
-| チャット | 設定、直近7日の回数、利用料の目安、直近30日の評価と「わからなかった」の質問、直近の質問ログ | D1 `miyosino-chat`（読むだけ） |
+| チャット | 設定、直近7日の回数、利用料の目安、見直し（下の説明）、直近30日の評価、直近の質問ログ | D1 `miyosino-chat`（読むだけ）＋見直しの記録は D1 `miyosino-ops` |
 | Worker | Worker ごとの直近24時間・7日のエラー数とリクエスト数、エラーの内訳。名前から Cloudflare のログへ | Cloudflare の分析 API（GraphQL）。ops Worker の `CLOUDFLARE_ANALYTICS_TOKEN` で取る |
 | アクセス解析 | Looker Studio のレポートの埋め込み | Looker Studio（GA をデータソースにしたもの） |
 | 秘密情報 | 漏れたとき・担当交代のときに払い出し直すものを、種類ごとの表で。用途・登録先（設定し直す場所）・発行元（作り直す場所）・入れ替え手順。「入れ替えた」で記録 | `_ops-catalog.ts` の `OPS_SECRET_CATEGORIES`・`OPS_SECRETS`＋D1 の記録 |
@@ -28,6 +28,8 @@
 利用料の目安は、直近7日のチャットの回数 × 1回あたりの目安（`wrangler.ops.toml` の `CHAT_YEN_PER_REQUEST`、既定 0.1 円）から1か月分を見積もったものです。実際の金額は Anthropic コンソールで確かめてください。回数はチャット Worker が7日で消すので、直近7日分だけが見られます。
 
 Worker のエラーに数えられるのは、Worker の中で例外が起きた・CPU 時間などの上限を超えた、といった失敗です。Worker が自分でエラーを受け止めて 500 を返したものは入りません。あわせて GitHub Actions の **Check Worker Errors**（`.github/workflows/check-workers.yml`）が毎日 9:00 に直近24時間を調べ、エラーがあれば失敗します。失敗のメールは、GitHub の決まりで **このファイルの cron を最後に変えた人** に届きます（担当が替わったら、新しい担当がこのファイルの cron の行を変える PR を出すと、届く先が替わります）。手で動かすときは Actions の画面から実行します。手元では `CLOUDFLARE_ANALYTICS_TOKEN=... node workers/scripts/check-worker-errors.mts` でも調べられます。
+
+**チャットの見直し**には、答えを直すきっかけになる質問が集まります。「わからなかった」「少しわかった」の評価が付いた質問と、チャットが答えられなかった・断った答え（案内文の「このチャットではお答えできません」「団地とホームページのことだけお答えしています」を含むもの）です。案内文やページを直したら「直した」、直さなくてよければ「対応不要」を記録すると、未対応の数から外れます（いちばん新しい記録がその質問の状態。「未対応に戻す」もできる）。未対応の数は、上のカードと「チャット」のタブに出ます。「想定質問の行をコピー」で、`workers/eval/chat-questions.md` に貼れる行をコピーできます。直し方と `chat:eval` での確かめ方は CHATBOT.md の 4 章です。決まり文句を案内文（`chat-guide.ts`）で変えたら、`workers/api/_ops-chat-review.ts` も直します（テストが知らせます）。
 
 ページの HTML は静的エクスポートなので、だれでも取得できます。タスクや秘密情報の一覧はページのコードには書かず、`miyosino-ops` が管理者にだけ返します。
 
@@ -58,7 +60,7 @@ kintone の OAuth では所属グループを直接読めないため、**アプ
 # D1 を作り、表示された database_id を wrangler.ops.toml の REPLACE_WITH_MIYOSINO_OPS_DATABASE_ID と置き換える
 npx wrangler d1 create miyosino-ops
 
-# テーブルを作る
+# テーブルを作る（あとから足したマイグレーションも、同じコマンドでまだのものだけ適用される）
 npx wrangler d1 migrations apply miyosino-ops --remote --config wrangler.ops.toml
 
 # ops Worker に JWT_SECRET を設定する（ほかの Worker と同じ値。新しく作ると全員がログアウトされるので注意）

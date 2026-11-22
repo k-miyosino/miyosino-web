@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { OpsChatFeedback, OpsChatRating } from '@/types/ops';
 import OpsChatLogCard from './OpsChatLogCard';
+import OpsSegmentedControl from './OpsSegmentedControl';
 
 const RATINGS: { id: OpsChatRating; label: string; active: string }[] = [
   { id: 'understood', label: 'わかった', active: 'bg-green-700 text-white' },
@@ -34,27 +35,16 @@ export default function OpsChatFeedbackList({
         <h3 className="font-medium text-gray-900">
           直近30日の評価（{total}件）
         </h3>
-        <div
-          role="group"
-          aria-label="評価の種類"
-          className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm"
-        >
-          {RATINGS.map(({ id, label, active }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={rating === id}
-              onClick={() => setRating(id)}
-              className={`px-3 py-1 ${
-                rating === id
-                  ? active
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {label}（{counts[id] ?? 0}）
-            </button>
-          ))}
-        </div>
+        <OpsSegmentedControl
+          legend="評価の種類"
+          options={RATINGS.map(({ id, label, active }) => ({
+            id,
+            label: `${label}（${counts[id] ?? 0}）`,
+            activeClassName: active,
+          }))}
+          value={rating}
+          onChange={setRating}
+        />
       </div>
 
       {!logging && (

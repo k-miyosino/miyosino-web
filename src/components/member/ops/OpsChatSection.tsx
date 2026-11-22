@@ -4,6 +4,7 @@ import { OpsChatFeedback, OpsChatSummary } from '@/types/ops';
 import { Loadable } from './useOpsData';
 import OpsChatFeedbackList from './OpsChatFeedbackList';
 import OpsChatLogList from './OpsChatLogList';
+import OpsChatReviewList from './OpsChatReviewList';
 
 function OnOff({ on }: Readonly<{ on: boolean }>) {
   return (
@@ -13,10 +14,14 @@ function OnOff({ on }: Readonly<{ on: boolean }>) {
   );
 }
 
-/** チャットの設定・回数・利用料の目安・評価・質問ログ */
+/** チャットの設定・回数・利用料の目安・見直し・評価・質問ログ */
 export default function OpsChatSection({
   chat,
-}: Readonly<{ chat: Loadable<OpsChatSummary> }>) {
+  onReviewRecorded,
+}: Readonly<{
+  chat: Loadable<OpsChatSummary>;
+  onReviewRecorded: () => void;
+}>) {
   const { data, error } = chat;
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!data) return <p className="text-sm text-gray-500">読み込み中...</p>;
@@ -101,6 +106,12 @@ export default function OpsChatSection({
           )}
         </div>
       </div>
+
+      <OpsChatReviewList
+        review={data.review}
+        logging={settings.logging}
+        onRecorded={onReviewRecorded}
+      />
 
       <OpsChatFeedbackList
         feedback={feedback}

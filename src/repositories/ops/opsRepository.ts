@@ -1,4 +1,9 @@
-import { OpsChatSummary, OpsOverview, OpsWorkersSummary } from '@/types/ops';
+import {
+  OpsChatReviewStatus,
+  OpsChatSummary,
+  OpsOverview,
+  OpsWorkersSummary,
+} from '@/types/ops';
 import { getToken } from '@/shared/utils/auth';
 
 const OPS_API_ENDPOINT =
@@ -47,6 +52,18 @@ export function fetchOpsChat(): Promise<OpsChatSummary> {
 
 export function fetchOpsWorkers(): Promise<OpsWorkersSummary> {
   return requestOpsApi<OpsWorkersSummary>('/ops/workers');
+}
+
+/** チャットの見直しの記録を残す（いちばん新しい記録がその質問の状態になる） */
+export async function recordChatReview(
+  key: string,
+  status: OpsChatReviewStatus,
+  note: string
+): Promise<void> {
+  await requestOpsApi('/ops/chat/review', {
+    method: 'POST',
+    body: JSON.stringify({ key, status, note }),
+  });
 }
 
 export async function recordTaskDone(

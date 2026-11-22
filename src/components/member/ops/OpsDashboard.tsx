@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useOpsData } from './useOpsData';
-import { needsAttention } from './opsStatus';
 import OpsSummaryCards from './OpsSummaryCards';
 import OpsTasksSection from './OpsTasksSection';
 import OpsGithubSection from './OpsGithubSection';
@@ -11,6 +10,7 @@ import OpsSecretsSection from './OpsSecretsSection';
 import OpsLinksSection from './OpsLinksSection';
 import OpsLookerStudioFrame from './OpsLookerStudioFrame';
 import OpsWorkersSection from './OpsWorkersSection';
+import { chatReviewOpenCount, needsAttention } from './opsStatus';
 
 const TABS = [
   { id: 'overview', label: '概要' },
@@ -45,8 +45,15 @@ function SectionTitle({
  * 上にまとめの数字、その下にタブ。開いたタブは URL の #（例: #tasks）に残す
  */
 export default function OpsDashboard() {
-  const { forbidden, overview, chat, github, workers, reloadOverview } =
-    useOpsData();
+  const {
+    forbidden,
+    overview,
+    chat,
+    github,
+    workers,
+    reloadOverview,
+    reloadChat,
+  } = useOpsData();
   const [tab, setTab] = useState<TabId>('overview');
 
   // URL の # から開くタブを決める（リロードしても、# だけを変えて開き直しても、同じタブになる）
@@ -83,6 +90,11 @@ export default function OpsDashboard() {
 
   const data = overview.data;
   const attentionTasks = data.tasks.filter(needsAttention);
+  const chatReviewOpen = chatReviewOpenCount(chat.data);
+  const badges: Partial<Record<TabId, number>> = {
+    tasks: attentionTasks.length,
+    chat: chatReviewOpen,
+  };
 
   return (
     <div className="space-y-6">
@@ -118,9 +130,9 @@ export default function OpsDashboard() {
             }`}
           >
             {label}
-            {id === 'tasks' && attentionTasks.length > 0 && (
+            {(badges[id] ?? 0) > 0 && (
               <span className="ml-1.5 text-xs bg-red-100 text-red-800 rounded-full px-1.5">
-                {attentionTasks.length}
+                {badges[id]}
               </span>
             )}
           </button>
@@ -178,7 +190,7 @@ export default function OpsDashboard() {
               title="チャット"
               description="質問ログには、だれの質問かは保存していません"
             />
-            <OpsChatSection chat={chat} />
+            <OpsChatSection chat={chat} onReviewRecorded={reloadChat} />
           </section>
         )}
 
