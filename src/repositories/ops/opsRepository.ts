@@ -1,4 +1,4 @@
-import { OpsChatSummary, OpsOverview } from '@/types/ops';
+import { OpsChatSummary, OpsOverview, OpsWorkersSummary } from '@/types/ops';
 import { getToken } from '@/shared/utils/auth';
 
 const OPS_API_ENDPOINT =
@@ -45,6 +45,10 @@ export function fetchOpsChat(): Promise<OpsChatSummary> {
   return requestOpsApi<OpsChatSummary>('/ops/chat');
 }
 
+export function fetchOpsWorkers(): Promise<OpsWorkersSummary> {
+  return requestOpsApi<OpsWorkersSummary>('/ops/workers');
+}
+
 export async function recordTaskDone(
   taskId: string,
   note: string
@@ -89,6 +93,11 @@ const WATCHED_WORKFLOWS = [
   { file: 'deploy.yml', label: 'Deploy（GitHub Pages）', branch: 'staging' },
   { file: 'deploy-workers.yml', label: 'Deploy Workers', branch: 'main' },
   { file: 'sync.yml', label: 'Sync Places', branch: undefined },
+  {
+    file: 'check-workers.yml',
+    label: 'Check Worker Errors',
+    branch: undefined,
+  },
 ];
 
 export async function fetchGithubStatus(): Promise<{
@@ -102,6 +111,8 @@ export async function fetchGithubStatus(): Promise<{
       const response = await fetch(
         `${GITHUB_API}/actions/workflows/${file}/runs?${query}`
       );
+      // 404 はワークフローがまだ main に無い（足したばかり）とき。その行だけ出さない
+      if (response.status === 404) return null;
       if (!response.ok) throw new Error(`GitHub API ${response.status}`);
       const data = (await response.json()) as {
         workflow_runs: {
