@@ -33,6 +33,7 @@ import {
   MicroCMSSeasonListResponse,
 } from '@/types/seasons';
 import { CONTENT_CATEGORIES } from '@/types/categories';
+import { FALLBACK_IMAGE_URL } from '@/shared/constants';
 
 // MicroCMS カテゴリ配列の共通型
 interface WithCategory {
@@ -141,7 +142,7 @@ export async function fetchTopImages(): Promise<Photo[]> {
 
   const data = (await response.json()) as MicroCMSTopImageListResponse;
 
-  const fallback = { url: '/fallback.jpg', width: 0, height: 0 };
+  const fallback = { url: FALLBACK_IMAGE_URL, width: 0, height: 0 };
 
   return data.contents
     .filter((content: MicroCMSCommonTopImage) => {

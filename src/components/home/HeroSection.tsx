@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { Photo } from '@/types/media';
 import { fetchTopImages } from '@/repositories/microcms/contentRepository';
+import { FALLBACK_IMAGE_URL } from '@/shared/constants';
 
 export default function HeroSection() {
   const [heroPhoto, setHeroPhoto] = useState<Photo | null>(null);
@@ -54,7 +55,7 @@ export default function HeroSection() {
       <div className="relative h-[70vh] min-h-[500px]">
         <div className="absolute inset-0">
           <Image
-            src={heroPhoto.image?.url || '/fallback.jpg'}
+            src={heroPhoto.image?.url || FALLBACK_IMAGE_URL}
             alt={heroPhoto.title || 'ヒーロー画像'}
             fill
             priority
