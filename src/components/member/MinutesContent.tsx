@@ -11,6 +11,7 @@ import { getToken } from '@/shared/utils/auth';
 import { downloadFile as downloadFileUtil } from '@/shared/utils/fileDownload';
 import FileDownloadButton from '@/components/shared/FileDownloadButton';
 import FilePreviewModal from '@/components/shared/FilePreviewModal';
+import { useMonthForYear } from './useMonthForYear';
 
 // 音声プレーヤーコンポーネント
 function AudioPlayer({
@@ -364,15 +365,8 @@ export default function MinutesContent() {
     loadData();
   }, []);
 
-  // 年が変わって、その年にない月が選ばれていたら月を直す（effect ではなく、描画の中で食い違いを見つけたときだけ直す）
-  // 月が「すべて」（空文字列）のときはそのまま。年が「すべて」のとき（月の一覧がないとき）は月も「すべて」に戻す
-  if (selectedYear && months.length > 0) {
-    if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
-      setSelectedMonth(months[0].toString());
-    }
-  } else if (selectedMonth !== '') {
-    setSelectedMonth('');
-  }
+  // 年が変わって、その年にない月が選ばれていたら月を直す
+  useMonthForYear(selectedYear, months, selectedMonth, setSelectedMonth);
 
   return (
     <>

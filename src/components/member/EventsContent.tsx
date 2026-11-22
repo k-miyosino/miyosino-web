@@ -9,6 +9,7 @@ import {
   DEFAULT_COLOR,
   getCategoryColor,
 } from './colorSchemes';
+import { useMonthForYear } from './useMonthForYear';
 
 interface EventsContentProps {
   upcomingEvents?: Event[];
@@ -457,15 +458,8 @@ export default function EventsContent({
       });
   }, [filteredEvents]);
 
-  // 年が変わって、その年にない月が選ばれていたら月を直す（effect ではなく、描画の中で食い違いを見つけたときだけ直す）
-  // 月が「すべて」（空文字列）のときはそのまま。年が「すべて」のとき（月の一覧がないとき）は月も「すべて」に戻す
-  if (selectedYear && months.length > 0) {
-    if (selectedMonth && !months.includes(Number.parseInt(selectedMonth))) {
-      setSelectedMonth(months[0].toString());
-    }
-  } else if (selectedMonth !== '') {
-    setSelectedMonth('');
-  }
+  // 年が変わって、その年にない月が選ばれていたら月を直す
+  useMonthForYear(selectedYear, months, selectedMonth, setSelectedMonth);
 
   // 絞り込みが変わったら、過去のイベントの表示件数を戻す（描画の中で、前回の絞り込みと比べて変わったときだけ）
   const filterKey = [
