@@ -1,6 +1,6 @@
 import { OpsChatSummary, OpsOverview, OpsWorkersSummary } from '@/types/ops';
 import { GithubStatus, Loadable } from './useOpsData';
-import { needsAttention } from './opsStatus';
+import { chatReviewOpenCount, needsAttention } from './opsStatus';
 
 interface Card {
   label: string;
@@ -83,6 +83,16 @@ function workersCard(workers: Loadable<OpsWorkersSummary>): Card {
     : { label, value: 'なし', tone: 'success' };
 }
 
+function chatReviewCard(chat: Loadable<OpsChatSummary>): Card {
+  const label = 'チャットの見直し';
+  if (chat.error) return { label, value: '読み込めず', tone: 'neutral' };
+  if (!chat.data) return { label, value: '…', tone: 'neutral' };
+  const open = chatReviewOpenCount(chat.data);
+  return open > 0
+    ? { label, value: `未対応 ${open} 件`, tone: 'warning' }
+    : { label, value: 'なし', tone: 'success' };
+}
+
 /** 一番上のまとめの数字（開いた瞬間に、今日やることがあるかがわかるように） */
 export default function OpsSummaryCards({
   overview,
@@ -100,10 +110,11 @@ export default function OpsSummaryCards({
     runsCard(github),
     workersCard(workers),
     pullsCard(github),
+    chatReviewCard(chat),
     chatCard(chat),
   ];
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {cards.map((card) => (
         <div
           key={card.label}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { OpsChatLog } from '@/types/ops';
 import OpsChatLogCard from './OpsChatLogCard';
+import OpsSegmentedControl from './OpsSegmentedControl';
 
 type Filter = 'all' | 'refused';
 
@@ -29,28 +30,15 @@ export default function OpsChatLogList({
         <h3 className="font-medium text-gray-900">
           直近の質問ログ（{logs.length}件）
         </h3>
-        <div
-          role="group"
-          aria-label="質問ログの絞り込み"
-          className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm"
-        >
-          {FILTERS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={filter === id}
-              onClick={() => setFilter(id)}
-              className={`px-3 py-1 ${
-                filter === id
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {label}
-              {id === 'refused' && `（${refusedCount}）`}
-            </button>
-          ))}
-        </div>
+        <OpsSegmentedControl
+          legend="質問ログの絞り込み"
+          options={FILTERS.map(({ id, label }) => ({
+            id,
+            label: id === 'refused' ? `${label}（${refusedCount}）` : label,
+          }))}
+          value={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {!logging && (

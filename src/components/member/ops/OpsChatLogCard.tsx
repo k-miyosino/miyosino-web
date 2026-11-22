@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import ChatAnswer from '@/components/member/ChatAnswer';
 import { findSitePage } from '@/shared/constants/sitePages';
 
@@ -29,11 +29,18 @@ const COLLAPSED_LINES = 4;
 
 /**
  * 質問ログのカード。上に日時とページ、質問は吹き出し、答えは組合員がチャットで見たのと同じ見た目
- * （ChatAnswer。パスはページ名のリンクになる）。長い答えは4行までたたむ
+ * （ChatAnswer。パスはページ名のリンクになる）。長い答えは4行までたたむ。
+ * badges は日時の横に、children はカードのいちばん下に出す（見直しの理由や記録の欄）
  */
 export default function OpsChatLogCard({
   item,
-}: Readonly<{ item: OpsChatLogItem }>) {
+  badges,
+  children,
+}: Readonly<{
+  item: OpsChatLogItem;
+  badges?: ReactNode;
+  children?: ReactNode;
+}>) {
   const answerRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -56,6 +63,7 @@ export default function OpsChatLogCard({
             断った
           </span>
         )}
+        {badges}
       </header>
 
       <p className="bg-gray-100 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 whitespace-pre-wrap">
@@ -90,6 +98,7 @@ export default function OpsChatLogCard({
           )}
         </div>
       )}
+      {children}
     </article>
   );
 }

@@ -49,8 +49,7 @@ export function useOpsData() {
       });
   }, []);
 
-  useEffect(() => {
-    reloadOverview();
+  const reloadChat = useCallback(() => {
     fetchOpsChat()
       .then((data) => setChat({ data, error: null }))
       .catch((e) => {
@@ -58,6 +57,11 @@ export function useOpsData() {
           setChat({ data: null, error: toMessage(e) });
         }
       });
+  }, []);
+
+  useEffect(() => {
+    reloadOverview();
+    reloadChat();
     fetchOpsWorkers()
       .then((data) => setWorkers({ data, error: null }))
       .catch((e) => {
@@ -74,7 +78,15 @@ export function useOpsData() {
             'GitHub の状態を読み込めませんでした（時間をおいて開き直してください）',
         })
       );
-  }, [reloadOverview]);
+  }, [reloadOverview, reloadChat]);
 
-  return { forbidden, overview, chat, github, workers, reloadOverview };
+  return {
+    forbidden,
+    overview,
+    chat,
+    github,
+    workers,
+    reloadOverview,
+    reloadChat,
+  };
 }

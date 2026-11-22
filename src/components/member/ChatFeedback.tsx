@@ -49,8 +49,10 @@ export default function ChatFeedback({
     );
   }
   return (
-    <div className="mt-1" role="group" aria-label="この答えはわかりましたか">
-      <p className="mb-1 text-xs text-gray-500">この答えはわかりましたか？</p>
+    <fieldset className="mt-1">
+      <legend className="mb-1 text-xs text-gray-500">
+        この答えはわかりましたか？
+      </legend>
       <div className="flex flex-wrap gap-1">
         {RATING_OPTIONS.map((option) => (
           <button
@@ -63,6 +65,6 @@ export default function ChatFeedback({
           </button>
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }
