@@ -14,9 +14,6 @@ const eslintConfig = defineConfig([
     plugins: { prettier: prettierPlugin },
     rules: {
       'prettier/prettier': 'error',
-      // eslint-config-next 16 で入った React Compiler 向けのルール。今までのコードに 8 か所あり、
-      // 直すと画面の動きに関わるため、別の作業で直すまでは警告にとどめる
-      'react-hooks/set-state-in-effect': 'warn',
     },
   },
   globalIgnores([

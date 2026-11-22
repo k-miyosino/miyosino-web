@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useModalTransition } from './useModalTransition';
 import { Event } from '@/types/events';
 import { ColorScheme, DEFAULT_COLOR } from './colorSchemes';
 
@@ -18,59 +18,12 @@ export default function EventModal({
   categoryColorMap,
 }: EventModalProps) {
   // アニメーション用の状態（閉じる時のアニメーションを完了させるため）
-  const [shouldRender, setShouldRender] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  // モーダルの開閉アニメーション制御
-  useEffect(() => {
-    if (isOpen && event) {
-      // モーダルを表示
-      setShouldRender(true);
-      // DOMの更新を待ってからアニメーションを開始
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-      }, 10);
-      return () => clearTimeout(timer);
-    } else if (!isOpen) {
-      // 閉じる時はアニメーションを開始
-      setIsVisible(false);
-      // アニメーション完了後にDOMから削除
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-      }, 300); // duration-300に合わせる
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, event]);
-
-  // ESCキーでモーダルを閉じる
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    // モーダルが開いている時は背景のスクロールを無効化
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen, onClose]);
-
-  // モーダルが閉じられた時にスクロールを復元
-  useEffect(() => {
-    if (!isOpen) {
-      // アニメーション完了後にスクロールを復元
-      const timer = setTimeout(() => {
-        document.body.style.overflow = 'unset';
-      }, 300); // duration-300に合わせる
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+  // ESC キーで閉じる・背景のスクロールを止めることも、このフックで行う
+  const { shouldRender, isVisible } = useModalTransition(
+    isOpen && event !== null,
+    isOpen,
+    onClose
+  );
 
   // 日時から時間のみを取得する関数（00:00の場合は空文字列を返す）
   const formatTime = (dateTimeString: string): string => {

@@ -9,6 +9,7 @@ import {
   DEFAULT_COLOR,
   getCategoryColor,
 } from './colorSchemes';
+import { useMonthForYear } from './useMonthForYear';
 
 interface EventsContentProps {
   upcomingEvents?: Event[];
@@ -282,6 +283,9 @@ function formatEventPeriod(event: Event): { label: string; value: string } {
   }
 }
 
+// 過去のイベントを一度に表示する件数（「さらに表示」で増やす件数も同じ）
+const PAST_EVENTS_PAGE_SIZE = 10;
+
 export default function EventsContent({
   upcomingEvents = [],
   pastEvents = [],
@@ -333,9 +337,11 @@ export default function EventsContent({
   // 選択された主催者（全主催者は空文字列）
   const [selectedOwner, setSelectedOwner] = useState<string>('');
 
-  // 過去のイベントの表示件数制限
-  const [pastEventsDisplayLimit, setPastEventsDisplayLimit] =
-    useState<number>(10);
+  // 過去のイベントの表示件数制限（どの絞り込みのときに増やしたかといっしょに持つ）
+  const [pastEventsLimitState, setPastEventsLimitState] = useState({
+    filterKey: '',
+    limit: PAST_EVENTS_PAGE_SIZE,
+  });
 
   // 年と月の一覧を取得
   const years = useMemo(() => {
@@ -457,23 +463,21 @@ export default function EventsContent({
       });
   }, [filteredEvents]);
 
-  // 年が変更されたら月をリセット
-  useEffect(() => {
-    if (selectedYear && months.length > 0) {
-      // 選択された年に対応する月が存在する場合、最初の月を選択
-      // selectedMonthが空文字列（「すべて」）の場合はリセットしない
-      if (selectedMonth && !months.includes(parseInt(selectedMonth))) {
-        setSelectedMonth(months[0].toString());
-      }
-    } else {
-      setSelectedMonth('');
-    }
-  }, [selectedYear, months, selectedMonth]);
+  // 年が変わって、その年にない月が選ばれていたら月を直す
+  useMonthForYear(selectedYear, months, selectedMonth, setSelectedMonth);
 
-  // フィルタが変更されたら過去のイベントの表示件数をリセット
-  useEffect(() => {
-    setPastEventsDisplayLimit(10);
-  }, [selectedYear, selectedMonth, selectedCategory, selectedOwner]);
+  // 絞り込みが変わったら、過去のイベントの表示件数を最初の件数に戻す
+  // （増やしたときの絞り込みと今の絞り込みが違えば、最初の件数として計算する）
+  const filterKey = [
+    selectedYear,
+    selectedMonth,
+    selectedCategory,
+    selectedOwner,
+  ].join('\u0000');
+  const pastEventsDisplayLimit =
+    pastEventsLimitState.filterKey === filterKey
+      ? pastEventsLimitState.limit
+      : PAST_EVENTS_PAGE_SIZE;
 
   // カレンダー用: 日付をキーとしてイベントをグループ化
   const eventsByDate = useMemo(() => {
@@ -860,9 +864,12 @@ export default function EventsContent({
                           <div className="flex justify-center mt-6">
                             <button
                               onClick={() =>
-                                setPastEventsDisplayLimit(
-                                  pastEventsDisplayLimit + 10
-                                )
+                                setPastEventsLimitState({
+                                  filterKey,
+                                  limit:
+                                    pastEventsDisplayLimit +
+                                    PAST_EVENTS_PAGE_SIZE,
+                                })
                               }
                               className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
                             >
