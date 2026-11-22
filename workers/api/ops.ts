@@ -8,7 +8,8 @@
  * - GET  /ops/overview             定期タスク・秘密情報・リンク・Looker Studio の URL
  * - POST /ops/tasks/:id/done       タスクを対応した記録を残す（{ note?: string }）
  * - POST /ops/secrets/:id/rotated  秘密情報を入れ替えた記録を残す（{ note?: string }）
- * - GET  /ops/chat                 チャットの設定・質問ログ・評価・回数・利用料の目安
+ * - GET  /ops/chat                 チャットの設定・質問ログ・評価・回数・利用料の目安・見直しの一覧
+ * - POST /ops/chat/review          見直しの記録を残す（{ key, status: fixed|skipped|open, note? }）
  * - GET  /ops/workers              Worker ごとのリクエスト数とエラー数（直近24時間・7日）
  *
  * D1: OPS_DB（miyosino-ops、記録）、CHAT_DB（miyosino-chat、読むだけ）
@@ -24,6 +25,7 @@ import {
 } from './_ops-catalog';
 import { JWTPayload, verifyJWT } from './_jwt';
 import { fetchWorkerErrors } from './_worker-errors';
+import { loadChatReview, recordChatReview } from './_ops-chat-review';
 
 interface Env {
   JWT_SECRET: string;
@@ -335,6 +337,15 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
     .slice(0, 20)
     .map(({ at, page, question, answer }) => ({ at, page, question, answer }));
 
+  // 見直しの一覧。記録の表（ops_chat_review）がまだ無いときなども、ほかの区画は出せるようにする
+  let review;
+  try {
+    review = await loadChatReview(db, env.OPS_DB);
+  } catch (error) {
+    console.error('[Ops] Chat review:', error);
+    review = { error: error instanceof Error ? error.message : String(error) };
+  }
+
   const yenPerRequest = Number.parseFloat(env.CHAT_YEN_PER_REQUEST ?? '0.1') || 0;
   const weekCount = daily.reduce((sum, row) => sum + row.count, 0);
   return jsonResponse(
@@ -358,6 +369,7 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
       ratings: Object.fromEntries(ratingCounts.map((row) => [row.rating, row.n])),
       feedback,
       notUnderstood,
+      review,
     },
     200,
     origin
@@ -421,6 +433,13 @@ async function route(
   }
   if (request.method === 'GET' && path === '/ops/chat') {
     return handleChat(env, origin);
+  }
+  if (request.method === 'POST' && path === '/ops/chat/review') {
+    const body = await request.json().catch(() => null);
+    const result = await recordChatReview(env.OPS_DB, body, payload.name);
+    return result.ok
+      ? jsonResponse({ ok: true }, 200, origin)
+      : jsonResponse({ error: result.error }, 400, origin);
   }
   if (request.method === 'GET' && path === '/ops/workers') {
     return handleWorkers(env, origin);

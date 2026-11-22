@@ -1,4 +1,10 @@
-import { OpsCadence, OpsTask } from '@/types/ops';
+import { OpsCadence, OpsChatSummary, OpsTask } from '@/types/ops';
+
+/** チャットの見直しで未対応の件数（読み込み前・古い ops Worker・読み込めなかったときは 0） */
+export function chatReviewOpenCount(chat: OpsChatSummary | null): number {
+  const review = chat?.review;
+  return review && 'openCount' in review ? review.openCount : 0;
+}
 
 export interface Badge {
   label: string;

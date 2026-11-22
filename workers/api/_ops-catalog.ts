@@ -117,8 +117,9 @@ export const OPS_TASKS: OpsTask[] = [
     title: 'チャットの質問ログと評価を見る',
     cadence: { type: 'monthly' },
     steps: [
-      'このページの「チャット」で、「わからなかった」の質問と答えを見る',
-      '答えが足りない質問は、ページの中身や案内文（_chat-knowledge.ts）を直す',
+      'このページの「チャット」→「見直し」で、未対応の質問と答えを見る（「わからなかった」「少しわかった」の評価、答えられなかった・断った答えが入る）',
+      '答えが足りない質問は、ページの中身や案内文（workers/api/chat-guide.ts、ページの一覧は src/shared/constants/sitePages.ts）を直し、「直した」を記録する。直さなくてよいものは「対応不要」を記録する',
+      '直した質問は「想定質問の行をコピー」で workers/eval/chat-questions.md に足し、npm run chat:eval で答えが良くなったかを確かめる（CHATBOT.md の 4 章）',
     ],
   },
   {
