@@ -67,8 +67,32 @@ jobs:
           echo "デプロイ対象: $configs"
           echo "configs=$configs" >> "$GITHUB_OUTPUT"
 
-  deploy:
+  # テストが通らなければデプロイしない（中身は test-workers.yml と同じ）
+  test:
     needs: detect
+    if: needs.detect.outputs.configs != '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: workers/package-lock.json
+
+      - name: Install dependencies
+        working-directory: workers
+        run: npm ci --ignore-scripts
+
+      - name: Test
+        working-directory: workers
+        run: npm test
+
+  deploy:
+    needs: [detect, test]
     if: needs.detect.outputs.configs != '[]'
     runs-on: ubuntu-latest
     strategy:
