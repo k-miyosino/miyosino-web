@@ -7,10 +7,7 @@
 import { getToken, redirectToLogin } from './auth';
 
 export type FileDownloadEndpoint =
-  | 'greenwellness'
-  | 'circulars'
-  | 'minutes'
-  | 'applications';
+  'greenwellness' | 'circulars' | 'minutes' | 'applications';
 
 /**
  * エンドポイントタイプからAPI URLを取得
