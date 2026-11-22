@@ -1,11 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  GithubPullRequest,
-  GithubWorkflowRun,
-  fetchGithubStatus,
-} from '@/repositories/ops/opsRepository';
+import { GithubWorkflowRun } from '@/repositories/ops/opsRepository';
+import { GithubStatus, Loadable } from './useOpsData';
 
 function formatJst(iso: string): string {
   return new Date(iso).toLocaleString('ja-JP', {
@@ -18,7 +14,7 @@ function formatJst(iso: string): string {
   });
 }
 
-function runBadge(run: GithubWorkflowRun): {
+export function runBadge(run: GithubWorkflowRun): {
   label: string;
   className: string;
 } {
@@ -36,26 +32,14 @@ function runBadge(run: GithubWorkflowRun): {
 }
 
 /** GitHub Actions の最新の結果と、開いている Dependabot の PR（公開リポジトリなので認証なしで取る） */
-export default function OpsGithubSection() {
-  const [runs, setRuns] = useState<GithubWorkflowRun[] | null>(null);
-  const [pulls, setPulls] = useState<GithubPullRequest[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchGithubStatus()
-      .then((status) => {
-        setRuns(status.runs);
-        setPulls(status.dependabotPulls);
-      })
-      .catch(() =>
-        setError(
-          'GitHub の状態を読み込めませんでした（時間をおいて開き直してください）'
-        )
-      );
-  }, []);
-
-  if (error) return <p className="text-sm text-red-700">{error}</p>;
-  if (!runs) return <p className="text-sm text-gray-500">読み込み中...</p>;
+export default function OpsGithubSection({
+  github,
+}: Readonly<{ github: Loadable<GithubStatus> }>) {
+  if (github.error)
+    return <p className="text-sm text-red-700">{github.error}</p>;
+  if (!github.data)
+    return <p className="text-sm text-gray-500">読み込み中...</p>;
+  const { runs, dependabotPulls: pulls } = github.data;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
