@@ -1,6 +1,6 @@
 # Node.jsのLTSバージョンを使用
-# FROM node:22-alpine
-FROM node:22-slim
+# FROM node:24-alpine
+FROM node:24-slim
 
 # Alpineのパッケージマネージャ(apk)を使ってbashをインストールします
 # RUN apk update && apk add bash git docker

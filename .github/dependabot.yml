@@ -18,7 +18,7 @@ updates:
       frontend-minor-patch:
         update-types: [minor, patch]
     ignore:
-      # 型定義は、ワークフローで使う Node.js のバージョン（22）に合わせる
+      # 型定義は、ワークフローで使う Node.js のバージョン（24）に合わせる
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
       # TypeScript 7 は typescript-eslint が対応していない（<6.1.0 まで）
