@@ -26,6 +26,12 @@ updates:
       # 型定義は、ワークフローで使う Node.js のバージョン（22）に合わせる
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
+      # ESLint 10 は eslint-config-next 15 が対応していない（peerDependencies が ^9 まで）
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      # TypeScript 7 は typescript-eslint が対応していない（<6.1.0 まで）
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   # Cloudflare Workers（workers/package.json）
   - package-ecosystem: npm
@@ -38,6 +44,10 @@ updates:
     groups:
       workers-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 はルートと揃えて上げる（ルートは typescript-eslint の対応待ち）
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   # GitHub Actions のアクション（.github/workflows/）
   - package-ecosystem: github-actions
