@@ -9,6 +9,7 @@ import {
 } from '@/types/ops';
 import { recordChatReview } from '@/repositories/ops/opsRepository';
 import OpsChatLogCard from './OpsChatLogCard';
+import OpsSegmentedControl from './OpsSegmentedControl';
 
 const REASONS: Record<
   OpsChatReviewReason,
@@ -167,30 +168,15 @@ export default function OpsChatReviewList({
     <section>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h3 className="font-medium text-gray-900">見直し</h3>
-        <div
-          role="group"
-          aria-label="見直しの状態"
-          className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm"
-        >
-          {[
-            { done: false, label: `未対応（${open.length}）` },
-            { done: true, label: `対応済み（${done.length}）` },
-          ].map((tab) => (
-            <button
-              key={tab.label}
-              type="button"
-              aria-pressed={showDone === tab.done}
-              onClick={() => setShowDone(tab.done)}
-              className={`px-3 py-1 ${
-                showDone === tab.done
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <OpsSegmentedControl
+          legend="見直しの状態"
+          options={[
+            { id: 'open', label: `未対応（${open.length}）` },
+            { id: 'done', label: `対応済み（${done.length}）` },
+          ]}
+          value={showDone ? 'done' : 'open'}
+          onChange={(id) => setShowDone(id === 'done')}
+        />
       </div>
       <p className="text-sm text-gray-600 mb-2">
         「わからなかった」「少しわかった」の評価と、答えられなかった・断った答えです。答えが足りなければ案内文やページを直して「直した」、直さなくてよければ「対応不要」を記録します
