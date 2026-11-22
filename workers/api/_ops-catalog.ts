@@ -161,11 +161,11 @@ export const OPS_TASKS: OpsTask[] = [
     ],
   },
   {
-    id: 'node-22-eol',
-    title: 'Node.js 22 のサポートが切れる前に上げる',
-    cadence: { type: 'deadline', date: '2027-04-30' },
+    id: 'node-24-eol',
+    title: 'Node.js 24 のサポートが切れる前に上げる',
+    cadence: { type: 'deadline', date: '2028-04-30' },
     steps: [
-      'GitHub Actions の node-version、Dockerfile、@types/node を次の LTS（24 など）に上げる',
+      'GitHub Actions の node-version、Dockerfile、@types/node を次の LTS（26 など）に上げる',
       '.github/dependabot.yml の @types/node の ignore も見直す',
     ],
     links: [{ label: 'Node.js のリリース予定', url: 'https://nodejs.org/en/about/previous-releases' }],
