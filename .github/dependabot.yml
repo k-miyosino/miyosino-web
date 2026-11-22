@@ -18,16 +18,8 @@ updates:
       frontend-minor-patch:
         update-types: [minor, patch]
     ignore:
-      # Next.js 16 への移行は別の作業として行う
-      - dependency-name: next
-        update-types: [version-update:semver-major]
-      - dependency-name: eslint-config-next
-        update-types: [version-update:semver-major]
       # 型定義は、ワークフローで使う Node.js のバージョン（22）に合わせる
       - dependency-name: '@types/node'
-        update-types: [version-update:semver-major]
-      # ESLint 10 は eslint-config-next 15 が対応していない（peerDependencies が ^9 まで）
-      - dependency-name: eslint
         update-types: [version-update:semver-major]
       # TypeScript 7 は typescript-eslint が対応していない（<6.1.0 まで）
       - dependency-name: typescript

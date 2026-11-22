@@ -26,6 +26,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Next.js 16 から next build は ESLint を実行しないので、ビルドの前に確かめる
+      - name: Lint
+        run: npx eslint src
+
       - name: Build
         env:
           NODE_ENV: production
