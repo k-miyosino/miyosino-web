@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import {
   checkAuthStatus,
+  isOpsAdmin,
   redirectToLogin,
   logout,
   handleAuthCallback,
@@ -15,6 +17,8 @@ import { AnnouncementsSection, MemberNavigation } from '@/components/member';
 export default function MemberPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  // 運用ダッシュボードへのリンクを出すか（表示だけ。見せるかどうかは ops Worker が確かめる）
+  const [showOpsLink, setShowOpsLink] = useState(false);
   const hasCheckedAuth = useRef(false);
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export default function MemberPage() {
       }
 
       console.log('[Member Page] Authenticated, showing page');
+      setShowOpsLink(isOpsAdmin());
       setIsLoading(false);
     }
 
@@ -131,6 +136,16 @@ export default function MemberPage() {
 
       {/* メインコンテンツ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {showOpsLink && (
+          <Link
+            href="/member/ops"
+            className="flex items-center justify-between bg-slate-800 hover:bg-slate-900 text-white rounded-lg px-6 py-4 mb-8 transition-colors"
+          >
+            <span className="font-medium">運用ダッシュボード（管理者）</span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
+
         {/* ご利用上の注意 */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
           <div className="flex items-start">
