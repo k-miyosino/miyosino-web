@@ -7,13 +7,17 @@ API キーを預かる Cloudflare Workers（`workers/`）。構成の詳細は `
 
 ## 確認のコマンド
 
-このリポジトリにはテストがない。変更は型チェックと ESLint で確かめる。
+変更は型チェックと ESLint で確かめる。Workers には、ログイン・JWT・管理者の判定などのテストがある（`workers/test/`、Vitest）。
 
 ```bash
 npx tsc --noEmit                 # フロントエンド（ルートの tsconfig.json）
-npx tsc --noEmit -p workers      # Workers（以前からの型エラーが数件ある）
+npx tsc --noEmit -p workers      # Workers とそのテスト（以前からの型エラーが数件ある）
 npx eslint src                   # src/ だけ。workers/ は Prettier の既存エラーが多いので対象外
+cd workers && npm test           # Workers のテスト（外への通信は差し替えるので、秘密情報なしで動く）
 ```
+
+Workers のテストは、PR と develop・staging への push で `Test Workers` が、main へのマージでは Deploy Workers がデプロイの前に動かす（通らなければデプロイしない）。
+認証（`auth.ts`）・JWT（`_jwt.ts`）・運用ダッシュボード（`ops.ts`）を変えたら、テストも直すか足す。
 
 `npm run build` は GitHub Secrets の環境変数（`NEXT_PUBLIC_*`）が前提なので、ローカルやクラウドでは通らないことがある。
 
