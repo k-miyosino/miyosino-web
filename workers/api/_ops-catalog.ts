@@ -6,6 +6,8 @@
  * 秘密情報の「値」は絶対に書かない。名前・置き場所・入れ替え手順だけを書く。
  */
 
+import { CLOUDFLARE_ACCOUNT_ID } from './_worker-errors';
+
 const REPO_URL = 'https://github.com/k-miyosino/miyosino-web';
 
 /** 周期: 月1・年1・期限日（その日までに1回）・きっかけがあったとき */
@@ -29,7 +31,7 @@ export interface OpsTask {
 }
 
 export type OpsSecretCategoryId =
-  'login' | 'data' | 'chat' | 'form' | 'deploy' | 'personal' | 'public';
+  'login' | 'data' | 'chat' | 'form' | 'deploy' | 'monitor' | 'personal' | 'public';
 
 /** 登録先の1か所。url があれば、その設定画面へのリンクにする */
 export interface OpsPlace {
@@ -102,7 +104,8 @@ export const OPS_TASKS: OpsTask[] = [
     cadence: { type: 'monthly' },
     steps: [
       'このページの「GitHub の状態」で Sync Places（毎週月曜 3:00）が成功しているかを見る',
-      'Cloudflare でチャット Worker の定期実行（毎日 4:00、古いログの削除）にエラーがないかを見る',
+      'このページの「Worker」で、エラーが出ている Worker がないかを見る（チャット Worker の定期実行（毎日 4:00、古いログの削除）の失敗もここに数えられる）',
+      'Check Worker Errors（毎日 9:00）が失敗したときは GitHub からメールが届く。届いたら Cloudflare の Worker の「Logs」で中身を確かめる',
     ],
     links: [
       { label: 'GitHub Actions', url: `${REPO_URL}/actions` },
@@ -217,6 +220,11 @@ export const OPS_SECRET_CATEGORIES: OpsSecretCategory[] = [
     description: 'GitHub Actions がサイトや Worker を公開するときに使うもの',
   },
   {
+    id: 'monitor',
+    label: '見張り',
+    description: 'Worker のエラーを調べるのに使うもの（読み取りだけ）',
+  },
+  {
     id: 'personal',
     label: '各自の PC で使うもの',
     description: '管理者が自分の PC の道具で使うもの',
@@ -229,8 +237,6 @@ export const OPS_SECRET_CATEGORIES: OpsSecretCategory[] = [
   },
 ];
 
-// Cloudflare のアカウント（wrangler.*.toml の account_id と同じ）
-const CLOUDFLARE_ACCOUNT_ID = 'e6544c934cee9bfb0cdfc5b155ce8aeb';
 
 /** Cloudflare Workers の設定画面（変数とシークレット）へのリンク。name は Worker の名前（miyosino-… の後ろ） */
 function worker(name: string, note?: string): OpsPlace {
@@ -386,6 +392,26 @@ export const OPS_SECRETS: OpsSecret[] = [
     rotate: [
       'Cloudflare → My Profile → API Tokens で「GitHub Actions - miyosino-web」を Roll する',
       'GitHub の Settings → Secrets and variables → Actions で CLOUDFLARE_API_TOKEN を書き換える',
+    ],
+  },
+  {
+    id: 'cloudflare-analytics-token',
+    category: 'monitor',
+    name: 'CLOUDFLARE_ANALYTICS_TOKEN',
+    purpose:
+      'Worker ごとのエラー数を Cloudflare の分析 API から読む（このページの「Worker」と、毎日の Check Worker Errors）',
+    registeredIn: [
+      worker('ops'),
+      githubSecret('CLOUDFLARE_ANALYTICS_TOKEN'),
+    ],
+    issuer: {
+      label: 'Cloudflare → My Profile → API Tokens',
+      url: 'https://dash.cloudflare.com/profile/api-tokens',
+    },
+    rotate: [
+      'Cloudflare → My Profile → API Tokens で「Worker のエラー確認 - miyosino-web」を Roll する（権限は Account Analytics: Read だけ）',
+      'wrangler secret put CLOUDFLARE_ANALYTICS_TOKEN --config wrangler.ops.toml で設定し直す',
+      'GitHub の Settings → Secrets and variables → Actions で CLOUDFLARE_ANALYTICS_TOKEN を書き換える',
     ],
   },
   {
