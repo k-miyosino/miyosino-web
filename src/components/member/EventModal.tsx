@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useModalTransition } from './useModalTransition';
 import { Event } from '@/types/events';
 import { ColorScheme, DEFAULT_COLOR } from './colorSchemes';
@@ -19,40 +18,12 @@ export default function EventModal({
   categoryColorMap,
 }: EventModalProps) {
   // アニメーション用の状態（閉じる時のアニメーションを完了させるため）
+  // ESC キーで閉じる・背景のスクロールを止めることも、このフックで行う
   const { shouldRender, isVisible } = useModalTransition(
     isOpen && event !== null,
-    isOpen
+    isOpen,
+    onClose
   );
-
-  // ESCキーでモーダルを閉じる
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    // モーダルが開いている時は背景のスクロールを無効化
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen, onClose]);
-
-  // モーダルが閉じられた時にスクロールを復元
-  useEffect(() => {
-    if (!isOpen) {
-      // アニメーション完了後にスクロールを復元
-      const timer = setTimeout(() => {
-        document.body.style.overflow = 'unset';
-      }, 300); // duration-300に合わせる
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
 
   // 日時から時間のみを取得する関数（00:00の場合は空文字列を返す）
   const formatTime = (dateTimeString: string): string => {
