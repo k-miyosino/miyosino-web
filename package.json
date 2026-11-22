@@ -13,7 +13,9 @@
     "sync:places": "tsx src/sync-places.ts",
     "check:place": "tsx src/check-place-type.ts",
     "check:type": "tsx src/check-type-nearby.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -33,11 +36,13 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.7",
     "husky": "^9.1.7",
+    "jsdom": "^31.0.1",
     "lint-staged": "^17.6.1",
     "prettier": "^3.10.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vitest": "^5.1.1",
     "wrangler": "^4.47.0"
   }
 }
