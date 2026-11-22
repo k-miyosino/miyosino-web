@@ -14,6 +14,10 @@ export const SITE_CONFIG = {
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? '',
 } as const;
 
+// トップの写真が取れなかったときの代わりの画像（public/fallback.jpg）。
+// next/image は basePath を自動で付けないので、ここで付ける（GitHub Pages では /miyosino-web の下に置かれる）
+export const FALLBACK_IMAGE_URL = `${SITE_CONFIG.basePath}/fallback.jpg`;
+
 // 検索エンジンに公開するページ（sitemap.xml に掲載）。ページの一覧は sitePages.ts にまとめている
 export const PUBLIC_PAGES: readonly string[] = PUBLIC_SITE_PAGES.map((page) =>
   page.path === '/' ? '/' : `${page.path}/`
