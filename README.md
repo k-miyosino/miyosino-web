@@ -492,7 +492,8 @@ docker-compose exec web git config --global --add safe.directory /app
 | ブランチ / 操作 | 実行内容 | ワークフロー |
 | --- | --- | --- |
 | PR、`develop`・`staging` へのpush（`workers/` に変更がある場合） | Workers のテスト（`workers/test/`） | `test-workers.yml` |
-| `staging` へのマージ | フロントエンドをビルドし GitHub Pages（`https://k-miyosino.github.io/miyosino-web/`）へデプロイ | `deploy.yml` |
+| PR、`develop` へのpush（`src/` などに変更がある場合） | フロントエンドのテスト（`src/**/*.test.ts(x)`） | `test-frontend.yml` |
+| `staging` へのマージ | フロントエンドのテストが通ったらビルドし GitHub Pages（`https://k-miyosino.github.io/miyosino-web/`）へデプロイ | `deploy.yml` |
 | `main` へのマージ | フロントエンドをビルド（さくらインターネットへのデプロイは現在停止中） | `deploy.yml` |
 | `main` へのマージ（`workers/` に変更がある場合） | Workers のテストが通ったら、変更のあったCloudflare Workersのみデプロイ | `deploy-workers.yml` |
 | 手動実行 | 指定ブランチをビルドし、さくらインターネットの `/v2` へデプロイ（更改版のテスト用） | `deploy-v2-test.yml` |
