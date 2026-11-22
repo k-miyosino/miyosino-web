@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { OpsChatSummary } from '@/types/ops';
-import { fetchOpsChat } from '@/repositories/ops/opsRepository';
+import { Loadable } from './useOpsData';
 
 const RATING_LABELS = {
   understood: 'わかった',
@@ -19,18 +18,10 @@ function OnOff({ on }: Readonly<{ on: boolean }>) {
 }
 
 /** チャットの設定・回数・利用料の目安・評価・質問ログ */
-export default function OpsChatSection() {
-  const [data, setData] = useState<OpsChatSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchOpsChat()
-      .then(setData)
-      .catch((e) =>
-        setError(e instanceof Error ? e.message : '読み込めませんでした')
-      );
-  }, []);
-
+export default function OpsChatSection({
+  chat,
+}: Readonly<{ chat: Loadable<OpsChatSummary> }>) {
+  const { data, error } = chat;
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!data) return <p className="text-sm text-gray-500">読み込み中...</p>;
   if (!data.available || !data.settings) {
