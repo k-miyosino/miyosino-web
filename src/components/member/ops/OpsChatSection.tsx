@@ -1,15 +1,9 @@
 'use client';
 
-import { OpsChatSummary } from '@/types/ops';
+import { OpsChatFeedback, OpsChatSummary } from '@/types/ops';
 import { Loadable } from './useOpsData';
-import OpsChatLogCard from './OpsChatLogCard';
+import OpsChatFeedbackList from './OpsChatFeedbackList';
 import OpsChatLogList from './OpsChatLogList';
-
-const RATING_LABELS = {
-  understood: 'わかった',
-  partly: '少しわかった',
-  not: 'わからなかった',
-} as const;
 
 function OnOff({ on }: Readonly<{ on: boolean }>) {
   return (
@@ -43,10 +37,10 @@ export default function OpsChatSection({
     ratings = {},
     notUnderstood = [],
   } = data;
-  const ratingTotal = Object.values(ratings).reduce(
-    (sum, n) => sum + (n ?? 0),
-    0
-  );
+  // 古い ops Worker は feedback を返さないので、「わからなかった」だけで作る
+  const feedback: OpsChatFeedback[] =
+    data.feedback ??
+    notUnderstood.map((item) => ({ ...item, rating: 'not' as const }));
 
   return (
     <div className="space-y-4">
@@ -108,33 +102,11 @@ export default function OpsChatSection({
         </div>
       </div>
 
-      <section className="bg-white rounded-lg border border-gray-200 p-4 text-sm">
-        <h3 className="font-medium text-gray-900 mb-2">
-          直近30日の評価（{ratingTotal}件）
-        </h3>
-        <p className="flex flex-wrap gap-x-4 gap-y-1">
-          {(Object.keys(RATING_LABELS) as (keyof typeof RATING_LABELS)[]).map(
-            (key) => (
-              <span key={key}>
-                {RATING_LABELS[key]}：{ratings[key] ?? 0}
-              </span>
-            )
-          )}
-        </p>
-      </section>
-
-      {notUnderstood.length > 0 && (
-        <section>
-          <h3 className="font-medium text-gray-900 mb-2">
-            「わからなかった」の質問と答え（{notUnderstood.length}件）
-          </h3>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {notUnderstood.map((item) => (
-              <OpsChatLogCard key={`${item.at}-${item.page}`} item={item} />
-            ))}
-          </div>
-        </section>
-      )}
+      <OpsChatFeedbackList
+        feedback={feedback}
+        counts={ratings}
+        logging={settings.logging}
+      />
 
       <OpsChatLogList logs={logs} logging={settings.logging} />
     </div>

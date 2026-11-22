@@ -105,10 +105,22 @@ export interface OpsChatSummary {
   };
   logs?: OpsChatLog[];
   ratings?: Partial<Record<'understood' | 'partly' | 'not', number>>;
+  /** 評価ごとの質問と答え（古い ops Worker は返さない） */
+  feedback?: OpsChatFeedback[];
   notUnderstood?: {
     at: string;
     page: string;
     question: string | null;
     answer: string | null;
   }[];
+}
+
+export type OpsChatRating = 'understood' | 'partly' | 'not';
+
+export interface OpsChatFeedback {
+  rating: OpsChatRating;
+  at: string;
+  page: string;
+  question: string | null;
+  answer: string | null;
 }
