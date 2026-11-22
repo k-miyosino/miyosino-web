@@ -1,0 +1,31 @@
+name = "miyosino-ops"
+main = "api/ops.ts"
+compatibility_date = "2026-11-01"
+account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
+
+# 運用ダッシュボード（/member/ops）の API。管理者（JWT の admin）にだけ答える。設定の手順は OPS.md
+#
+# シークレットは wrangler secret put コマンドで設定してください
+# wrangler secret put JWT_SECRET --config wrangler.ops.toml   （npm run set-jwt-secret でも設定される）
+
+# 対応の記録を置く D1
+# 作成: npx wrangler d1 create miyosino-ops （表示された database_id を下に書く）
+# テーブル作成: npx wrangler d1 migrations apply miyosino-ops --remote --config wrangler.ops.toml
+[[d1_databases]]
+binding = "OPS_DB"
+database_name = "miyosino-ops"
+database_id = "REPLACE_WITH_MIYOSINO_OPS_DATABASE_ID"
+migrations_dir = "migrations/ops"
+
+# チャットの質問ログ・評価・回数を読む（読むだけ。書き込みと削除はしない）
+# wrangler.chat.toml と同じデータベース
+[[d1_databases]]
+binding = "CHAT_DB"
+database_name = "miyosino-chat"
+database_id = "829829c4-3b89-45ba-804e-fe29d31b0f88"
+
+[vars]
+# Looker Studio のレポートの埋め込み URL（「ファイル → 埋め込みレポート」で表示される URL）。空なら埋め込まない
+LOOKER_STUDIO_EMBED_URL = ""
+# チャット1回あたりの費用の目安（円）。CHATBOT.md の目安に合わせる
+CHAT_YEN_PER_REQUEST = "0.1"

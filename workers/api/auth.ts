@@ -16,6 +16,12 @@
  * 「ログイン記録」アプリ（KINTONE_LOGIN_LOG_APP_ID）に本人のトークンでレコードを 1 件追加し、
  * その「作成者」フィールドからユーザーコードを得て JWT の sub にする。
  * 識別できなかったときは sub を UNIDENTIFIED_USER_ID にする（ログイン自体は通す）。
+ *
+ * 運用ダッシュボードの管理者の判定:
+ * kintone の OAuth では所属グループを読めないため、「運用管理者」アプリ（KINTONE_OPS_ADMIN_APP_ID）を
+ * 本人のトークンで読めるかどうかで判定する。アプリのアクセス権を「システム管理」グループ
+ * （グループコード Administrators）だけに絞っておけば、そのグループの人だけが管理者になる（OPS.md）。
+ * 結果は JWT の admin に入れる。
  */
 
 import { JWTPayload, generateJWT, verifyJWT } from './_jwt';
@@ -27,6 +33,8 @@ interface Env {
   JWT_SECRET: string;
   // 「ログイン記録」アプリのID。未設定なら利用者を識別しない
   KINTONE_LOGIN_LOG_APP_ID?: string;
+  // 「運用管理者」アプリのID。未設定ならだれも管理者にしない
+  KINTONE_OPS_ADMIN_APP_ID?: string;
 }
 
 // 利用者を識別できなかったときの sub。チャットなど利用者ごとに数える機能はこの値を拒否する
@@ -361,8 +369,14 @@ async function handleCallback(
 
     // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなす。
     // 利用者の識別はできなくてもログインは通す（識別できない場合は sub が UNIDENTIFIED_USER_ID になる）
-    const identity = await identifyKintoneUser(tokenData.access_token, env);
-    const jwt = await generateJWT(buildJWTPayload(identity), env.JWT_SECRET);
+    const [identity, admin] = await Promise.all([
+      identifyKintoneUser(tokenData.access_token, env),
+      isOpsAdmin(tokenData.access_token, env),
+    ]);
+    const jwt = await generateJWT(
+      buildJWTPayload(identity, admin),
+      env.JWT_SECRET
+    );
 
     // JWTとrefresh_tokenをURLフラグメント（#以降）で渡す（クロスドメインCookie問題の回避）
     // フラグメントはサーバーへのリクエスト・Referer・アクセス解析に含まれないため、クエリより安全
@@ -531,9 +545,15 @@ async function handleRefresh(
 
     const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // 新しいJWTを生成（新しいアクセストークンで改めて利用者を識別する）
-    const identity = await identifyKintoneUser(tokenData.access_token, env);
-    const jwt = await generateJWT(buildJWTPayload(identity), env.JWT_SECRET);
+    // 新しいJWTを生成（新しいアクセストークンで改めて利用者と管理者を判定する）
+    const [identity, admin] = await Promise.all([
+      identifyKintoneUser(tokenData.access_token, env),
+      isOpsAdmin(tokenData.access_token, env),
+    ]);
+    const jwt = await generateJWT(
+      buildJWTPayload(identity, admin),
+      env.JWT_SECRET
+    );
 
     return new Response(
       JSON.stringify({
@@ -704,12 +724,48 @@ async function identifyKintoneUser(
   }
 }
 
-function buildJWTPayload(identity: MemberIdentity | null): JWTPayload {
+/**
+ * 運用ダッシュボードの管理者かどうか。
+ * 「運用管理者」アプリのレコードを本人のトークンで読めれば管理者（読めなければ kintone が 403 を返す）。
+ * 判定に失敗したときは管理者にしない。
+ */
+async function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
+  const appId = env.KINTONE_OPS_ADMIN_APP_ID;
+  if (!appId) {
+    return false;
+  }
+  try {
+    const url = new URL(`https://${env.KINTONE_DOMAIN}/k/v1/records.json`);
+    url.searchParams.set('app', appId);
+    url.searchParams.set('query', 'limit 1');
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (response.ok) {
+      return true;
+    }
+    // 403 は「管理者ではない」なのでログに出さない
+    if (response.status !== 403) {
+      console.error('[Auth] Failed to check ops admin:', response.status);
+    }
+    return false;
+  } catch (error) {
+    console.error('[Auth] Failed to check ops admin:', error);
+    return false;
+  }
+}
+
+function buildJWTPayload(
+  identity: MemberIdentity | null,
+  admin: boolean
+): JWTPayload {
   const now = Math.floor(Date.now() / 1000);
   return {
     sub: identity?.code ?? UNIDENTIFIED_USER_ID,
     name: identity?.name ?? UNIDENTIFIED_USER_NAME,
     email: PLACEHOLDER_EMAIL,
+    // 識別できなかった人は管理者にしない（記録にだれが対応したかを残せないため）
+    ...(admin && identity ? { admin: true as const } : {}),
     iat: now,
     exp: now + JWT_LIFETIME_SECONDS,
   };
