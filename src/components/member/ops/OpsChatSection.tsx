@@ -10,7 +10,7 @@ const RATING_LABELS = {
   not: 'わからなかった',
 } as const;
 
-function OnOff({ on }: { on: boolean }) {
+function OnOff({ on }: Readonly<{ on: boolean }>) {
   return (
     <span className={on ? 'text-green-700 font-medium' : 'text-gray-500'}>
       {on ? 'オン' : 'オフ'}

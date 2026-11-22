@@ -11,7 +11,10 @@ interface Props {
 }
 
 /** 漏れたら払い出し直す秘密情報の一覧（値は扱わない。名前・置き場所・手順だけ） */
-export default function OpsSecretsSection({ secrets, onRecorded }: Props) {
+export default function OpsSecretsSection({
+  secrets,
+  onRecorded,
+}: Readonly<Props>) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (

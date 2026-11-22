@@ -49,7 +49,10 @@ interface Props {
   onRecorded: () => void;
 }
 
-export default function OpsTasksSection({ tasks, onRecorded }: Props) {
+export default function OpsTasksSection({
+  tasks,
+  onRecorded,
+}: Readonly<Props>) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (

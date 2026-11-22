@@ -8,7 +8,10 @@ interface Props {
 }
 
 /** 「対応した」「入れ替えた」を記録する欄（メモは任意） */
-export default function OpsRecordForm({ buttonLabel, onSubmit }: Props) {
+export default function OpsRecordForm({
+  buttonLabel,
+  onSubmit,
+}: Readonly<Props>) {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

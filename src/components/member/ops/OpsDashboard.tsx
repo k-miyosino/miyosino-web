@@ -17,12 +17,12 @@ function Section({
   title,
   description,
   children,
-}: {
+}: Readonly<{
   id: string;
   title: string;
   description?: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <section id={id} className="scroll-mt-20">
       <h2 className="text-xl font-bold text-gray-900 mb-1">{title}</h2>

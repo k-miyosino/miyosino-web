@@ -125,11 +125,12 @@ function taskSchedule(
   if (cadence.type === 'deadline') {
     if (lastDoneJst) return { dueDate: cadence.date, status: 'done' };
     dueDate = cadence.date;
+  } else if (lastDoneJst) {
+    const months = cadence.type === 'monthly' ? 1 : 12;
+    dueDate = addMonths(lastDoneJst, months);
   } else {
     // 一度も対応していなければ、今日が期限
-    dueDate = lastDoneJst
-      ? addMonths(lastDoneJst, cadence.type === 'monthly' ? 1 : 12)
-      : today;
+    dueDate = today;
   }
   const remaining = daysBetween(today, dueDate);
   if (remaining < 0 || (!lastDoneJst && cadence.type !== 'deadline')) {
@@ -341,51 +342,74 @@ async function handleChat(env: Env, origin?: string): Promise<Response> {
   );
 }
 
+/** 管理者の JWT なら中身を返す。そうでなければ返すべきエラーの Response */
+async function authenticateAdmin(
+  request: Request,
+  env: Env,
+  origin?: string
+): Promise<JWTPayload | Response> {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+  }
+  const payload = await verifyJWT(authHeader.substring(7), env.JWT_SECRET);
+  if (!payload) {
+    return jsonResponse({ error: 'Invalid token' }, 401, origin);
+  }
+  if (payload.admin !== true) {
+    return jsonResponse({ error: 'forbidden' }, 403, origin);
+  }
+  return payload;
+}
+
+const RECORD_ROUTES: Record<string, { kind: 'task' | 'secret'; action: string }> = {
+  tasks: { kind: 'task', action: 'done' },
+  secrets: { kind: 'secret', action: 'rotated' },
+};
+
+async function route(
+  request: Request,
+  env: Env,
+  payload: JWTPayload,
+  path: string,
+  origin?: string
+): Promise<Response> {
+  if (request.method === 'GET' && path === '/ops/overview') {
+    return handleOverview(env, origin);
+  }
+  if (request.method === 'GET' && path === '/ops/chat') {
+    return handleChat(env, origin);
+  }
+  const record = /^\/ops\/(tasks|secrets)\/([a-z0-9-]+)\/(done|rotated)$/.exec(path);
+  if (request.method === 'POST' && record) {
+    const [, group, id, action] = record;
+    const target = RECORD_ROUTES[group];
+    if (target.action === action) {
+      return handleRecord(request, env, payload, target.kind, id, origin);
+    }
+  }
+  return jsonResponse({ error: 'Not found' }, 404, origin);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/\/$/, '');
+    const path = new URL(request.url).pathname.replace(/\/$/, '');
     const origin = request.headers.get('Origin') || undefined;
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders(origin) });
     }
-
     if (!env.JWT_SECRET || !env.OPS_DB) {
       console.error('[Ops] Required environment variables are not set');
       return jsonResponse({ error: 'Server configuration error' }, 500, origin);
     }
 
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+    const auth = await authenticateAdmin(request, env, origin);
+    if (auth instanceof Response) {
+      return auth;
     }
-    const payload = await verifyJWT(authHeader.substring(7), env.JWT_SECRET);
-    if (!payload) {
-      return jsonResponse({ error: 'Invalid token' }, 401, origin);
-    }
-    if (payload.admin !== true) {
-      return jsonResponse({ error: 'forbidden' }, 403, origin);
-    }
-
     try {
-      if (path === '/ops/overview' && request.method === 'GET') {
-        return await handleOverview(env, origin);
-      }
-      if (path === '/ops/chat' && request.method === 'GET') {
-        return await handleChat(env, origin);
-      }
-      const record = path.match(/^\/ops\/(tasks|secrets)\/([a-z0-9-]+)\/(done|rotated)$/);
-      if (record && request.method === 'POST') {
-        const [, group, id, action] = record;
-        if (group === 'tasks' && action === 'done') {
-          return await handleRecord(request, env, payload, 'task', id, origin);
-        }
-        if (group === 'secrets' && action === 'rotated') {
-          return await handleRecord(request, env, payload, 'secret', id, origin);
-        }
-      }
-      return jsonResponse({ error: 'Not found' }, 404, origin);
+      return await route(request, env, auth, path, origin);
     } catch (error) {
       console.error('[Ops] Error:', error);
       return jsonResponse({ error: 'Internal server error' }, 500, origin);
