@@ -9,6 +9,7 @@ import OpsGithubSection from './OpsGithubSection';
 import OpsChatSection from './OpsChatSection';
 import OpsSecretsSection from './OpsSecretsSection';
 import OpsLinksSection from './OpsLinksSection';
+import OpsLookerStudioFrame from './OpsLookerStudioFrame';
 
 const TABS = [
   { id: 'overview', label: '概要' },
@@ -175,14 +176,7 @@ export default function OpsDashboard() {
 
         {tab === 'analytics' &&
           (data.lookerStudioEmbedUrl ? (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <iframe
-                src={data.lookerStudioEmbedUrl}
-                title="アクセス解析（Looker Studio）"
-                className="w-full h-[80vh] min-h-[600px] border-0"
-                sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              />
-            </div>
+            <OpsLookerStudioFrame src={data.lookerStudioEmbedUrl} />
           ) : (
             <p className="text-sm text-gray-600">
               Looker Studio のレポートがまだ設定されていません（OPS.md の手順で
