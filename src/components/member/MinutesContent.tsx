@@ -497,6 +497,8 @@ export default function MinutesContent() {
                   {filteredMeetings.map((meeting) => {
                     const minutesTitleId = `minutes-title-${meeting.id}`;
                     const audioTitleId = `audio-title-${meeting.id}`;
+                    const audioFiles =
+                      meeting.audios ?? (meeting.audio ? [meeting.audio] : []);
 
                     return (
                       <div
@@ -668,9 +670,12 @@ export default function MinutesContent() {
                               </div>
                             )}
 
-                            {/* 音声ファイル */}
-                            {meeting.audio && (
-                              <div className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200">
+                            {/* 音声ファイル（総会などは No.1, No.2 … と複数） */}
+                            {audioFiles.map((audio, index) => (
+                              <div
+                                key={audio.fileKey}
+                                className="bg-gray-100 rounded-lg p-4 transition-colors hover:bg-gray-200 focus-within:bg-gray-200"
+                              >
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
                                   <div className="flex items-center gap-2">
                                     <svg
@@ -687,29 +692,31 @@ export default function MinutesContent() {
                                       />
                                     </svg>
                                     <h4
-                                      id={audioTitleId}
+                                      id={`${audioTitleId}-${index}`}
                                       className="text-sm font-semibold text-gray-700"
                                     >
-                                      音声ファイル
+                                      {audioFiles.length > 1
+                                        ? `音声ファイル No.${index + 1}`
+                                        : '音声ファイル'}
                                     </h4>
                                   </div>
                                   <div className="w-full md:w-64 mt-4 md:mt-0">
                                     <FileDownloadButton
-                                      fileKey={meeting.audio.fileKey}
-                                      fileName={meeting.audio.name}
+                                      fileKey={audio.fileKey}
+                                      fileName={audio.name}
                                       endpoint="minutes"
-                                      fileSize={meeting.audio.size}
-                                      ariaDescribedby={audioTitleId}
+                                      fileSize={audio.size}
+                                      ariaDescribedby={`${audioTitleId}-${index}`}
                                     />
                                   </div>
                                 </div>
                                 <AudioPlayer
-                                  fileKey={meeting.audio.fileKey}
-                                  fileName={meeting.audio.name}
+                                  fileKey={audio.fileKey}
+                                  fileName={audio.name}
                                   hideDownloadButton={true}
                                 />
                               </div>
-                            )}
+                            ))}
                           </div>
                         </div>
                       </div>
