@@ -11,6 +11,8 @@
  * 認証: JWTトークンで組合員認証を確認
  */
 
+import { streamKintoneFile } from './_file';
+
 interface Env {
   KINTONE_DOMAIN: string; // 例: k-miyosino.cybozu.com
   KINTONE_API_TOKEN_MINUTES: string; // 会議情報アプリ用のAPIトークン（アプリID: 48）
@@ -665,34 +667,7 @@ export default {
           );
         }
 
-        // ファイルのContent-Typeを取得
-        const contentType =
-          fileResponse.headers.get('Content-Type') ||
-          'application/octet-stream';
-        const contentDisposition = fileResponse.headers.get(
-          'Content-Disposition'
-        );
-
-
-        // ファイルを返す
-        const headers = new Headers({
-          'Content-Type': contentType,
-          ...corsHeaders(origin),
-        });
-
-        if (contentDisposition) {
-          headers.set('Content-Disposition', contentDisposition);
-        }
-        const contentLength = fileResponse.headers.get('Content-Length');
-        if (contentLength) {
-          headers.set('Content-Length', contentLength);
-        }
-
-        // 中身はメモリに読み込まず、kintone から受け取りながらそのまま流す。
-        // Workers のメモリ上限（128MB）を超える録音ファイルなどでも返せるようにするため
-        return new Response(fileResponse.body, {
-          headers,
-        });
+        return streamKintoneFile(fileResponse, corsHeaders(origin));
       } else {
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
