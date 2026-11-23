@@ -386,8 +386,6 @@ export default {
           fileResponse.headers.get('Content-Type') || 'application/octet-stream';
         const contentDisposition = fileResponse.headers.get('Content-Disposition');
 
-        // ファイルデータを取得
-        const fileData = await fileResponse.arrayBuffer();
 
         // ファイルを返す
         const headers = new Headers({
@@ -398,8 +396,14 @@ export default {
         if (contentDisposition) {
           headers.set('Content-Disposition', contentDisposition);
         }
+        const contentLength = fileResponse.headers.get('Content-Length');
+        if (contentLength) {
+          headers.set('Content-Length', contentLength);
+        }
 
-        return new Response(fileData, {
+        // 中身はメモリに読み込まず、kintone から受け取りながらそのまま流す。
+        // Workers のメモリ上限（128MB）を超える録音ファイルなどでも返せるようにするため
+        return new Response(fileResponse.body, {
           headers,
         });
       } else {
