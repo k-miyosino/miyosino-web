@@ -10,6 +10,8 @@ export interface JWTPayload {
   email: string;
   // 運用ダッシュボードの管理者（kintone の「運用管理者」アプリを閲覧できる人＝「システム管理」グループ）。管理者でなければ付けない
   admin?: true;
+  // 事務員専用ページの事務員（kintone の「事務員」アプリを閲覧できる人＝「事務員」グループ）。事務員でなければ付けない
+  clerk?: true;
   iat: number; // 発行時刻
   exp: number; // 有効期限
 }

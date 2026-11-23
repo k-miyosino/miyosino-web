@@ -22,6 +22,11 @@
  * 本人のトークンで読めるかどうかで判定する。アプリのアクセス権を「システム管理」グループ
  * （グループコード Administrators）だけに絞っておけば、そのグループの人だけが管理者になる（OPS.md）。
  * 結果は JWT の admin に入れる。
+ *
+ * 事務員専用ページの事務員の判定:
+ * 管理者と同じしくみで、「事務員」アプリ（KINTONE_OFFICE_CLERK_APP_ID）を本人のトークンで読めるかどうかで判定する。
+ * アプリのアクセス権を「事務員」グループだけに絞っておく（OFFICE.md 3-2）。結果は JWT の clerk に入れる。
+ * 事務員の JWT は、窓口の PC をほかの人も使う前提で、有効期限を短くする（CLERK_JWT_LIFETIME_SECONDS）。
  */
 
 import { JWTPayload, generateJWT, verifyJWT } from './_jwt';
@@ -35,6 +40,8 @@ interface Env {
   KINTONE_LOGIN_LOG_APP_ID?: string;
   // 「運用管理者」アプリのID。未設定ならだれも管理者にしない
   KINTONE_OPS_ADMIN_APP_ID?: string;
+  // 「事務員」アプリのID。未設定ならだれも事務員にしない
+  KINTONE_OFFICE_CLERK_APP_ID?: string;
 }
 
 // 利用者を識別できなかったときの sub。チャットなど利用者ごとに数える機能はこの値を拒否する
@@ -42,6 +49,7 @@ const UNIDENTIFIED_USER_ID = 'kintone-user';
 const UNIDENTIFIED_USER_NAME = 'Kintone Member';
 const PLACEHOLDER_EMAIL = 'member@example.com';
 const JWT_LIFETIME_SECONDS = 60 * 60 * 24 * 7; // 7日間有効
+const CLERK_JWT_LIFETIME_SECONDS = 60 * 60 * 12; // 事務員は12時間（窓口の PC をほかの人も使うため）
 
 interface KintoneTokenResponse {
   access_token: string;
@@ -369,12 +377,13 @@ async function handleCallback(
 
     // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなす。
     // 利用者の識別はできなくてもログインは通す（識別できない場合は sub が UNIDENTIFIED_USER_ID になる）
-    const [identity, admin] = await Promise.all([
+    const [identity, admin, clerk] = await Promise.all([
       identifyKintoneUser(tokenData.access_token, env),
       isOpsAdmin(tokenData.access_token, env),
+      isOfficeClerk(tokenData.access_token, env),
     ]);
     const jwt = await generateJWT(
-      buildJWTPayload(identity, admin),
+      buildJWTPayload(identity, admin, clerk),
       env.JWT_SECRET
     );
 
@@ -545,13 +554,14 @@ async function handleRefresh(
 
     const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // 新しいJWTを生成（新しいアクセストークンで改めて利用者と管理者を判定する）
-    const [identity, admin] = await Promise.all([
+    // 新しいJWTを生成（新しいアクセストークンで改めて利用者と管理者・事務員を判定する）
+    const [identity, admin, clerk] = await Promise.all([
       identifyKintoneUser(tokenData.access_token, env),
       isOpsAdmin(tokenData.access_token, env),
+      isOfficeClerk(tokenData.access_token, env),
     ]);
     const jwt = await generateJWT(
-      buildJWTPayload(identity, admin),
+      buildJWTPayload(identity, admin, clerk),
       env.JWT_SECRET
     );
 
@@ -729,8 +739,34 @@ async function identifyKintoneUser(
  * 「運用管理者」アプリのレコードを本人のトークンで読めれば管理者（読めなければ kintone が 403 を返す）。
  * 判定に失敗したときは管理者にしない。
  */
-async function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
-  const appId = env.KINTONE_OPS_ADMIN_APP_ID;
+function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
+  return canReadApp(accessToken, env, env.KINTONE_OPS_ADMIN_APP_ID, 'ops admin');
+}
+
+/**
+ * 事務員専用ページの事務員かどうか。
+ * 「事務員」アプリのレコードを本人のトークンで読めれば事務員。判定に失敗したときは事務員にしない。
+ */
+function isOfficeClerk(accessToken: string, env: Env): Promise<boolean> {
+  return canReadApp(
+    accessToken,
+    env,
+    env.KINTONE_OFFICE_CLERK_APP_ID,
+    'office clerk'
+  );
+}
+
+/**
+ * 本人のトークンでアプリのレコードを読めるか（アプリのアクセス権でグループを判定するのに使う）。
+ * アプリはレコードが空でよい（読む権限があれば 0 件が返り、なければ 403）。
+ * アプリ ID が未設定・判定に失敗したときは false
+ */
+async function canReadApp(
+  accessToken: string,
+  env: Env,
+  appId: string | undefined,
+  label: string
+): Promise<boolean> {
   if (!appId) {
     return false;
   }
@@ -744,30 +780,33 @@ async function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
     if (response.ok) {
       return true;
     }
-    // 403 は「管理者ではない」なのでログに出さない
+    // 403 は「そのグループではない」なのでログに出さない
     if (response.status !== 403) {
-      console.error('[Auth] Failed to check ops admin:', response.status);
+      console.error(`[Auth] Failed to check ${label}:`, response.status);
     }
     return false;
   } catch (error) {
-    console.error('[Auth] Failed to check ops admin:', error);
+    console.error(`[Auth] Failed to check ${label}:`, error);
     return false;
   }
 }
 
 function buildJWTPayload(
   identity: MemberIdentity | null,
-  admin: boolean
+  admin: boolean,
+  clerk: boolean
 ): JWTPayload {
   const now = Math.floor(Date.now() / 1000);
+  // 識別できなかった人は管理者・事務員にしない（記録にだれが対応したかを残せないため）
+  const isClerk = clerk && identity !== null;
   return {
     sub: identity?.code ?? UNIDENTIFIED_USER_ID,
     name: identity?.name ?? UNIDENTIFIED_USER_NAME,
     email: PLACEHOLDER_EMAIL,
-    // 識別できなかった人は管理者にしない（記録にだれが対応したかを残せないため）
     ...(admin && identity ? { admin: true as const } : {}),
+    ...(isClerk ? { clerk: true as const } : {}),
     iat: now,
-    exp: now + JWT_LIFETIME_SECONDS,
+    exp: now + (isClerk ? CLERK_JWT_LIFETIME_SECONDS : JWT_LIFETIME_SECONDS),
   };
 }
 
