@@ -4,7 +4,7 @@
 API キーを預かる Cloudflare Workers（`workers/`）。構成の詳細は `README.md` と `.claude/commands/architect.md` を参照。
 組合員向けチャットボット（`miyosino-chat`）の運用・設定は `CHATBOT.md` を参照。
 管理者向けの運用ダッシュボード（`/member/ops`・`miyosino-ops`）と定期タスク・秘密情報の一覧は `OPS.md` を参照。
-事務員向けの事務処理ページ（`/member/office`・`miyosino-office`、駐車場・入居・退去などの手続き）の設計は `OFFICE.md` を参照。
+事務員向けの事務処理ページ（`/member/office`・`miyosino-office`、駐車場・組合員の加入・退会・住戸の売買などの手続き）の設計は `OFFICE.md` を参照。
 
 ## 確認のコマンド
 
