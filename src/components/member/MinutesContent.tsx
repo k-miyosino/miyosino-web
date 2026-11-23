@@ -222,15 +222,6 @@ export default function MinutesContent() {
     return `${year}年${month}月`;
   };
 
-  // 現在月を取得
-  const getCurrentYearMonth = (): YearMonth => {
-    const now = new Date();
-    return {
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-    };
-  };
-
   // 選択された年（全期間は空文字列）
   const [selectedYear, setSelectedYear] = useState<string>('');
 
@@ -335,20 +326,15 @@ export default function MinutesContent() {
         setMeetings(meetingsData);
         setYearMonths(filteredYearMonths);
 
-        // デフォルトで現在月を選択（存在しない場合は最新の年月を選択）
-        const currentYearMonth = getCurrentYearMonth();
-        const hasCurrentMonth = filteredYearMonths.some(
-          (ym: YearMonth) =>
-            ym.year === currentYearMonth.year &&
-            ym.month === currentYearMonth.month
+        // デフォルトは現在の年・月はすべて（現在の年がなければ最新の年）
+        const hasCurrentYear = filteredYearMonths.some(
+          (ym: YearMonth) => ym.year === currentYear
         );
 
-        if (hasCurrentMonth) {
-          setSelectedYear(currentYearMonth.year.toString());
-          setSelectedMonth(currentYearMonth.month.toString());
+        if (hasCurrentYear) {
+          setSelectedYear(currentYear.toString());
         } else if (filteredYearMonths.length > 0) {
           setSelectedYear(filteredYearMonths[0].year.toString());
-          setSelectedMonth(filteredYearMonths[0].month.toString());
         }
       } catch (err) {
         console.error('[MinutesContent] loadData error:', err);

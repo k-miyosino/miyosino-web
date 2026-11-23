@@ -29,15 +29,6 @@ export default function CircularsContent() {
     contentType?: string;
   } | null>(null);
 
-  // 現在月を取得
-  const getCurrentYearMonth = (): YearMonth => {
-    const now = new Date();
-    return {
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-    };
-  };
-
   // 選択された年（全期間は空文字列）
   const [selectedYear, setSelectedYear] = useState<string>('');
 
@@ -71,20 +62,16 @@ export default function CircularsContent() {
         setCirculars(circularsData);
         setYearMonths(yearMonthsData);
 
-        // デフォルトで現在月を選択（存在しない場合は最新の年月を選択）
-        const currentYearMonth = getCurrentYearMonth();
-        const hasCurrentMonth = yearMonthsData.some(
-          (ym: YearMonth) =>
-            ym.year === currentYearMonth.year &&
-            ym.month === currentYearMonth.month
+        // デフォルトは現在の年・月はすべて（現在の年がなければ最新の年）
+        const currentYear = new Date().getFullYear();
+        const hasCurrentYear = yearMonthsData.some(
+          (ym: YearMonth) => ym.year === currentYear
         );
 
-        if (hasCurrentMonth) {
-          setSelectedYear(currentYearMonth.year.toString());
-          setSelectedMonth(currentYearMonth.month.toString());
+        if (hasCurrentYear) {
+          setSelectedYear(currentYear.toString());
         } else if (yearMonthsData.length > 0) {
           setSelectedYear(yearMonthsData[0].year.toString());
-          setSelectedMonth(yearMonthsData[0].month.toString());
         }
       } catch (err) {
         console.error('[CircularsContent] loadData error:', err);
