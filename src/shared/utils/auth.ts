@@ -25,13 +25,18 @@ export interface AuthStatus {
   user?: AuthUser;
 }
 
+interface DecodedJwtPayload {
+  exp?: number;
+  sub?: string;
+  admin?: boolean;
+  clerk?: boolean;
+}
+
 /**
  * JWTペイロードをクライアント側でデコード（署名検証なし）
  * 有効期限チェックやペイロード参照のみに使用する
  */
-function decodeJwtPayload(
-  token: string
-): { exp?: number; sub?: string; admin?: boolean } | null {
+function decodeJwtPayload(token: string): DecodedJwtPayload | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -41,7 +46,7 @@ function decodeJwtPayload(
       (c) => c.charCodeAt(0)
     );
     const payload = JSON.parse(new TextDecoder().decode(bytes));
-    return payload as { exp?: number; sub?: string; admin?: boolean };
+    return payload as DecodedJwtPayload;
   } catch {
     return null;
   }
@@ -66,6 +71,16 @@ export function isOpsAdmin(): boolean {
   const token = getToken();
   if (!token || isTokenExpired(token)) return false;
   return decodeJwtPayload(token)?.admin === true;
+}
+
+/**
+ * 事務員専用ページの事務員として発行されたトークンか（画面の側だけで確かめる。署名は確かめない）。
+ * リンクや事務員専用ページを出すかどうかを決めるだけに使う。実際にデータを返すかどうかは office Worker が確かめる
+ */
+export function isOfficeClerk(): boolean {
+  const token = getToken();
+  if (!token || isTokenExpired(token)) return false;
+  return decodeJwtPayload(token)?.clerk === true;
 }
 
 /** ログインの状態が変わったときに window に送るイベントの名前（チャット欄が表示を切り替えるのに使う） */
