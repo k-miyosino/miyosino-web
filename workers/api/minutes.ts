@@ -11,6 +11,8 @@
  * 認証: JWTトークンで組合員認証を確認
  */
 
+import { downloadKintoneFile } from './_file';
+
 interface Env {
   KINTONE_DOMAIN: string; // 例: k-miyosino.cybozu.com
   KINTONE_API_TOKEN_MINUTES: string; // 会議情報アプリ用のAPIトークン（アプリID: 48）
@@ -271,6 +273,12 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
     contentType?: string;
     size?: string;
   };
+  audios?: Array<{
+    fileKey: string;
+    name: string;
+    contentType?: string;
+    size?: string;
+  }>;
 } {
   // 必須フィールドのチェック
   if (!record.$id?.value) {
@@ -426,16 +434,15 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
       }
     : undefined;
 
-  // 録音ファイル（最初のファイルのみ）
-  const audioFile = record.audio?.value?.[0];
-  const audio = audioFile
-    ? {
-        fileKey: audioFile.fileKey,
-        name: audioFile.name,
-        contentType: audioFile.contentType,
-        size: audioFile.size,
-      }
-    : undefined;
+  // 録音ファイル。総会などは1件の会議に複数のファイル（No.1, No.2 …）を付けるので、すべて返す。
+  // audio は以前の画面のために最初のファイルだけを返す（Worker と画面は別々に公開されるため）
+  const audios = (record.audio?.value ?? []).map((file) => ({
+    fileKey: file.fileKey,
+    name: file.name,
+    contentType: file.contentType,
+    size: file.size,
+  }));
+  const audio = audios[0];
 
   // createdAtとupdatedAtはKintoneのレコード作成日時を使用
   // Kintoneには$revisionフィールドがあるが、作成日時は別途取得が必要
@@ -453,6 +460,7 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
     materials,
     minutes,
     audio,
+    audios,
   };
 }
 
@@ -626,69 +634,7 @@ export default {
         });
       } else if (path === '/minutes/file') {
         // 添付ファイルをダウンロード
-        const fileKey = url.searchParams.get('fileKey');
-        if (!fileKey) {
-          return new Response(
-            JSON.stringify({ error: 'fileKey is required' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-              },
-            }
-          );
-        }
-
-        // kintoneのファイルAPIを呼び出し
-        const fileUrl = `https://${env.KINTONE_DOMAIN}/k/v1/file.json?fileKey=${encodeURIComponent(fileKey)}`;
-        const fileResponse = await fetch(fileUrl, {
-          method: 'GET',
-          headers: {
-            'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_MINUTES,
-          },
-        });
-
-        if (!fileResponse.ok) {
-          return new Response(
-            JSON.stringify({
-              error: 'Failed to fetch file',
-              message: fileResponse.statusText,
-            }),
-            {
-              status: fileResponse.status,
-              headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-              },
-            }
-          );
-        }
-
-        // ファイルのContent-Typeを取得
-        const contentType =
-          fileResponse.headers.get('Content-Type') ||
-          'application/octet-stream';
-        const contentDisposition = fileResponse.headers.get(
-          'Content-Disposition'
-        );
-
-        // ファイルデータを取得
-        const fileData = await fileResponse.arrayBuffer();
-
-        // ファイルを返す
-        const headers = new Headers({
-          'Content-Type': contentType,
-          ...corsHeaders(origin),
-        });
-
-        if (contentDisposition) {
-          headers.set('Content-Disposition', contentDisposition);
-        }
-
-        return new Response(fileData, {
-          headers,
-        });
+        return downloadKintoneFile(url, env.KINTONE_DOMAIN, env.KINTONE_API_TOKEN_MINUTES, corsHeaders(origin));
       } else {
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,

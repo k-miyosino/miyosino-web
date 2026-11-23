@@ -11,6 +11,8 @@
  * 認証: JWTトークンで組合員認証を確認
  */
 
+import { downloadKintoneFile } from './_file';
+
 interface Env {
   KINTONE_DOMAIN: string; // 例: k-miyosino.cybozu.com
   KINTONE_API_TOKEN_CIRCULARS: string; // 配布資料アプリ用のAPIトークン（アプリID: 54）
@@ -324,69 +326,7 @@ export default {
         });
       } else if (path === '/circulars/file') {
         // 添付ファイルをダウンロード
-        const fileKey = url.searchParams.get('fileKey');
-        if (!fileKey) {
-          return new Response(
-            JSON.stringify({ error: 'fileKey is required' }),
-            {
-              status: 400,
-              headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-              },
-            }
-          );
-        }
-
-        // kintoneのファイルAPIを呼び出し
-        const fileUrl = `https://${env.KINTONE_DOMAIN}/k/v1/file.json?fileKey=${encodeURIComponent(fileKey)}`;
-        const fileResponse = await fetch(fileUrl, {
-          method: 'GET',
-          headers: {
-            'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_CIRCULARS,
-          },
-        });
-
-        if (!fileResponse.ok) {
-          return new Response(
-            JSON.stringify({
-              error: 'Failed to fetch file',
-              message: fileResponse.statusText,
-            }),
-            {
-              status: fileResponse.status,
-              headers: {
-                'Content-Type': 'application/json',
-                ...corsHeaders(origin),
-              },
-            }
-          );
-        }
-
-        // ファイルのContent-Typeを取得
-        const contentType =
-          fileResponse.headers.get('Content-Type') ||
-          'application/octet-stream';
-        const contentDisposition = fileResponse.headers.get(
-          'Content-Disposition'
-        );
-
-        // ファイルデータを取得
-        const fileData = await fileResponse.arrayBuffer();
-
-        // ファイルを返す
-        const headers = new Headers({
-          'Content-Type': contentType,
-          ...corsHeaders(origin),
-        });
-
-        if (contentDisposition) {
-          headers.set('Content-Disposition', contentDisposition);
-        }
-
-        return new Response(fileData, {
-          headers,
-        });
+        return downloadKintoneFile(url, env.KINTONE_DOMAIN, env.KINTONE_API_TOKEN_CIRCULARS, corsHeaders(origin));
       } else {
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
