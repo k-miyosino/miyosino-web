@@ -271,6 +271,12 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
     contentType?: string;
     size?: string;
   };
+  audios?: Array<{
+    fileKey: string;
+    name: string;
+    contentType?: string;
+    size?: string;
+  }>;
 } {
   // 必須フィールドのチェック
   if (!record.$id?.value) {
@@ -426,16 +432,15 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
       }
     : undefined;
 
-  // 録音ファイル（最初のファイルのみ）
-  const audioFile = record.audio?.value?.[0];
-  const audio = audioFile
-    ? {
-        fileKey: audioFile.fileKey,
-        name: audioFile.name,
-        contentType: audioFile.contentType,
-        size: audioFile.size,
-      }
-    : undefined;
+  // 録音ファイル。総会などは1件の会議に複数のファイル（No.1, No.2 …）を付けるので、すべて返す。
+  // audio は以前の画面のために最初のファイルだけを返す（Worker と画面は別々に公開されるため）
+  const audios = (record.audio?.value ?? []).map((file) => ({
+    fileKey: file.fileKey,
+    name: file.name,
+    contentType: file.contentType,
+    size: file.size,
+  }));
+  const audio = audios[0];
 
   // createdAtとupdatedAtはKintoneのレコード作成日時を使用
   // Kintoneには$revisionフィールドがあるが、作成日時は別途取得が必要
@@ -453,6 +458,7 @@ function convertKintoneRecordToMeeting(record: KintoneRecord): {
     materials,
     minutes,
     audio,
+    audios,
   };
 }
 
