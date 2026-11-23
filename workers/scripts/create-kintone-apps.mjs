@@ -23,7 +23,9 @@
  *   --admin-group   管理者のグループコード（既定: Administrators）
  *   --property-app  M_物件のアプリ ID（組合員申請の「物件」のルックアップ先）
  *   --member-app    M_組合員のアプリ ID（組合員申請の「組合員」のルックアップ先）
- *   --space         アプリを作るスペースの ID（任意。無ければポータルに作る）
+ *   --space         アプリを作るスペースの ID（任意。無ければスペースに入れず、ポータルの「アプリ」の一覧に作る）。
+ *                   スペースの ID は、スペースを開いたときの URL の /k/#/space/ のあとの数字
+ *   --thread        スペースの中のスレッドの ID（任意。無ければそのスペースの既定のスレッド）
  *   --dry-run       kintone に送らず、送る内容（パスワードを除く）を表示する
  *
  * できあがったら、kintone の画面で次を行う（API ではできない）:
@@ -95,7 +97,9 @@ function makeClient(args) {
     if (args['dry-run']) {
       console.log(`\n[dry-run] ${method} ${path}`);
       console.log(JSON.stringify(body, null, 2));
-      return path === '/k/v1/preview/app.json' ? { app: '<新しいアプリID>' } : { apps: [{ status: 'SUCCESS' }] };
+      if (path === '/k/v1/preview/app.json') return { app: '<新しいアプリID>' };
+      if (path === '/k/v1/space.json') return { defaultThread: '<既定のスレッドのID>' };
+      return { apps: [{ status: 'SUCCESS' }] };
     }
     const url = new URL(`https://${args.domain}${path}`);
     const init = { method, headers: { 'X-Cybozu-Authorization': auth } };
@@ -128,13 +132,29 @@ async function waitForDeploy(request, appId) {
   throw new Error(`アプリ ${appId} の運用環境への反映が終わりません。kintone の画面で確かめてください`);
 }
 
+/** スペースに作るときの space・thread。スレッドの指定がなければ、スペースの既定のスレッドを問い合わせる */
+async function resolvePlace(request, args) {
+  if (!args.space) {
+    if (args.thread) throw new Error('--thread を使うときは --space も指定してください');
+    return {};
+  }
+  const thread =
+    args.thread ?? String((await request('GET', '/k/v1/space.json', { id: args.space })).defaultThread);
+  return { space: args.space, thread };
+}
+
 async function createApp(request, definition, args) {
+  const place = await resolvePlace(request, args);
   const created = await request('POST', '/k/v1/preview/app.json', {
     name: definition.name,
-    ...(args.space ? { space: args.space, thread: args.space } : {}),
+    ...place,
   });
   const appId = String(created.app);
-  console.log(`- 「${definition.name}」アプリを作りました（アプリ ID: ${appId}）`);
+  console.log(
+    `- 「${definition.name}」アプリを作りました（アプリ ID: ${appId}。${
+      place.space ? `スペース ${place.space} のスレッド ${place.thread}` : 'スペースに入れず、ポータルのアプリ一覧'
+    }）`
+  );
 
   await request('PUT', '/k/v1/preview/app/settings.json', {
     app: appId,
