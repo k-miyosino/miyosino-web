@@ -157,6 +157,7 @@
    npx wrangler secret put KINTONE_API_TOKEN_OFFICE --config wrangler.office.toml  # トークンをカンマでつなぐ
    npx wrangler secret put KINTONE_APP_ID_PROPERTY --config wrangler.office.toml   # M_物件（本番 133）
    npx wrangler secret put KINTONE_APP_ID_OWNERSHIP --config wrangler.office.toml  # M_組合員物件所有状況（本番 132）
+   npx wrangler secret put KINTONE_APP_ID_MEMBER_APPLICATION --config wrangler.office.toml  # 組合員申請（4-3-2。作ってから）
    npx wrangler deploy --config wrangler.office.toml
    ```
 
@@ -264,7 +265,7 @@
 |---|---|---|
 | 申請番号 | レコード番号 | 自動。紙の申請書と控えに書く |
 | 種類 | ドロップダウン | 駐車場申請: 抽選、登録情報の変更、終了／組合員申請: 名義変更、情報変更 |
-| 状態 | ドロップダウン | 申請中、承認済み、差し戻し、取り下げ、取り消し（5 章） |
+| 状態 | ドロップダウン | 申請中、承認済み、差し戻し、取り下げ、取り消し（5 章）。組合員申請の名義変更は、承認からアカウントの発行までのあいだ「アカウント発行待ち」 |
 | 申請日 | 日付 | |
 | 申請の方法 | ドロップダウン | Web、紙（代理入力）、抽選（代理申請） |
 | 申請者の区分 | ドロップダウン | 組合員、購入者、代理人、管理組合（抽選の結果） |
@@ -282,7 +283,7 @@
 **種類ごとのフィールド**（主なもの）
 
 - 駐車場申請: 抽選の回（班長会の日付）、申し込んだ区画、抽選の結果（当選・落選）、開始月、車名・色・ナンバー（わかっていれば）（抽選。申込み 1 件＝1 区画への 1 住戸の申込みで 1 レコード）／変更する契約、新しい車名・色・ナンバー（登録情報の変更）／終了する契約、最後の月（終了）
-- 組合員申請: 4-3-1（案）
+- 組合員申請: 4-3-1・4-3-2
 
 #### 4-3-1. 組合員申請のフィールド
 
@@ -324,6 +325,57 @@
 
 - 承認すると、M_組合員の「表示」（物件名＋氏名）を書き換える
 - Kintone ユーザーの表示名は API トークンでは変えられないので、管理者に知らせる
+
+#### 4-3-2. 組合員申請アプリの作り方（kintone）
+
+管理者が kintone に「組合員申請」アプリを作るときの一覧です。**フィールドコードは office Worker がこのとおりに読み書きする**ので、変えないでください（変えるときは `workers/api/_office-applications.ts`・`workers/kintone/member-application.json` も直す。テスト `workers/test/office-kintone-definition.test.ts` が、この表・定義の JSON・Worker のずれを知らせる）。
+
+**スクリプトで作る（おすすめ）**: 定義の JSON（`workers/kintone/member-application.json`）から、フィールド・アクセス権まで作って運用環境に反映する。アプリを作る操作は API トークンではできないので、管理者のログイン名とパスワードで認証する（管理者の PC で一度だけ実行する。パスワードは環境変数で渡し、ファイルには書かない）。まず開発用の kintone で試す。
+
+```powershell
+cd workers
+$env:KINTONE_USERNAME = "管理者のログイン名"; $env:KINTONE_PASSWORD = "パスワード"
+node scripts/create-kintone-apps.mjs --domain example.cybozu.com --clerk-group 事務員グループのコード --property-app 133 --member-app 131
+Remove-Item Env:KINTONE_PASSWORD
+```
+
+- `--property-app`・`--member-app` は M_物件・M_組合員のアプリ ID（本番は 133・131）。`--dry-run` を付けると、送る内容を表示するだけで kintone には送らない
+- 管理者のアカウントに「アプリの作成」の権限が要る。cybozu.com で 2 段階認証や IP アドレスの制限をしていると、パスワードでの認証が通らないことがある。そのときは下の表を見て、kintone の画面で手で作る
+- API トークンは API では作れないので、できたあとに kintone の画面で作る（スクリプトが最後に手順を表示する）
+
+**手で作るときの一覧**:
+
+| フィールド名 | フィールドコード | 種類 | 必須 | 選択肢・備考 |
+|---|---|---|---|---|
+| 申請番号 | （レコード番号） | レコード番号 | | 自動 |
+| 種類 | `type` | ドロップダウン | ○ | 名義変更、情報変更 |
+| 状態 | `status` | ドロップダウン | ○ | 申請中、アカウント発行待ち、承認済み、差し戻し、取り下げ、取り消し（初期値: 申請中） |
+| 届出日 | `submitted_date` | 日付 | ○ | |
+| 申請の方法 | `method` | ドロップダウン | ○ | Web、紙（代理入力） |
+| 申請者の区分 | `applicant_kind` | ドロップダウン | ○ | 組合員、購入者、代理人 |
+| 代理人 | `agent` | 文字列（1行） | | 代理のとき、氏名と続柄・会社名 |
+| 物件 | `property` | ルックアップ | ○ | 参照先: M_物件、コピー元: 物件名（`property_name`） |
+| 組合員 | `member` | ルックアップ | ○ | 参照先: M_組合員、コピー元: 表示（`display`）。名義変更では旧組合員 |
+| 名義変更日 | `transfer_date` | 日付 | | 名義変更だけ |
+| 負担を切り替える日 | `switch_date` | 日付 | | 名義変更だけ。所有状況の期間にはこの日を使う |
+| 新しい氏名 | `new_name` | 文字列（1行） | | 名義変更: 新組合員の氏名／情報変更: 変更後の氏名 |
+| 新組合員の連絡先の住所 | `new_address` | 文字列（複数行） | | 名義変更だけ。記録だけ |
+| 新組合員の電話番号 | `new_phone` | 文字列（1行） | | 名義変更だけ。記録だけ |
+| 入居（予定）日 | `move_in_date` | 日付 | | 名義変更だけ。記録だけ |
+| 旧組合員の転出先の住所 | `old_address` | 文字列（複数行） | | 名義変更だけ。記録だけ |
+| 旧組合員の転出先の電話番号 | `old_phone` | 文字列（1行） | | 名義変更だけ。記録だけ |
+| 新組合員のログイン名 | `new_login` | 文字列（1行） | | 名義変更だけ。管理者がアカウントを作って入れる |
+| 内容 | `summary` | 文字列（複数行） | | Worker が作る人が読む要約 |
+| 内容データ | `payload` | 文字列（複数行） | | Worker が作る JSON（承認で変えた台帳の変更前の値など） |
+| 入力者 | `entered_by` | 文字列（1行） | | 「氏名（ログイン名）」。Worker が入れる |
+| 承認者 | `approved_by` | 文字列（1行） | | Worker が入れる |
+| 承認日時 | `approved_at` | 日時 | | Worker が入れる |
+| 差し戻しの理由 | `return_reason` | 文字列（複数行） | | |
+| 関係するレコード | `related_records` | 文字列（1行） | | 承認で作った・変えたレコードの番号 |
+| 送信キー | `submit_key` | 文字列（1行） | | **値の重複を禁止する**。二重の登録を防ぐ |
+
+- アクセス権: アプリは事務員・管理者だけが閲覧できるようにする（Worker は API トークンで読み書きするので、Everyone の権限は要らない）
+- API トークン: このアプリに「レコード閲覧・追加・編集」（削除は付けない）。office Worker の `KINTONE_API_TOKEN_OFFICE` にカンマでつなぎ、`KINTONE_APP_ID_MEMBER_APPLICATION` にアプリ ID を設定する。ルックアップのため、M_組合員のトークン（閲覧）もつなぐ
 
 ### 4-4. 組合員と所有（段階 1。既存のアプリに書く）
 
@@ -418,6 +470,8 @@
 | `POST /office/applications/proxy` | 紙の申請を代理入力する（住戸と申請者の区分・代理人を付ける） |
 | `GET /office/applications?status=申請中` | 新規申し込みリスト（2 つの申請アプリをまとめる） |
 | `GET /office/applications/:app/:no` | 申請の内容と、承認すると台帳がどう変わるか |
+
+（実装済み: `POST /office/applications/proxy`（組合員申請の代理入力）、`GET /office/applications?status=`（組合員申請の一覧）、`GET /office/applications/:id`（組合員申請の詳細）。駐車場申請を足すときに `:app` を入れる）
 | `POST /office/applications/:app/:no/approve` | 承認する（台帳への書き込みとまとめて） |
 | `POST /office/applications/:app/:no/return` | 差し戻す（理由を付ける） |
 | `POST /office/applications/:app/:no/cancel` | その日の承認を取り消す（台帳を元に戻し、取り消しも記録する） |

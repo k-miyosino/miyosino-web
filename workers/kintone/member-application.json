@@ -1,0 +1,376 @@
+{
+  "_説明": "組合員申請アプリの定義（OFFICE.md 4-3-2）。workers/scripts/create-kintone-apps.mjs がこのとおりに作り、workers/test/office-kintone-definition.test.ts が Worker のフィールドコードと合っているかを確かめる。{{PROPERTY_APP_ID}}・{{MEMBER_APP_ID}} は作るときに M_物件・M_組合員のアプリ ID に置き換える",
+  "name": "組合員申請",
+  "description": "事務員専用ページ（/member/office）の組合員申請（名義変更・情報変更）。office Worker が API トークンで読み書きする",
+  "properties": {
+    "type": {
+      "type": "DROP_DOWN",
+      "code": "type",
+      "label": "種類",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "名義変更": {
+          "label": "名義変更",
+          "index": "0"
+        },
+        "情報変更": {
+          "label": "情報変更",
+          "index": "1"
+        }
+      },
+      "defaultValue": ""
+    },
+    "status": {
+      "type": "DROP_DOWN",
+      "code": "status",
+      "label": "状態",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "申請中": {
+          "label": "申請中",
+          "index": "0"
+        },
+        "アカウント発行待ち": {
+          "label": "アカウント発行待ち",
+          "index": "1"
+        },
+        "承認済み": {
+          "label": "承認済み",
+          "index": "2"
+        },
+        "差し戻し": {
+          "label": "差し戻し",
+          "index": "3"
+        },
+        "取り下げ": {
+          "label": "取り下げ",
+          "index": "4"
+        },
+        "取り消し": {
+          "label": "取り消し",
+          "index": "5"
+        }
+      },
+      "defaultValue": "申請中"
+    },
+    "submitted_date": {
+      "type": "DATE",
+      "code": "submitted_date",
+      "label": "届出日",
+      "noLabel": false,
+      "required": true,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "method": {
+      "type": "DROP_DOWN",
+      "code": "method",
+      "label": "申請の方法",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "Web": {
+          "label": "Web",
+          "index": "0"
+        },
+        "紙（代理入力）": {
+          "label": "紙（代理入力）",
+          "index": "1"
+        }
+      },
+      "defaultValue": ""
+    },
+    "applicant_kind": {
+      "type": "DROP_DOWN",
+      "code": "applicant_kind",
+      "label": "申請者の区分",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "組合員": {
+          "label": "組合員",
+          "index": "0"
+        },
+        "購入者": {
+          "label": "購入者",
+          "index": "1"
+        },
+        "代理人": {
+          "label": "代理人",
+          "index": "2"
+        }
+      },
+      "defaultValue": ""
+    },
+    "agent": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "agent",
+      "label": "代理人",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "100",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "property": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "property",
+      "label": "物件",
+      "noLabel": false,
+      "required": true,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false,
+      "lookup": {
+        "relatedApp": {
+          "app": "{{PROPERTY_APP_ID}}"
+        },
+        "relatedKeyField": "property_name",
+        "fieldMappings": [],
+        "lookupPickerFields": [
+          "property_name"
+        ],
+        "filterCond": "",
+        "sort": ""
+      }
+    },
+    "member": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "member",
+      "label": "組合員",
+      "noLabel": false,
+      "required": true,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false,
+      "lookup": {
+        "relatedApp": {
+          "app": "{{MEMBER_APP_ID}}"
+        },
+        "relatedKeyField": "display",
+        "fieldMappings": [],
+        "lookupPickerFields": [
+          "display"
+        ],
+        "filterCond": "",
+        "sort": ""
+      }
+    },
+    "transfer_date": {
+      "type": "DATE",
+      "code": "transfer_date",
+      "label": "名義変更日",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "switch_date": {
+      "type": "DATE",
+      "code": "switch_date",
+      "label": "負担を切り替える日",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "new_name": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "new_name",
+      "label": "新しい氏名",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "50",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "new_address": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "new_address",
+      "label": "新組合員の連絡先の住所",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "new_phone": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "new_phone",
+      "label": "新組合員の電話番号",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "20",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "move_in_date": {
+      "type": "DATE",
+      "code": "move_in_date",
+      "label": "入居（予定）日",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "old_address": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "old_address",
+      "label": "旧組合員の転出先の住所",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "old_phone": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "old_phone",
+      "label": "旧組合員の転出先の電話番号",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "20",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "new_login": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "new_login",
+      "label": "新組合員のログイン名",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "summary": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "summary",
+      "label": "内容",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "payload": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "payload",
+      "label": "内容データ",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "entered_by": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "entered_by",
+      "label": "入力者",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "approved_by": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "approved_by",
+      "label": "承認者",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "approved_at": {
+      "type": "DATETIME",
+      "code": "approved_at",
+      "label": "承認日時",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "return_reason": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "return_reason",
+      "label": "差し戻しの理由",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "related_records": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "related_records",
+      "label": "関係するレコード",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "submit_key": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "submit_key",
+      "label": "送信キー",
+      "noLabel": false,
+      "required": false,
+      "unique": true,
+      "maxLength": "64",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    }
+  },
+  "rights": {
+    "clerkGroup": {
+      "recordViewable": true,
+      "recordAddable": true,
+      "recordEditable": true,
+      "recordDeletable": false,
+      "recordImportable": false,
+      "recordExportable": false,
+      "appEditable": false
+    },
+    "adminGroup": {
+      "recordViewable": true,
+      "recordAddable": true,
+      "recordEditable": true,
+      "recordDeletable": false,
+      "recordImportable": true,
+      "recordExportable": true,
+      "appEditable": true
+    }
+  }
+}
