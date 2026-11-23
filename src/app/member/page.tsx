@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   checkAuthStatus,
+  isOfficeClerk,
   isOpsAdmin,
   redirectToLogin,
   logout,
@@ -19,6 +20,8 @@ export default function MemberPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   // 運用ダッシュボードへのリンクを出すか（表示だけ。見せるかどうかは ops Worker が確かめる）
   const [showOpsLink, setShowOpsLink] = useState(false);
+  // 事務員専用ページへのリンクを出すか（表示だけ。データを返すかどうかは office Worker が確かめる）
+  const [showOfficeLink, setShowOfficeLink] = useState(false);
   const hasCheckedAuth = useRef(false);
 
   useEffect(() => {
@@ -54,6 +57,7 @@ export default function MemberPage() {
 
       console.log('[Member Page] Authenticated, showing page');
       setShowOpsLink(isOpsAdmin());
+      setShowOfficeLink(isOfficeClerk());
       setIsLoading(false);
     }
 
@@ -136,6 +140,17 @@ export default function MemberPage() {
 
       {/* メインコンテンツ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {showOfficeLink && (
+          <Link
+            href="/member/office"
+            className="flex items-center justify-between bg-blue-800 hover:bg-blue-900 text-white rounded-lg px-6 py-5 mb-4 text-lg transition-colors"
+          >
+            <span className="font-bold">
+              事務員専用ページ（申請の入力と承認）
+            </span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
         {showOpsLink && (
           <Link
             href="/member/ops"

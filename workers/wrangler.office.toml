@@ -1,0 +1,13 @@
+name = "miyosino-office"
+main = "api/office.ts"
+compatibility_date = "2026-11-01"
+account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
+
+# 事務員専用ページ（/member/office）の API。事務員（JWT の clerk）にだけ答える。設計と設定の手順は OFFICE.md
+#
+# シークレットは wrangler secret put コマンドで設定してください
+# wrangler secret put JWT_SECRET --config wrangler.office.toml               （ほかの Worker と同じ値）
+# wrangler secret put KINTONE_DOMAIN --config wrangler.office.toml
+# wrangler secret put KINTONE_API_TOKEN_OFFICE --config wrangler.office.toml  （アプリごとのトークンをカンマでつなぐ）
+# wrangler secret put KINTONE_APP_ID_PROPERTY --config wrangler.office.toml   （M_物件）
+# wrangler secret put KINTONE_APP_ID_OWNERSHIP --config wrangler.office.toml  （M_組合員物件所有状況）

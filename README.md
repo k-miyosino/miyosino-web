@@ -178,6 +178,10 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
 
 管理者だけが見られる運用ダッシュボード（`/member/ops`）の API です。D1 の作成・kintone の設定を含む手順は [OPS.md](./OPS.md) を参照してください。
 
+**事務員専用ページ用Worker（miyosino-office）:**
+
+事務員だけが使う事務員専用ページ（`/member/office`）の API です。kintone の設定とシークレットの手順は [OFFICE.md](./OFFICE.md) の 3 章を参照してください。
+
 4. Workerをデプロイ:
 
    ※ 新しいWorkerの初回作成時やシークレット設定時は以下の手動デプロイが必要です。既存Workerの更新は、main へのマージ時にGitHub Actionsで自動デプロイされます（「6. ビルドとデプロイ」参照）。
