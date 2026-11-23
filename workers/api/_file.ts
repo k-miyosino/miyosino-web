@@ -36,15 +36,16 @@ export function streamKintoneFile(
 }
 
 /**
- * fileKey のファイルを kintone のファイル API から取り出して返す。
+ * クエリの fileKey のファイルを kintone のファイル API から取り出して返す。
  * fileKey がなければ 400、kintone がエラーならその状態を JSON で返す
  */
 export async function downloadKintoneFile(
-  fileKey: string | null,
+  url: URL,
   domain: string,
   apiToken: string,
   extraHeaders: Record<string, string>
 ): Promise<Response> {
+  const fileKey = url.searchParams.get('fileKey');
   if (!fileKey) {
     return jsonResponse({ error: 'fileKey is required' }, 400, extraHeaders);
   }

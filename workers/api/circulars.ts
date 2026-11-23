@@ -326,12 +326,7 @@ export default {
         });
       } else if (path === '/circulars/file') {
         // 添付ファイルをダウンロード
-        return downloadKintoneFile(
-          url.searchParams.get('fileKey'),
-          env.KINTONE_DOMAIN,
-          env.KINTONE_API_TOKEN_CIRCULARS,
-          corsHeaders(origin)
-        );
+        return downloadKintoneFile(url, env.KINTONE_DOMAIN, env.KINTONE_API_TOKEN_CIRCULARS, corsHeaders(origin));
       } else {
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
