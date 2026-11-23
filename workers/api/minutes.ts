@@ -628,12 +628,7 @@ export default {
         });
       } else if (path === '/minutes/file') {
         // 添付ファイルをダウンロード
-        return downloadKintoneFile(
-          url.searchParams.get('fileKey'),
-          env.KINTONE_DOMAIN,
-          env.KINTONE_API_TOKEN_MINUTES,
-          corsHeaders(origin)
-        );
+        return downloadKintoneFile(url, env.KINTONE_DOMAIN, env.KINTONE_API_TOKEN_MINUTES, corsHeaders(origin));
       } else {
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
