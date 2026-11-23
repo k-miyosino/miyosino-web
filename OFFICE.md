@@ -146,6 +146,23 @@
 
 4. 事務員のアカウントでログインし直すと、JWT に `clerk: true` が入る（未設定のあいだは、だれも事務員にならない）
 
+**office Worker（`miyosino-office`）の設定**（実装済み: 住戸と組合員の一覧まで）
+
+1. kintone で、事務処理専用の API トークンを作る（「アプリの設定 → API トークン」。請求アプリのトークンとは分ける）。今の段階では閲覧だけでよい: M_物件・M_組合員物件所有状況（ルックアップの参照先の M_棟・M_棟タイプ・M_組合員のトークンも、閲覧だけで作る）
+2. office Worker にシークレットを設定し、初回は手でデプロイする（`workers/` で。以後は main へのマージで自動デプロイ）:
+
+   ```bash
+   npx wrangler secret put JWT_SECRET --config wrangler.office.toml               # ほかの Worker と同じ値
+   npx wrangler secret put KINTONE_DOMAIN --config wrangler.office.toml
+   npx wrangler secret put KINTONE_API_TOKEN_OFFICE --config wrangler.office.toml  # トークンをカンマでつなぐ
+   npx wrangler secret put KINTONE_APP_ID_PROPERTY --config wrangler.office.toml   # M_物件（本番 133）
+   npx wrangler secret put KINTONE_APP_ID_OWNERSHIP --config wrangler.office.toml  # M_組合員物件所有状況（本番 132）
+   npx wrangler deploy --config wrangler.office.toml
+   ```
+
+3. Worker の URL が `https://miyosino-office.anorimura-miyosino.workers.dev` でなければ、GitHub Secrets に `NEXT_PUBLIC_OFFICE_API_URL` を足し、`.github/workflows/deploy.yml` の環境変数にも足す
+4. 事務員のアカウントで組合員専用ページを開くと「事務員専用ページ」のリンクが出る。「住戸と組合員を見る」で、号棟ごとに所有中の組合員が出れば設定は済んでいる
+
 ### 3-3. 書き込みに使う権限
 
 ほかの Worker と同じく、**Worker が持つ API トークン**で kintone に書き込みます。
