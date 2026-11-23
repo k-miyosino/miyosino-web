@@ -97,6 +97,19 @@ describe.each(workers)('%s の /file', (name, worker) => {
     expect(await response.text()).toBe('ID3-前半-後半');
   });
 
+  it('fileKey がなければ kintone に問い合わせず 400 を返す', async () => {
+    const calls = stubFetch(() => undefined);
+    const token = await makeToken();
+    const response = await worker.fetch(
+      new Request(`https://miyosino-${name}.example.workers.dev/${name}/file`, {
+        headers: { Authorization: `Bearer ${token}`, Origin: 'https://k-miyosino.com' },
+      }),
+      env as never
+    );
+    expect(response.status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
   it('kintone がエラーを返したら、その状態を返す', async () => {
     stubFetch((url) =>
       url.hostname === KINTONE_DOMAIN ? new Response('not found', { status: 404 }) : undefined
