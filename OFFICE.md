@@ -328,7 +328,22 @@
 
 #### 4-3-2. 組合員申請アプリの作り方（kintone）
 
-管理者が kintone に「組合員申請」アプリを作るときの一覧です。**フィールドコードは office Worker がこのとおりに読み書きする**ので、変えないでください（変えるときは `workers/api/_office-applications.ts` も直す）。
+管理者が kintone に「組合員申請」アプリを作るときの一覧です。**フィールドコードは office Worker がこのとおりに読み書きする**ので、変えないでください（変えるときは `workers/api/_office-applications.ts`・`workers/kintone/member-application.json` も直す。テスト `workers/test/office-kintone-definition.test.ts` が、この表・定義の JSON・Worker のずれを知らせる）。
+
+**スクリプトで作る（おすすめ）**: 定義の JSON（`workers/kintone/member-application.json`）から、フィールド・アクセス権まで作って運用環境に反映する。アプリを作る操作は API トークンではできないので、管理者のログイン名とパスワードで認証する（管理者の PC で一度だけ実行する。パスワードは環境変数で渡し、ファイルには書かない）。まず開発用の kintone で試す。
+
+```powershell
+cd workers
+$env:KINTONE_USERNAME = "管理者のログイン名"; $env:KINTONE_PASSWORD = "パスワード"
+node scripts/create-kintone-apps.mjs --domain example.cybozu.com --clerk-group 事務員グループのコード --property-app 133 --member-app 131
+Remove-Item Env:KINTONE_PASSWORD
+```
+
+- `--property-app`・`--member-app` は M_物件・M_組合員のアプリ ID（本番は 133・131）。`--dry-run` を付けると、送る内容を表示するだけで kintone には送らない
+- 管理者のアカウントに「アプリの作成」の権限が要る。cybozu.com で 2 段階認証や IP アドレスの制限をしていると、パスワードでの認証が通らないことがある。そのときは下の表を見て、kintone の画面で手で作る
+- API トークンは API では作れないので、できたあとに kintone の画面で作る（スクリプトが最後に手順を表示する）
+
+**手で作るときの一覧**:
 
 | フィールド名 | フィールドコード | 種類 | 必須 | 選択肢・備考 |
 |---|---|---|---|---|
