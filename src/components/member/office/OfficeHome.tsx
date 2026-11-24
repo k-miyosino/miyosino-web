@@ -4,22 +4,27 @@ import { useEffect, useState } from 'react';
 import { isOfficeClerk } from '@/shared/utils/auth';
 import {
   OfficeForbiddenError,
+  fetchOfficeApplications,
   fetchOfficeMe,
 } from '@/repositories/office/officeRepository';
 import { OfficeMe } from '@/types/office';
+import OfficeApplicationList from './OfficeApplicationList';
+import OfficeProxyForm from './OfficeProxyForm';
 import OfficeUnitsSection from './OfficeUnitsSection';
 
-type View = 'home' | 'units';
+type View = 'home' | 'units' | 'list' | 'proxy';
 
 /**
  * 事務員専用ページのトップ（OFFICE.md 7-3）。
  * 事務員が IT に慣れていない前提で、文字とボタンを大きくし、やることをカードで並べる。
- * 申請の一覧・代理入力は次の段階で足す（今は「準備中」と出す）
+ * 承認は次の段階で足す
  */
 export default function OfficeHome() {
   const [me, setMe] = useState<OfficeMe | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('home');
+  // 承認を待っている申請の数（読めなければ null のまま。トップの表示だけに使う）
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
     // 事務員のトークンでなければ、Worker に問い合わせずに「事務員だけ」と出す
@@ -28,7 +33,12 @@ export default function OfficeHome() {
         if (!isOfficeClerk()) throw new OfficeForbiddenError();
         return fetchOfficeMe();
       })
-      .then(setMe)
+      .then((result) => {
+        setMe(result);
+        fetchOfficeApplications('申請中')
+          .then((data) => setPendingCount(data.applications.length))
+          .catch(() => setPendingCount(null));
+      })
       .catch((e: unknown) => {
         setError(
           e instanceof OfficeForbiddenError
@@ -50,7 +60,11 @@ export default function OfficeHome() {
     return <p className="text-lg text-gray-600">読み込み中...</p>;
   }
 
-  if (view === 'units') {
+  if (view === 'proxy') {
+    return <OfficeProxyForm onDone={() => setView('home')} />;
+  }
+
+  if (view === 'units' || view === 'list') {
     return (
       <div className="flex flex-col gap-6">
         <button
@@ -60,7 +74,7 @@ export default function OfficeHome() {
         >
           ← トップに戻る
         </button>
-        <OfficeUnitsSection />
+        {view === 'units' ? <OfficeUnitsSection /> : <OfficeApplicationList />}
       </div>
     );
   }
@@ -71,25 +85,45 @@ export default function OfficeHome() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-2xl font-bold">今日やること</h2>
-        <div className="flex flex-wrap items-center justify-between gap-6 bg-white border-2 border-gray-300 rounded-2xl p-6 sm:p-8">
-          <div className="flex flex-col gap-1">
-            <span className="text-2xl font-bold">新規申し込みリスト</span>
-            <span className="text-lg text-gray-600">
-              準備中です。次の更新で、承認を待っている申請がここに並びます。
+        <button
+          type="button"
+          onClick={() => setView('list')}
+          className="text-left flex flex-wrap items-center justify-between gap-6 bg-white border-[3px] border-blue-700 hover:bg-blue-50 rounded-2xl p-6 sm:p-8 transition-colors"
+        >
+          <span className="flex items-center gap-5">
+            <span className="w-20 h-20 rounded-full bg-blue-700 text-white flex items-center justify-center text-4xl font-bold">
+              {pendingCount ?? '…'}
             </span>
-          </div>
-        </div>
+            <span className="flex flex-col gap-1">
+              <span className="text-2xl font-bold">新規申し込みリスト</span>
+              <span className="text-lg text-gray-600">
+                {pendingCount === null
+                  ? '承認を待っている申請を見ます'
+                  : `承認を待っている申請が ${pendingCount} 件あります`}
+              </span>
+            </span>
+          </span>
+          <span className="text-xl font-bold text-white bg-blue-700 rounded-xl px-6 py-4">
+            申請を確認する →
+          </span>
+        </button>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-bold text-gray-600">そのほかの仕事</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="bg-white border border-gray-300 rounded-2xl p-6 flex flex-col gap-2 min-h-36">
-            <span className="text-xl font-bold">紙の申請を入力する</span>
-            <span className="text-base text-gray-600">
-              準備中です。窓口に出された申請書（名義変更届など）を、代わりに入力できるようになります。
+          <button
+            type="button"
+            onClick={() => setView('proxy')}
+            className="text-left bg-white border-2 border-blue-700 hover:bg-blue-50 rounded-2xl p-6 flex flex-col gap-2 min-h-36 transition-colors"
+          >
+            <span className="text-xl font-bold text-blue-800">
+              紙の申請を入力する →
             </span>
-          </div>
+            <span className="text-base text-gray-600">
+              窓口に出された申請書（組合員名義変更届など）を、代わりに入力します
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setView('units')}
