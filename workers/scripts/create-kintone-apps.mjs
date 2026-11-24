@@ -59,6 +59,24 @@ function parseArgs(argv) {
   return args;
 }
 
+/** アプリ・スペース・スレッドの ID は数字だけ。数値にして返す（ログ・JSON・URL にそのまま入れても安全なように） */
+function toId(value, option) {
+  if (value === undefined) return undefined;
+  if (!/^\d{1,10}$/.test(value)) {
+    throw new Error(`${option} は数字で指定してください`);
+  }
+  return String(Number.parseInt(value, 10));
+}
+
+/** cybozu.com のドメイン（例: example.cybozu.com）だけを受け付ける */
+function toDomain(value) {
+  if (!value) throw new Error('--domain を指定してください');
+  if (!/^[a-z0-9-]{1,63}\.(cybozu\.com|kintone\.com|cybozu\.cn)$/.test(value)) {
+    throw new Error('--domain は「example.cybozu.com」の形で指定してください');
+  }
+  return value;
+}
+
 function loadDefinition(file, replacements) {
   let text = readFileSync(join(DEFINITIONS_DIR, file), 'utf8');
   for (const [placeholder, value] of Object.entries(replacements)) {
@@ -180,8 +198,11 @@ async function createApp(request, definition, args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  args.domain = args.domain ?? process.env.KINTONE_DOMAIN;
-  if (!args.domain) throw new Error('--domain を指定してください');
+  args.domain = toDomain(args.domain ?? process.env.KINTONE_DOMAIN);
+  args.space = toId(args.space, '--space');
+  args.thread = toId(args.thread, '--thread');
+  args['property-app'] = toId(args['property-app'], '--property-app');
+  args['member-app'] = toId(args['member-app'], '--member-app');
   if (!args['clerk-group']) throw new Error('--clerk-group（「事務員」グループのグループコード）を指定してください');
   if (!args['property-app'] || !args['member-app']) {
     throw new Error('--property-app（M_物件）と --member-app（M_組合員）のアプリ ID を指定してください');
