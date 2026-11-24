@@ -63,9 +63,16 @@ function parseArgs(argv) {
 function toId(value, option) {
   if (value === undefined) return undefined;
   if (!/^\d{1,10}$/.test(value)) {
-    throw new Error(`${option} は数字で指定してください`);
+    throw new Error(`${option} が数字ではありません`);
   }
   return String(Number.parseInt(value, 10));
+}
+
+/** kintone の応答の文字列を、ログに出せる 1 行にする（改行などの制御文字を空白にし、長さも切る） */
+function oneLine(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .slice(0, 200);
 }
 
 /** cybozu.com のドメイン（例: example.cybozu.com）だけを受け付ける */
@@ -115,8 +122,9 @@ function makeClient(args) {
     if (args['dry-run']) {
       console.log(`\n[dry-run] ${method} ${path}`);
       console.log(JSON.stringify(body, null, 2));
-      if (path === '/k/v1/preview/app.json') return { app: '<新しいアプリID>' };
-      if (path === '/k/v1/space.json') return { defaultThread: '<既定のスレッドのID>' };
+      // ドライランでは、仮の ID（0）を返す
+      if (path === '/k/v1/preview/app.json') return { app: '0' };
+      if (path === '/k/v1/space.json') return { defaultThread: '0' };
       return { apps: [{ status: 'SUCCESS' }] };
     }
     const url = new URL(`https://${args.domain}${path}`);
@@ -131,7 +139,9 @@ function makeClient(args) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       // kintone のエラーコードとメッセージだけを出す（認証の情報は出さない）
-      throw new Error(`${method} ${path} が失敗しました（${response.status} ${data.code ?? ''} ${data.message ?? ''}）`);
+      throw new Error(
+        `${method} ${path} が失敗しました（${response.status} ${oneLine(data.code)} ${oneLine(data.message)}）`
+      );
     }
     return data;
   };
@@ -157,7 +167,8 @@ async function resolvePlace(request, args) {
     return {};
   }
   const thread =
-    args.thread ?? String((await request('GET', '/k/v1/space.json', { id: args.space })).defaultThread);
+    args.thread ??
+    toId(String((await request('GET', '/k/v1/space.json', { id: args.space })).defaultThread), 'kintone が返したスレッドの ID');
   return { space: args.space, thread };
 }
 
@@ -167,7 +178,8 @@ async function createApp(request, definition, args) {
     name: definition.name,
     ...place,
   });
-  const appId = String(created.app);
+  // kintone の応答も、数字だけかを確かめてから使う（ログ・以後のリクエストに入れるため）
+  const appId = toId(String(created.app), 'kintone が返したアプリの ID');
   console.log(
     `- 「${definition.name}」アプリを作りました（アプリ ID: ${appId}。${
       place.space ? `スペース ${place.space} のスレッド ${place.thread}` : 'スペースに入れず、ポータルのアプリ一覧'
