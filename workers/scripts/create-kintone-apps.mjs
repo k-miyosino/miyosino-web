@@ -23,7 +23,9 @@
  *   --admin-group   管理者のグループコード（既定: Administrators）
  *   --property-app  M_物件のアプリ ID（組合員申請の「物件」のルックアップ先）
  *   --member-app    M_組合員のアプリ ID（組合員申請の「組合員」のルックアップ先）
- *   --space         アプリを作るスペースの ID（任意。無ければポータルに作る）
+ *   --space         アプリを作るスペースの ID（任意。無ければスペースに入れず、ポータルの「アプリ」の一覧に作る）。
+ *                   スペースの ID は、スペースを開いたときの URL の /k/#/space/ のあとの数字
+ *   --thread        スペースの中のスレッドの ID（任意。無ければそのスペースの既定のスレッド）
  *   --dry-run       kintone に送らず、送る内容（パスワードを除く）を表示する
  *
  * できあがったら、kintone の画面で次を行う（API ではできない）:
@@ -55,6 +57,31 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+/** アプリ・スペース・スレッドの ID は数字だけ。数値にして返す（ログ・JSON・URL にそのまま入れても安全なように） */
+function toId(value, option) {
+  if (value === undefined) return undefined;
+  if (!/^\d{1,10}$/.test(value)) {
+    throw new Error(`${option} が数字ではありません`);
+  }
+  return String(Number.parseInt(value, 10));
+}
+
+/** kintone の応答の文字列を、ログに出せる 1 行にする（改行などの制御文字を空白にし、長さも切る） */
+function oneLine(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .slice(0, 200);
+}
+
+/** cybozu.com のドメイン（例: example.cybozu.com）だけを受け付ける */
+function toDomain(value) {
+  if (!value) throw new Error('--domain を指定してください');
+  if (!/^[a-z0-9-]{1,63}\.(cybozu\.com|kintone\.com|cybozu\.cn)$/.test(value)) {
+    throw new Error('--domain は「example.cybozu.com」の形で指定してください');
+  }
+  return value;
 }
 
 function loadDefinition(file, replacements) {
@@ -95,7 +122,10 @@ function makeClient(args) {
     if (args['dry-run']) {
       console.log(`\n[dry-run] ${method} ${path}`);
       console.log(JSON.stringify(body, null, 2));
-      return path === '/k/v1/preview/app.json' ? { app: '<新しいアプリID>' } : { apps: [{ status: 'SUCCESS' }] };
+      // ドライランでは、仮の ID（0）を返す
+      if (path === '/k/v1/preview/app.json') return { app: '0' };
+      if (path === '/k/v1/space.json') return { defaultThread: '0' };
+      return { apps: [{ status: 'SUCCESS' }] };
     }
     const url = new URL(`https://${args.domain}${path}`);
     const init = { method, headers: { 'X-Cybozu-Authorization': auth } };
@@ -109,7 +139,9 @@ function makeClient(args) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       // kintone のエラーコードとメッセージだけを出す（認証の情報は出さない）
-      throw new Error(`${method} ${path} が失敗しました（${response.status} ${data.code ?? ''} ${data.message ?? ''}）`);
+      throw new Error(
+        `${method} ${path} が失敗しました（${response.status} ${oneLine(data.code)} ${oneLine(data.message)}）`
+      );
     }
     return data;
   };
@@ -128,13 +160,31 @@ async function waitForDeploy(request, appId) {
   throw new Error(`アプリ ${appId} の運用環境への反映が終わりません。kintone の画面で確かめてください`);
 }
 
+/** スペースに作るときの space・thread。スレッドの指定がなければ、スペースの既定のスレッドを問い合わせる */
+async function resolvePlace(request, args) {
+  if (!args.space) {
+    if (args.thread) throw new Error('--thread を使うときは --space も指定してください');
+    return {};
+  }
+  const thread =
+    args.thread ??
+    toId(String((await request('GET', '/k/v1/space.json', { id: args.space })).defaultThread), 'kintone が返したスレッドの ID');
+  return { space: args.space, thread };
+}
+
 async function createApp(request, definition, args) {
+  const place = await resolvePlace(request, args);
   const created = await request('POST', '/k/v1/preview/app.json', {
     name: definition.name,
-    ...(args.space ? { space: args.space, thread: args.space } : {}),
+    ...place,
   });
-  const appId = String(created.app);
-  console.log(`- 「${definition.name}」アプリを作りました（アプリ ID: ${appId}）`);
+  // kintone の応答も、数字だけかを確かめてから使う（ログ・以後のリクエストに入れるため）
+  const appId = toId(String(created.app), 'kintone が返したアプリの ID');
+  console.log(
+    `- 「${definition.name}」アプリを作りました（アプリ ID: ${appId}。${
+      place.space ? `スペース ${place.space} のスレッド ${place.thread}` : 'スペースに入れず、ポータルのアプリ一覧'
+    }）`
+  );
 
   await request('PUT', '/k/v1/preview/app/settings.json', {
     app: appId,
@@ -160,8 +210,11 @@ async function createApp(request, definition, args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  args.domain = args.domain ?? process.env.KINTONE_DOMAIN;
-  if (!args.domain) throw new Error('--domain を指定してください');
+  args.domain = toDomain(args.domain ?? process.env.KINTONE_DOMAIN);
+  args.space = toId(args.space, '--space');
+  args.thread = toId(args.thread, '--thread');
+  args['property-app'] = toId(args['property-app'], '--property-app');
+  args['member-app'] = toId(args['member-app'], '--member-app');
   if (!args['clerk-group']) throw new Error('--clerk-group（「事務員」グループのグループコード）を指定してください');
   if (!args['property-app'] || !args['member-app']) {
     throw new Error('--property-app（M_物件）と --member-app（M_組合員）のアプリ ID を指定してください');
