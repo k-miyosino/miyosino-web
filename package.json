@@ -14,6 +14,7 @@
     "check:place": "tsx src/check-place-type.ts",
     "check:type": "tsx src/check-type-nearby.ts",
     "prepare": "husky",
+    "office:practice": "node scripts/office-practice.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

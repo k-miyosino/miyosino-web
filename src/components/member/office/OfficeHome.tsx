@@ -33,12 +33,7 @@ export default function OfficeHome() {
         if (!isOfficeClerk()) throw new OfficeForbiddenError();
         return fetchOfficeMe();
       })
-      .then((result) => {
-        setMe(result);
-        fetchOfficeApplications('申請中')
-          .then((data) => setPendingCount(data.applications.length))
-          .catch(() => setPendingCount(null));
-      })
+      .then(setMe)
       .catch((e: unknown) => {
         setError(
           e instanceof OfficeForbiddenError
@@ -47,6 +42,22 @@ export default function OfficeHome() {
         );
       });
   }, []);
+
+  // トップを出すたびに、承認を待っている件数を読み直す（入力・承認から戻ったときに古い数を出さない）
+  useEffect(() => {
+    if (!me || view !== 'home') return;
+    let cancelled = false;
+    fetchOfficeApplications('申請中')
+      .then((data) => {
+        if (!cancelled) setPendingCount(data.applications.length);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [me, view]);
 
   if (error) {
     return (
