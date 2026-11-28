@@ -111,7 +111,7 @@
 3. Worker の URL が `https://miyosino-koho.anorimura-miyosino.workers.dev` でなければ、GitHub Secrets と `deploy.yml` に `NEXT_PUBLIC_KOHO_API_URL` を足す
 4. 広報委員のアカウントでログインし直すと、組合員専用ページのトップに「広報ページ」のリンクが出る
 
-**手元で試す**: `npm run koho:practice` で、架空のデータの練習用のサーバーにつないで画面を開ける（`OFFICE.md` 7-7 と同じしくみ。`http://localhost:3000/member/koho/`）。リンク先は練習用の仮のもの。
+**手元で試す**: `npm run koho:practice` で、本物の Worker・kintone の代わりに架空のデータを返す練習用のサーバー（`scripts/office-practice.mjs`）につないで画面を開ける（`http://localhost:3000/member/koho/`）。ログインも練習用のサーバーが広報委員としてログインしたことにするので、kintone にはつながない。リンク先は練習用の仮のもの。止めるときは Ctrl + C
 
 ## 5. 段階 2: 言葉で頼むと PR ができる
 
