@@ -123,8 +123,11 @@ export function buildMicrocms(env: KohoCatalogEnv): KohoMicrocms {
     items: [
       { name: 'トップの写真', where: 'ホームのいちばん上の写真' },
       { name: '季節の写真', where: '「特徴」のページの季節の写真' },
-      { name: 'コミュニティ活動', where: '「コミュニティ」のページの活動の紹介' },
-      { name: 'サークル（スポーツ・文化）', where: '「コミュニティ」のページのサークルの紹介' },
+      { name: 'コミュニティ活動', where: '「コミュニティ」のページの「自治会活動」の紹介' },
+      {
+        name: 'サークル（スポーツ・文化）',
+        where: 'いまはホームページに出していない（microCMS にデータはあるが、ページの表示を止めている）',
+      },
       { name: '共有施設・サービス', where: '「共有施設・サービス」のページ' },
     ],
   };
@@ -139,7 +142,12 @@ export const KOHO_GUIDE: KohoGuideRow[] = [
   { area: 'グリーンウェルネス', editIn: 'kintone', target: 'グリーンウェルネス' },
   { area: '会議情報（議事録）', editIn: 'kintone', target: '会議情報' },
   { area: '届出・申請書のダウンロード', editIn: 'kintone', target: '届出・申請書' },
-  { area: 'コミュニティ活動・サークルの紹介', editIn: 'microCMS', target: 'コミュニティ活動・サークル' },
+  { area: '「コミュニティ」のページの自治会活動の紹介', editIn: 'microCMS', target: 'コミュニティ活動' },
+  {
+    area: '「コミュニティ」のページのいちばん上の見出しと説明文',
+    editIn: 'ソース',
+    target: 'いまはシステム管理者に頼む（言葉で頼むと直せるしくみは準備中）',
+  },
   { area: '共有施設・サービスのページ', editIn: 'microCMS', target: '共有施設・サービス' },
   { area: '「特徴」のページの季節の写真', editIn: 'microCMS', target: '季節の写真' },
   { area: '周辺施設', editIn: 'kintone', target: '周辺施設（Google から毎月自動で更新）' },
