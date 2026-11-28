@@ -371,7 +371,7 @@ function stubKintone(options: { existing?: unknown[]; bulkStatus?: number; bulkC
               {
                 code: options.bulkCode ?? 'GAIA_XX',
                 message: '01-101山田 の個人情報',
-                errors: { 'record.user.value': { messages: ['01101yamada は存在しません'] }, '01-101山田': {} },
+                errors: { 'record.user.values.value': { messages: ['01101yamada は存在しません'] }, '01-101山田': {} },
               },
             ],
           },
@@ -455,7 +455,12 @@ describe('POST /office/ledger', () => {
 
   it('kintone が断ったら、エラーコード・断られた書き込みの番号とアプリ・フィールドのキーだけをログに残す', async () => {
     stubKintone({ bulkStatus: 400, bulkCode: 'CB_VA01' });
-    await office.fetch(await clerkRequest('/office/ledger', futureTransfer), env);
+    const response = await office.fetch(await clerkRequest('/office/ledger', futureTransfer), env);
+    // 新しい組合員のログイン名のユーザーがないときは、画面にもそう出す（本番で確かめた CB_VA01・record.user.values.value）
+    expect(response.status).toBe(409);
+    expect(JSON.stringify(await response.json())).toContain(
+      `ログイン名 ${futureTransfer.newLogin} のユーザーが cybozu.com にありません`
+    );
     const warn = vi.mocked(console.warn);
     const logged = warn.mock.calls.find((c) => c[0] === '[Office] kintone rejected');
     expect(logged).toBeDefined();
@@ -465,7 +470,7 @@ describe('POST /office/ledger', () => {
       code: 'CB_VA01',
       request: 1,
       app: '96',
-      fields: ['record.user.value'],
+      fields: ['record.user.values.value'],
     });
     // kintone のメッセージ・値（個人情報を含みうる）は残さない
     const all = JSON.stringify(warn.mock.calls);

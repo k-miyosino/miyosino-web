@@ -316,7 +316,15 @@ function invalid(messages: string[], origin?: string): Response {
 }
 
 /** kintone が書き込みを断ったときに、画面に出すことば */
-function rejectedMessage(error: KintoneError): string {
+function rejectedMessage(error: KintoneError, input?: LedgerInput): string {
+  // 新しい組合員の「Kintoneユーザ」に入れたログイン名のユーザーがない（本番で確かめた: CB_VA01・record.user.values.value）
+  if (
+    input?.type === '名義変更' &&
+    error.code === 'CB_VA01' &&
+    error.fields.some((f) => f.startsWith('record.user.'))
+  ) {
+    return `ログイン名 ${input.newLogin} のユーザーが cybozu.com にありません。管理者にユーザーを作ってもらってから、もう一度「台帳に反映する」を押してください`;
+  }
   if (error.code === 'GAIA_CO02' || error.code === 'GAIA_CO04') {
     return 'ほかの人が先に台帳を変えました。画面を開き直して、もう一度入力してください';
   }
@@ -362,7 +370,7 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
   } catch (error) {
     if (error instanceof KintoneError && error.status === 400) {
       logRejected(input.type, error, all);
-      return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error)] }, 409, origin);
+      return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error, input)] }, 409, origin);
     }
     throw error;
   }
