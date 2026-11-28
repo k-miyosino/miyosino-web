@@ -1,6 +1,7 @@
 name: Test Frontend
 
-# フロントエンドのテスト（src/**/*.test.ts(x)、Vitest）。PR と develop への push で動かす
+# フロントエンドのテスト（src/**/*.test.ts(x)、Vitest）と ESLint。PR と develop への push で動かす
+# （ESLint は staging・main の Deploy でも動き、エラーがあるとビルドが止まるので、PR の段階で見つける）
 # （staging・main では Deploy のビルドの前にも動く）
 on:
   pull_request:
@@ -10,6 +11,8 @@ on:
       - 'package-lock.json'
       - 'vitest.config.mts'
       - 'tsconfig.json'
+      - 'eslint.config.mjs'
+      - '.prettierrc'
       - '.github/workflows/test-frontend.yml'
   push:
     branches:
@@ -20,6 +23,8 @@ on:
       - 'package-lock.json'
       - 'vitest.config.mts'
       - 'tsconfig.json'
+      - 'eslint.config.mjs'
+      - '.prettierrc'
       - '.github/workflows/test-frontend.yml'
   workflow_dispatch:
 
@@ -42,6 +47,10 @@ jobs:
       - name: Install dependencies
         # 依存パッケージのインストールスクリプトは実行しない（テストには不要）
         run: npm ci --ignore-scripts
+
+      - name: Lint
+        # Deploy（deploy.yml）と同じ対象。警告は通し、エラーだけで止める
+        run: npx eslint src
 
       - name: Test
         run: npm test

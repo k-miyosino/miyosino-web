@@ -265,7 +265,9 @@ const JWT_WORKERS = [
   'circulars',
   'events',
   'greenwellness',
+  'koho',
   'minutes',
+  'office',
   'ops',
 ];
 
@@ -311,6 +313,7 @@ export const OPS_SECRETS: OpsSecret[] = [
       worker('history-api', 'KINTONE_API_TOKEN_HISTORY'),
       worker('minutes', 'KINTONE_API_TOKEN_MINUTES'),
       worker('places-api', 'KINTONE_API_TOKEN_PLACES'),
+      worker('office', 'KINTONE_API_TOKEN_OFFICE'),
       githubSecret('KINTONE_API_TOKEN_PLACES（Sync Places）'),
     ],
     issuer: { label: 'kintone の各アプリの設定 → API トークン' },

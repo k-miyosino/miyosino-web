@@ -1,0 +1,210 @@
+{
+  "_説明": "台帳の更新記録アプリの定義（OFFICE.md 0-3）。workers/scripts/create-kintone-apps.mjs がこのとおりに作り、workers/test/office-kintone-definition.test.ts が Worker のフィールドコードと OFFICE.md の表に合っているかを確かめる",
+  "name": "台帳の更新記録",
+  "description": "事務員専用ページ（/member/office）で台帳（M_組合員・所有状況・駐車場契約）を更新したときの記録（だれが・いつ・何を変えたか）。office Worker が API トークンで書く。取り消しにも使うので消さない",
+  "properties": {
+    "type": {
+      "type": "DROP_DOWN",
+      "code": "type",
+      "label": "手続き",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "名義変更": {
+          "label": "名義変更",
+          "index": "0"
+        },
+        "氏名の変更": {
+          "label": "氏名の変更",
+          "index": "1"
+        }
+      },
+      "defaultValue": ""
+    },
+    "status": {
+      "type": "DROP_DOWN",
+      "code": "status",
+      "label": "状態",
+      "noLabel": false,
+      "required": true,
+      "options": {
+        "反映済み": {
+          "label": "反映済み",
+          "index": "0"
+        },
+        "取り消し": {
+          "label": "取り消し",
+          "index": "1"
+        }
+      },
+      "defaultValue": "反映済み"
+    },
+    "property": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "property",
+      "label": "物件",
+      "noLabel": false,
+      "required": true,
+      "unique": false,
+      "maxLength": "10",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "old_member": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "old_member",
+      "label": "旧組合員・組合員",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "100",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "new_name": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "new_name",
+      "label": "新しい氏名",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "50",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "new_login": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "new_login",
+      "label": "新しいログイン名",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "64",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "switch_date": {
+      "type": "DATE",
+      "code": "switch_date",
+      "label": "負担を切り替える日",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "transfer_date": {
+      "type": "DATE",
+      "code": "transfer_date",
+      "label": "名義変更日",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "before": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "before",
+      "label": "変更前の値",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "after": {
+      "type": "MULTI_LINE_TEXT",
+      "code": "after",
+      "label": "変更後の値",
+      "noLabel": false,
+      "required": false,
+      "defaultValue": ""
+    },
+    "entered_by": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "entered_by",
+      "label": "入力者",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "100",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "entered_at": {
+      "type": "DATETIME",
+      "code": "entered_at",
+      "label": "記録した日時",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "canceled_by": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "canceled_by",
+      "label": "取り消した人",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "maxLength": "100",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    },
+    "canceled_at": {
+      "type": "DATETIME",
+      "code": "canceled_at",
+      "label": "取り消した日時",
+      "noLabel": false,
+      "required": false,
+      "unique": false,
+      "defaultValue": "",
+      "defaultNowValue": false
+    },
+    "submit_key": {
+      "type": "SINGLE_LINE_TEXT",
+      "code": "submit_key",
+      "label": "送信キー",
+      "noLabel": false,
+      "required": false,
+      "unique": true,
+      "maxLength": "64",
+      "minLength": "",
+      "defaultValue": "",
+      "expression": "",
+      "hideExpression": false
+    }
+  },
+  "rights": {
+    "clerkGroup": {
+      "recordViewable": true,
+      "recordAddable": false,
+      "recordEditable": false,
+      "recordDeletable": false,
+      "recordImportable": false,
+      "recordExportable": false,
+      "appEditable": false
+    },
+    "adminGroup": {
+      "recordViewable": true,
+      "recordAddable": false,
+      "recordEditable": false,
+      "recordDeletable": false,
+      "recordImportable": false,
+      "recordExportable": true,
+      "appEditable": true
+    }
+  }
+}

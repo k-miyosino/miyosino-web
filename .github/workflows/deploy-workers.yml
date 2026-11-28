@@ -29,7 +29,9 @@ on:
           - events
           - greenwellness
           - history
+          - koho
           - minutes
+          - office
           - ops
           - places
 

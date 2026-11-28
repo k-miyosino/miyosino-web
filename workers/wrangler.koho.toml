@@ -1,0 +1,12 @@
+name = "miyosino-koho"
+main = "api/koho.ts"
+compatibility_date = "2026-11-01"
+account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
+
+# 広報ページ（/member/koho）の API。広報委員（JWT の koho）にだけ答える。設計と設定の手順は KOHO.md
+#
+# シークレットは wrangler secret put コマンドで設定してください
+# wrangler secret put JWT_SECRET --config wrangler.koho.toml              （ほかの Worker と同じ値）
+# wrangler secret put KINTONE_DOMAIN --config wrangler.koho.toml
+# wrangler secret put KINTONE_APP_ID_HISTORY --config wrangler.koho.toml  （任意。団地の歴史のアプリ ID。無ければリンク集に出さない）
+# wrangler secret put KINTONE_APP_ID_PLACES --config wrangler.koho.toml   （任意。周辺施設のアプリ ID。無ければリンク集に出さない）

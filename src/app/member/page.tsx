@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   checkAuthStatus,
+  isKohoMember,
+  isOfficeClerk,
   isOpsAdmin,
   redirectToLogin,
   logout,
@@ -19,6 +21,10 @@ export default function MemberPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   // 運用ダッシュボードへのリンクを出すか（表示だけ。見せるかどうかは ops Worker が確かめる）
   const [showOpsLink, setShowOpsLink] = useState(false);
+  // 事務員専用ページへのリンクを出すか（表示だけ。データを返すかどうかは office Worker が確かめる）
+  const [showOfficeLink, setShowOfficeLink] = useState(false);
+  // 広報ページへのリンクを出すか（表示だけ。データを返すかどうかは koho Worker が確かめる）
+  const [showKohoLink, setShowKohoLink] = useState(false);
   const hasCheckedAuth = useRef(false);
 
   useEffect(() => {
@@ -54,6 +60,8 @@ export default function MemberPage() {
 
       console.log('[Member Page] Authenticated, showing page');
       setShowOpsLink(isOpsAdmin());
+      setShowOfficeLink(isOfficeClerk());
+      setShowKohoLink(isKohoMember());
       setIsLoading(false);
     }
 
@@ -136,6 +144,26 @@ export default function MemberPage() {
 
       {/* メインコンテンツ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {showOfficeLink && (
+          <Link
+            href="/member/office"
+            className="flex items-center justify-between bg-blue-800 hover:bg-blue-900 text-white rounded-lg px-6 py-5 mb-4 text-lg transition-colors"
+          >
+            <span className="font-bold">事務員専用ページ（台帳の更新）</span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
+        {showKohoLink && (
+          <Link
+            href="/member/koho"
+            className="flex items-center justify-between bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-6 py-5 mb-4 text-lg transition-colors"
+          >
+            <span className="font-bold">
+              広報ページ（ホームページの情報を直す）
+            </span>
+            <span aria-hidden="true">→</span>
+          </Link>
+        )}
         {showOpsLink && (
           <Link
             href="/member/ops"
