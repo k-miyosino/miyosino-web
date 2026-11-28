@@ -9,4 +9,4 @@ account_id = "e6544c934cee9bfb0cdfc5b155ce8aeb"
 # wrangler secret put JWT_SECRET --config wrangler.koho.toml              （ほかの Worker と同じ値）
 # wrangler secret put KINTONE_DOMAIN --config wrangler.koho.toml
 # wrangler secret put KINTONE_APP_ID_HISTORY --config wrangler.koho.toml  （任意。団地の歴史のアプリ ID。無ければリンク集に出さない）
-# wrangler secret put KINTONE_APP_ID_PLACES --config wrangler.koho.toml   （任意。周辺施設のアプリ ID。無ければリンク集に出さない）
+# wrangler secret put KINTONE_APP_ID_PLACES --config wrangler.koho.toml   （入れない。周辺施設は Places API で自動で入れるので、リンク集に出さない。KOHO.md 4-1）
