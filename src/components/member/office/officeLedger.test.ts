@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   LedgerDraft,
+  composedName,
+  displayPreview,
   emptyDraft,
   formatJapaneseDate,
   newSubmitKey,
@@ -20,7 +22,8 @@ function transferDraft(overrides: Partial<LedgerDraft> = {}): LedgerDraft {
     type: '名義変更',
     propertyName: '01-101',
     ownerDisplay: '01-101 山田',
-    newName: ' 佐藤 次郎 ',
+    familyName: ' 佐藤 ',
+    givenName: '次郎　',
     newLogin: ' 01101sato ',
     switchDate: '2026-12-01',
     transferDate: '2026-11-16',
@@ -80,16 +83,29 @@ describe('validateStep', () => {
     ).toHaveLength(2);
   });
 
-  it('氏名が空なら、手続きに合ったことばで知らせる', () => {
-    expect(validateStep(transferDraft({ newName: '' }), 'newName')).toEqual([
-      '新しい組合員の氏名を入れてください',
+  it('姓・名が空なら、手続きに合ったことばで知らせる', () => {
+    expect(
+      validateStep(transferDraft({ familyName: '', givenName: ' ' }), 'newName')
+    ).toEqual([
+      '新しい組合員の姓を入れてください',
+      '新しい組合員の名を入れてください',
     ]);
     expect(
       validateStep(
-        transferDraft({ type: '氏名の変更', newName: '' }),
+        transferDraft({ type: '氏名の変更', nameMode: 'single', newName: '' }),
         'newName'
       )
     ).toEqual(['変更後の氏名を入れてください']);
+  });
+
+  it('姓と名は半角の空白 1 つでつなぐ。分けられないときは 1 つの欄の空白をそろえる', () => {
+    expect(composedName(transferDraft())).toBe('佐藤 次郎');
+    expect(displayPreview(transferDraft())).toBe('01-101佐藤 次郎');
+    expect(
+      composedName(
+        transferDraft({ nameMode: 'single', newName: ' John　 A  Smith ' })
+      )
+    ).toBe('John A Smith');
   });
 });
 

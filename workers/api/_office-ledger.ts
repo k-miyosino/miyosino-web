@@ -111,6 +111,32 @@ function text(body: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * 氏名の空白をそろえる。前後の空白を取り、間の空白（全角・半角・続いたもの）は半角 1 つにする。
+ * 画面は姓と名を分けて入れ、半角の空白でつないで送る（外国籍の方などは 1 つの欄に、空白も含めて入れる）
+ */
+export function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/gu, ' ');
+}
+
+/** M_組合員の「表示」（物件名と氏名を空けずにつなぐ。今の台帳の「01-101田中」と同じ形。例: 01-101田中 太郎） */
+export function memberDisplay(propertyName: string, name: string): string {
+  return `${propertyName}${name}`;
+}
+
+/** 「表示」は重複禁止なので、すでにあれば「01-101田中太郎(2)」のように重ならない番号を付ける */
+export function uniqueDisplay(base: string, taken: readonly string[]): string {
+  if (!taken.includes(base)) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base}(${n})`;
+    if (!taken.includes(candidate)) return candidate;
+  }
+}
+
+function numberedWarning(base: string, numbered: string): string {
+  return `「${base}」はすでに台帳にあるので（同じ姓名の旧組合員など）、重ならないよう「${numbered}」で登録します`;
+}
+
 /** 画面から届いた入力を確かめる。エラーは画面にそのまま出せる日本語で返す */
 export function parseLedgerInput(body: unknown): Parsed<LedgerInput> {
   if (typeof body !== 'object' || body === null) {
@@ -128,7 +154,7 @@ export function parseLedgerInput(body: unknown): Parsed<LedgerInput> {
   }
   const propertyName = text(data, 'propertyName');
   if (!PROPERTY_PATTERN.test(propertyName)) errors.push('お部屋を選んでください');
-  const newName = text(data, 'newName');
+  const newName = normalizeName(text(data, 'newName'));
   errors.push(...checkNewName(newName, type));
   if (type === '氏名の変更') {
     return errors.length > 0
@@ -200,6 +226,8 @@ export interface LedgerContext {
   memberOwnerships: LedgerOwnership[];
   /** 今の所有者（のユーザー）の駐車場契約（すべて） */
   memberParkings: LedgerParking[];
+  /** その物件名で始まる M_組合員の「表示」（すべて。新しい表示が重ならないようにする） */
+  takenDisplays?: string[];
 }
 
 export interface BulkRequest {
@@ -321,10 +349,8 @@ export function planTransfer(
   if (input.newLogin === oldUser) {
     errors.push('新しい組合員のログイン名が、旧組合員と同じです。名義変更では新しいアカウントを作ります');
   }
-  const newDisplay = `${input.propertyName} ${input.newName}`;
-  if (newDisplay === oldDisplay) {
-    errors.push('新しい組合員の氏名が、旧組合員と同じです');
-  }
+  const baseDisplay = memberDisplay(input.propertyName, input.newName);
+  const newDisplay = uniqueDisplay(baseDisplay, ctx.takenDisplays ?? []);
   if (errors.length > 0 || !ctx.member) return { ok: false, errors };
 
   const lastDay = previousDay(input.switchDate);
@@ -370,6 +396,9 @@ export function planTransfer(
     `${newDisplay} 様の所有を ${formatJapaneseDate(input.switchDate)} から始めます`,
   ];
   const warnings: string[] = [];
+  if (newDisplay !== baseDisplay) {
+    warnings.push(numberedWarning(baseDisplay, newDisplay));
+  }
   if (parkings.length > 0) {
     warnings.push(
       `${oldDisplay} 様には、続いている駐車場の契約が ${parkings.length} 件あります。駐車場の契約は、この手続きでは変わりません`
@@ -402,10 +431,14 @@ export function planRename(
     return { ok: false, errors: ['組合員の登録が見つかりません。管理者に台帳の確認を頼んでください'] };
   }
   const oldDisplay = member.display.value;
-  const newDisplay = `${input.propertyName} ${input.newName}`;
-  if (newDisplay === oldDisplay) {
+  const baseDisplay = memberDisplay(input.propertyName, input.newName);
+  if (baseDisplay === oldDisplay) {
     return { ok: false, errors: ['変更後の氏名が、いまの登録と同じです'] };
   }
+  const newDisplay = uniqueDisplay(
+    baseDisplay,
+    (ctx.takenDisplays ?? []).filter((d) => d !== oldDisplay)
+  );
   const ownerships = ctx.memberOwnerships;
   const parkings = apps.parking ? ctx.memberParkings : [];
   const requests = [
@@ -438,7 +471,7 @@ export function planRename(
       requests,
       logRecord: baseLog(input, oldDisplay, enteredBy, enteredAt, before, after),
       summary,
-      warnings: [],
+      warnings: newDisplay === baseDisplay ? [] : [numberedWarning(baseDisplay, newDisplay)],
       notices,
       proration: null,
     },
