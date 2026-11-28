@@ -55,7 +55,7 @@ function callback(
  * - トークンの取得は成功させる
  * - 「ログイン記録」アプリにレコードを足すと、作成者が user-a のレコードを返す
  * - 「運用管理者」アプリが読めるかは opsAdminStatus（200 なら管理者、403 なら管理者でない）
- * - 「事務員」アプリが読めるかは clerkStatus（200 なら事務員、403 なら事務員でない）
+ * - 「事務員判定」アプリが読めるかは clerkStatus（200 なら事務員、403 なら事務員でない）
  */
 function stubKintone(opsAdminStatus: number, clerkStatus = 403) {
   return stubFetch((url, init) => {
@@ -212,7 +212,7 @@ describe('事務員の判定（/callback）', () => {
   const SEVEN_DAYS = 60 * 60 * 24 * 7;
   const TWELVE_HOURS = 60 * 60 * 12;
 
-  it('「事務員」アプリが読める人は、JWT に clerk が入り、有効期限が12時間になる', async () => {
+  it('「事務員判定」アプリが読める人は、JWT に clerk が入り、有効期限が12時間になる', async () => {
     stubKintone(403, 200);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),
@@ -225,7 +225,7 @@ describe('事務員の判定（/callback）', () => {
     expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(TWELVE_HOURS);
   });
 
-  it('「事務員」アプリが読めない（403）人は、clerk が入らず、有効期限は7日のまま', async () => {
+  it('「事務員判定」アプリが読めない（403）人は、clerk が入らず、有効期限は7日のまま', async () => {
     stubKintone(403, 403);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),

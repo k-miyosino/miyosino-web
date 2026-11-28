@@ -1,7 +1,7 @@
 /**
  * Cloudflare Workers - 事務員専用ページ（/member/office）の API
  *
- * 事務員（JWT の clerk。auth.ts が kintone の「事務員」アプリのアクセス権で判定）にだけ答える。
+ * 事務員（JWT の clerk。auth.ts が kintone の「事務員判定」アプリのアクセス権で判定）にだけ答える。
  * 設計と設定の手順は OFFICE.md。
  *
  * エンドポイント（すべて Authorization: Bearer <JWT> が必要）:
