@@ -93,10 +93,37 @@ class KintoneError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    appId: string
+    appId: string,
+    /** bulkRequest で断られた書き込みの番号（0 から）。bulkRequest でなければ undefined */
+    readonly requestIndex?: number,
+    /** kintone がエラーにしたフィールドのキー（例: record.user.value）。値やメッセージは持たない */
+    readonly fields: string[] = []
   ) {
     super(`kintone ${status} ${code} (app ${appId})`);
   }
+}
+
+const FIELD_KEY_PATTERN = /^[A-Za-z0-9_.[\]]{1,100}$/;
+
+/**
+ * kintone が書き込みを断ったことを、原因を追えるようにログに残す（wrangler tail で見る）。
+ * 残すのはエラーコード・断られた書き込みの番号とアプリ・フィールドのキーだけ。
+ * kintone のメッセージや値は個人情報を含みうるので残さない
+ */
+function logRejected(action: string, error: KintoneError, requests?: BulkRequest[]): void {
+  const index = error.requestIndex;
+  const app = index === undefined ? undefined : requests?.[index]?.payload.app;
+  console.warn(
+    '[Office] kintone rejected',
+    JSON.stringify({
+      action,
+      status: error.status,
+      code: error.code,
+      request: index,
+      app: typeof app === 'string' ? app : undefined,
+      fields: error.fields,
+    })
+  );
 }
 
 /** kintone のレコード番号（文字列か数）を文字列に。それ以外は空 */
@@ -104,16 +131,33 @@ function recordId(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 }
 
+/** kintone のエラーの errors から、フィールドのキーだけを取り出す（形を確かめ、多くても 10 個） */
+function errorFieldKeys(errors: unknown): string[] {
+  if (typeof errors !== 'object' || errors === null) return [];
+  return Object.keys(errors)
+    .filter((key) => FIELD_KEY_PATTERN.test(key))
+    .slice(0, 10);
+}
+
 async function kintoneFailure(response: Response, appId: string): Promise<KintoneError> {
   // 本文には個人情報が入りうるので、エラーコードだけを取り出す（bulkRequest は results の中にある）
   const data = (await response.json().catch(() => ({}))) as {
     code?: unknown;
-    results?: { code?: unknown }[];
+    errors?: unknown;
+    results?: { code?: unknown; errors?: unknown }[];
   };
-  const failed = Array.isArray(data.results) ? data.results.find((r) => r?.code) : undefined;
+  const results = Array.isArray(data.results) ? data.results : [];
+  const index = results.findIndex((r) => r?.code);
+  const failed = index >= 0 ? results[index] : undefined;
   const raw = failed?.code ?? data.code;
   const code = typeof raw === 'string' ? raw : '';
-  return new KintoneError(response.status, /^[A-Z0-9_]{1,40}$/.test(code) ? code : '', appId);
+  return new KintoneError(
+    response.status,
+    /^[A-Z0-9_]{1,40}$/.test(code) ? code : '',
+    appId,
+    index >= 0 ? index : undefined,
+    errorFieldKeys(failed ? failed.errors : data.errors)
+  );
 }
 
 /** アプリのレコードを条件に合うだけ読む（キャッシュしない） */
@@ -317,6 +361,7 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
     results = data.results;
   } catch (error) {
     if (error instanceof KintoneError && error.status === 400) {
+      logRejected(input.type, error, all);
       return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error)] }, 409, origin);
     }
     throw error;
@@ -374,6 +419,7 @@ async function handleCancel(id: string, env: Env, apps: LedgerApps, payload: JWT
     await kintoneSend(env, 'POST', '/k/v1/bulkRequest.json', apps.log, { requests: planned.value });
   } catch (error) {
     if (error instanceof KintoneError && error.status === 400) {
+      logRejected('取り消し', error, planned.value);
       return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error)] }, 409, origin);
     }
     throw error;

@@ -2,7 +2,7 @@
  * 台帳の更新（office Worker）: 入力の確認、名義変更・氏名の変更・取り消しの書き込みの組み立て、API
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import office from '../api/office';
 import {
   BulkRequest,
@@ -364,7 +364,19 @@ function stubKintone(options: { existing?: unknown[]; bulkStatus?: number; bulkC
     }
     if (url.pathname === '/k/v1/bulkRequest.json') {
       if (options.bulkStatus) {
-        return json({ results: [{}, { code: options.bulkCode ?? 'GAIA_XX', message: '01-101山田 の個人情報' }] }, options.bulkStatus);
+        return json(
+          {
+            results: [
+              {},
+              {
+                code: options.bulkCode ?? 'GAIA_XX',
+                message: '01-101山田 の個人情報',
+                errors: { 'record.user.value': { messages: ['01101yamada は存在しません'] }, '01-101山田': {} },
+              },
+            ],
+          },
+          options.bulkStatus
+        );
       }
       const body = JSON.parse(String(init?.body)) as { requests: unknown[] };
       return json({ results: body.requests.map((_, i) => ({ id: String(100 + i), revision: '1' })) });
@@ -439,6 +451,26 @@ describe('POST /office/ledger', () => {
     const text = JSON.stringify(await response.json());
     expect(text).toContain('ほかの人が先に台帳を変えました');
     expect(text).not.toContain('山田');
+  });
+
+  it('kintone が断ったら、エラーコード・断られた書き込みの番号とアプリ・フィールドのキーだけをログに残す', async () => {
+    stubKintone({ bulkStatus: 400, bulkCode: 'CB_VA01' });
+    await office.fetch(await clerkRequest('/office/ledger', futureTransfer), env);
+    const warn = vi.mocked(console.warn);
+    const logged = warn.mock.calls.find((c) => c[0] === '[Office] kintone rejected');
+    expect(logged).toBeDefined();
+    expect(JSON.parse(String(logged?.[1]))).toEqual({
+      action: '名義変更',
+      status: 400,
+      code: 'CB_VA01',
+      request: 1,
+      app: '96',
+      fields: ['record.user.value'],
+    });
+    // kintone のメッセージ・値（個人情報を含みうる）は残さない
+    const all = JSON.stringify(warn.mock.calls);
+    expect(all).not.toContain('山田');
+    expect(all).not.toContain('存在しません');
   });
 
   it('台帳の更新のアプリ ID が未設定なら 500（住戸の一覧は使える）', async () => {
