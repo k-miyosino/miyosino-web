@@ -12,6 +12,8 @@ export interface JWTPayload {
   admin?: true;
   // 事務員専用ページの事務員（kintone の「事務員判定」アプリを閲覧できる人＝「事務員」グループ）。事務員でなければ付けない
   clerk?: true;
+  // 広報ページの広報委員（kintone の「広報委員判定」アプリを閲覧できる人＝「広報」グループ）。広報委員でなければ付けない
+  koho?: true;
   iat: number; // 発行時刻
   exp: number; // 有効期限
 }

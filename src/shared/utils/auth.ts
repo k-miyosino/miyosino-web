@@ -30,6 +30,7 @@ interface DecodedJwtPayload {
   sub?: string;
   admin?: boolean;
   clerk?: boolean;
+  koho?: boolean;
 }
 
 /**
@@ -81,6 +82,16 @@ export function isOfficeClerk(): boolean {
   const token = getToken();
   if (!token || isTokenExpired(token)) return false;
   return decodeJwtPayload(token)?.clerk === true;
+}
+
+/**
+ * 広報ページの広報委員として発行されたトークンか（画面の側だけで確かめる。署名は確かめない）。
+ * リンクや広報ページを出すかどうかを決めるだけに使う。実際にデータを返すかどうかは koho Worker が確かめる
+ */
+export function isKohoMember(): boolean {
+  const token = getToken();
+  if (!token || isTokenExpired(token)) return false;
+  return decodeJwtPayload(token)?.koho === true;
 }
 
 /** ログインの状態が変わったときに window に送るイベントの名前（チャット欄が表示を切り替えるのに使う） */

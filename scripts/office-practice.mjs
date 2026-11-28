@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * 事務員専用ページの「練習用」の起動（手元の PC で画面を操作して確かめるためのもの）。
+ * 事務員専用ページ・広報ページの「練習用」の起動（手元の PC で画面を操作して確かめるためのもの）。
  *
  * 本物の Worker・kintone の代わりに、架空のデータを返す練習用のサーバー（http://localhost:8787）を立て、
  * 画面の開発用サーバー（http://localhost:3000）をそこにつないで起動する。
- * ログインも練習用のサーバーが「事務員としてログインした」ことにするので、kintone にはつながず、
+ * ログインも練習用のサーバーが「事務員・広報委員としてログインした」ことにするので、kintone にはつながず、
  * 本物のデータにも触れない。入力した申請は、このサーバーを止めると消える。
  *
  * 使い方（リポジトリのいちばん上のフォルダで）:
  *   npm run office:practice
- *   → ブラウザで http://localhost:3000/member/office/ を開く
+ *   → ブラウザで http://localhost:3000/member/office/（事務員専用ページ）か
+ *     http://localhost:3000/member/koho/（広報ページ）を開く
  *   止めるときは Ctrl + C
  *
  * 本番のビルドやデプロイには使わない（このファイルは画面のコードから読み込まれない）
@@ -39,6 +40,7 @@ function practiceToken() {
     name: '練習 事務員',
     email: 'member@example.com',
     clerk: true,
+    koho: true,
     iat: now,
     exp: now + 12 * 60 * 60,
   })}.practice`;
@@ -181,6 +183,36 @@ const server = createServer(async (req, res) => {
   if (path === '/announcements/years') return send(res, 200, { yearMonths: [] });
   if (path === '/announcements') return send(res, 200, { announcements: [] });
 
+  // 広報ページの API（workers/api/koho.ts と同じ形。リンク先は練習用の仮のもの）
+  if (path === '/koho/links') {
+    const app = (key, name, appId, where, note = '') => ({
+      key, name, appId, where, note,
+      listUrl: `https://example.cybozu.com/k/${appId}/`,
+      addUrl: `https://example.cybozu.com/k/${appId}/edit`,
+    });
+    return send(res, 200, {
+      me: { code: 'practice-clerk', name: '練習 事務員' },
+      kintone: [
+        app('announcements', 'お知らせ', '53', '組合員専用ページのトップと「お知らせ」に、日付の新しい順に出ます', '「公開」にしたものだけが出ます（「準備中」のあいだは出ません）'),
+        app('circulars', '回覧板・配布資料', '54', '組合員専用ページの「回覧板・配布資料」に出ます'),
+        app('events', 'イベント', '49', '組合員専用ページの「イベント情報」に出ます'),
+        app('applications', '届出・申請書', '56', '組合員専用ページの「各種申請」に、ダウンロードできる様式として出ます', '「公開」にしたものだけが出ます（「非公開」は出ません）'),
+      ],
+      microcms: {
+        url: 'https://example.microcms.io/apis/contents',
+        items: [
+          { name: 'トップの写真', where: 'ホームのいちばん上の写真' },
+          { name: '共有施設・サービス', where: '「共有施設・サービス」のページ' },
+        ],
+      },
+      guide: [
+        { area: 'ホームのいちばん上の写真', editIn: 'microCMS', target: 'トップの写真' },
+        { area: '組合員専用ページのお知らせ', editIn: 'kintone', target: 'お知らせ' },
+        { area: '各ページの文章（アクセスの説明・団地の紹介など）', editIn: 'ソース', target: 'いまはシステム管理者に頼む（言葉で頼むと直せるしくみは準備中）' },
+      ],
+    });
+  }
+
   // 事務員専用ページの API（workers/api/office.ts と同じ形）
   if (path === '/office/me') return send(res, 200, { code: 'practice-clerk', name: '練習 事務員' });
   if (path === '/office/units') return send(res, 200, { date: new Date().toISOString().slice(0, 10), units: UNITS });
@@ -231,6 +263,7 @@ server.listen(MOCK_PORT, () => {
     NEXT_PUBLIC_AUTH_API_URL: MOCK_URL,
     NEXT_PUBLIC_ANNOUNCEMENTS_API_URL: MOCK_URL,
     NEXT_PUBLIC_OFFICE_API_URL: MOCK_URL,
+    NEXT_PUBLIC_KOHO_API_URL: MOCK_URL,
     // kintone のログアウトの画面は開かない
     NEXT_PUBLIC_KINTONE_LOGOUT_URL: '',
   };
@@ -239,7 +272,9 @@ server.listen(MOCK_PORT, () => {
     stdio: 'inherit',
     shell: process.platform === 'win32',
   });
-  console.log(`\n画面の起動を待って、ブラウザで http://localhost:${SITE_PORT}/member/office/ を開いてください。止めるときは Ctrl + C\n`);
+  console.log(
+    `\n画面の起動を待って、ブラウザで http://localhost:${SITE_PORT}/member/office/（事務員専用ページ）か http://localhost:${SITE_PORT}/member/koho/（広報ページ）を開いてください。止めるときは Ctrl + C\n`
+  );
   const stop = () => {
     site.kill();
     server.close();

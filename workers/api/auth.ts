@@ -27,6 +27,10 @@
  * 管理者と同じしくみで、「事務員判定」アプリ（KINTONE_OFFICE_CLERK_APP_ID）を本人のトークンで読めるかどうかで判定する。
  * アプリのアクセス権を「事務員」グループだけに絞っておく（OFFICE.md 3-2）。結果は JWT の clerk に入れる。
  * 事務員の JWT は、窓口の PC をほかの人も使う前提で、有効期限を短くする（CLERK_JWT_LIFETIME_SECONDS）。
+ *
+ * 広報ページの広報委員の判定:
+ * 同じしくみで、「広報委員判定」アプリ（KINTONE_KOHO_APP_ID）を本人のトークンで読めるかどうかで判定する。
+ * アプリのアクセス権を「広報」グループだけに絞っておく（KOHO.md 3 章）。結果は JWT の koho に入れる。
  */
 
 import { JWTPayload, generateJWT, verifyJWT } from './_jwt';
@@ -42,6 +46,8 @@ interface Env {
   KINTONE_OPS_ADMIN_APP_ID?: string;
   // 「事務員判定」アプリのID。未設定ならだれも事務員にしない
   KINTONE_OFFICE_CLERK_APP_ID?: string;
+  // 「広報委員判定」アプリのID。未設定ならだれも広報委員にしない
+  KINTONE_KOHO_APP_ID?: string;
 }
 
 // 利用者を識別できなかったときの sub。チャットなど利用者ごとに数える機能はこの値を拒否する
@@ -377,13 +383,14 @@ async function handleCallback(
 
     // アクセストークンの取得に成功した時点で「認証されたユーザー」とみなす。
     // 利用者の識別はできなくてもログインは通す（識別できない場合は sub が UNIDENTIFIED_USER_ID になる）
-    const [identity, admin, clerk] = await Promise.all([
+    const [identity, admin, clerk, koho] = await Promise.all([
       identifyKintoneUser(tokenData.access_token, env),
       isOpsAdmin(tokenData.access_token, env),
       isOfficeClerk(tokenData.access_token, env),
+      isKohoMember(tokenData.access_token, env),
     ]);
     const jwt = await generateJWT(
-      buildJWTPayload(identity, admin, clerk),
+      buildJWTPayload(identity, { admin, clerk, koho }),
       env.JWT_SECRET
     );
 
@@ -554,14 +561,15 @@ async function handleRefresh(
 
     const tokenData = (await tokenResponse.json()) as KintoneTokenResponse;
 
-    // 新しいJWTを生成（新しいアクセストークンで改めて利用者と管理者・事務員を判定する）
-    const [identity, admin, clerk] = await Promise.all([
+    // 新しいJWTを生成（新しいアクセストークンで改めて利用者と管理者・事務員・広報委員を判定する）
+    const [identity, admin, clerk, koho] = await Promise.all([
       identifyKintoneUser(tokenData.access_token, env),
       isOpsAdmin(tokenData.access_token, env),
       isOfficeClerk(tokenData.access_token, env),
+      isKohoMember(tokenData.access_token, env),
     ]);
     const jwt = await generateJWT(
-      buildJWTPayload(identity, admin, clerk),
+      buildJWTPayload(identity, { admin, clerk, koho }),
       env.JWT_SECRET
     );
 
@@ -757,6 +765,14 @@ function isOfficeClerk(accessToken: string, env: Env): Promise<boolean> {
 }
 
 /**
+ * 広報ページの広報委員かどうか。
+ * 「広報委員判定」アプリのレコードを本人のトークンで読めれば広報委員。判定に失敗したときは広報委員にしない。
+ */
+function isKohoMember(accessToken: string, env: Env): Promise<boolean> {
+  return canReadApp(accessToken, env, env.KINTONE_KOHO_APP_ID, 'koho member');
+}
+
+/**
  * 本人のトークンでアプリのレコードを読めるか（アプリのアクセス権でグループを判定するのに使う）。
  * アプリはレコードが空でよい（読む権限があれば 0 件が返り、なければ 403）。
  * アプリ ID が未設定・判定に失敗したときは false
@@ -791,20 +807,27 @@ async function canReadApp(
   }
 }
 
+interface Roles {
+  admin: boolean;
+  clerk: boolean;
+  koho: boolean;
+}
+
 function buildJWTPayload(
   identity: MemberIdentity | null,
-  admin: boolean,
-  clerk: boolean
+  roles: Roles
 ): JWTPayload {
   const now = Math.floor(Date.now() / 1000);
-  // 識別できなかった人は管理者・事務員にしない（記録にだれが対応したかを残せないため）
-  const isClerk = clerk && identity !== null;
+  // 識別できなかった人は管理者・事務員・広報委員にしない（記録にだれが対応したかを残せないため）
+  const identified = identity !== null;
+  const isClerk = roles.clerk && identified;
   return {
     sub: identity?.code ?? UNIDENTIFIED_USER_ID,
     name: identity?.name ?? UNIDENTIFIED_USER_NAME,
     email: PLACEHOLDER_EMAIL,
-    ...(admin && identity ? { admin: true as const } : {}),
+    ...(roles.admin && identified ? { admin: true as const } : {}),
     ...(isClerk ? { clerk: true as const } : {}),
+    ...(roles.koho && identified ? { koho: true as const } : {}),
     iat: now,
     exp: now + (isClerk ? CLERK_JWT_LIFETIME_SECONDS : JWT_LIFETIME_SECONDS),
   };

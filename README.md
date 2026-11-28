@@ -182,6 +182,10 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
 
 事務員だけが使う事務員専用ページ（`/member/office`）の API です。kintone の設定とシークレットの手順は [OFFICE.md](./OFFICE.md) の 3 章を参照してください。
 
+**広報ページ用Worker（miyosino-koho）:**
+
+広報委員だけが使う広報ページ（`/member/koho`）の API です。シークレットの手順は [KOHO.md](./KOHO.md) の 4-3 を参照してください。
+
 4. Workerをデプロイ:
 
    ※ 新しいWorkerの初回作成時やシークレット設定時は以下の手動デプロイが必要です。既存Workerの更新は、main へのマージ時にGitHub Actionsで自動デプロイされます（「6. ビルドとデプロイ」参照）。

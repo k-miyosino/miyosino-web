@@ -1,7 +1,7 @@
 # 広報ページ（設計）
 
 広報委員会が、ホームページで発信する情報をまとめて扱うためのページの設計です。
-**まだ作っていません。** この文書で決めたことをもとに、段階 1 から作ります。
+**段階 1（広報委員の判定・広報ページ・リンク集）を作りました。** 段階 2・3 はまだです。
 
 - ページ: `/member/koho`（広報委員にだけ、組合員専用ページのトップにリンクを出す）
 - API: Cloudflare Worker `miyosino-koho`（`workers/api/koho.ts`）
@@ -43,7 +43,7 @@
 
 | 段階 | 内容 | 状態 |
 |---|---|---|
-| 1 | 広報委員の判定、広報ページ、kintone と microCMS へのリンク集（「この部分はここで直す」の案内つき） | 設計中 |
+| 1 | 広報委員の判定、広報ページ、kintone と microCMS へのリンク集（「この部分はここで直す」の案内つき） | 実装済み（本番の設定は 4-3） |
 | 2 | 言葉で頼むと PR ができる（GitHub Actions ＋ Claude） | 未着手 |
 | 3 | よく使う情報の専用の入力画面（kintone の画面が難しいという声があったものから） | 未着手 |
 
@@ -89,6 +89,29 @@
 
 - microCMS（`k-miyoshino.microcms.io`）で管理しているもの（トップの写真など）の編集画面へのリンク
 - 「kintone で直すもの」と「microCMS で直すもの」と「ソースを直す（段階 2）もの」の見分けがつくよう、ホームページの主な場所ごとに「ここで直す」の早見表を付ける
+
+### 4-3. 段階 1 の設定（本番）
+
+1. 認証 Worker に「広報委員判定」アプリの ID を設定する（`workers/` で）:
+
+   ```bash
+   npx wrangler secret put KINTONE_KOHO_APP_ID --config wrangler.auth.toml   # 値は 145
+   ```
+
+2. koho Worker にシークレットを設定し、初回は手でデプロイする（以後は main へのマージで自動デプロイ）:
+
+   ```bash
+   npx wrangler secret put JWT_SECRET --config wrangler.koho.toml             # ほかの Worker と同じ値
+   npx wrangler secret put KINTONE_DOMAIN --config wrangler.koho.toml
+   npx wrangler secret put KINTONE_APP_ID_HISTORY --config wrangler.koho.toml # 任意。団地の歴史のアプリ ID
+   npx wrangler secret put KINTONE_APP_ID_PLACES --config wrangler.koho.toml  # 任意。周辺施設のアプリ ID
+   npx wrangler deploy --config wrangler.koho.toml
+   ```
+
+3. Worker の URL が `https://miyosino-koho.anorimura-miyosino.workers.dev` でなければ、GitHub Secrets と `deploy.yml` に `NEXT_PUBLIC_KOHO_API_URL` を足す
+4. 広報委員のアカウントでログインし直すと、組合員専用ページのトップに「広報ページ」のリンクが出る
+
+**手元で試す**: `npm run koho:practice` で、架空のデータの練習用のサーバーにつないで画面を開ける（`OFFICE.md` 7-7 と同じしくみ。`http://localhost:3000/member/koho/`）。リンク先は練習用の仮のもの。
 
 ## 5. 段階 2: 言葉で頼むと PR ができる
 
@@ -144,14 +167,10 @@
 
 ### 決めてほしいこと
 
-段階 1 を作り始める前に:
-
-1. **広報グループの kintone の権限**: 4-1 のアプリ（お知らせ 53・配布資料 54 など）に、「広報」グループの「レコード追加・編集」の権限があるか（なければ管理者が足す）
-
 段階 2 を作り始める前に:
 
-2. **1 日あたりの依頼の上限**
-3. **Anthropic の API キー**: チャットボットとは分けて作ってよいか
+1. **1 日あたりの依頼の上限**
+2. **Anthropic の API キー**: チャットボットとは分けて作ってよいか
 
 ### 決まったこと
 
@@ -163,3 +182,4 @@
 | 2026-11 | 言葉の依頼でできた PR のレビューとマージは、システム管理者が行う | 5-2 |
 | 2026-11 | kintone のグループは「広報」（コード `PublicRelations`）。広報用のスペース（ID 21）を作り、判定に使う「広報委員判定」アプリ（ID 145）を置いた。判定に API トークンは要らない | 3 章 |
 | 2026-11 | 判定用のアプリの名前を「広報委員判定」「事務員判定」にする（コードはアプリ ID だけを見るので、名前を変えても動きは変わらない） | 3 章 |
+| 2026-11 | 「広報」グループには、リンク集の kintone のアプリ（お知らせなど）の追加・編集の権限がある | 4-1 |
