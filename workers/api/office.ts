@@ -252,7 +252,10 @@ const OWNERSHIP_FIELDS = [
 ];
 
 /** 物件の今の台帳の状態を読む（物件名・ログイン名は parseLedgerInput が形を確かめたものだけをクエリに入れる） */
-async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Promise<LedgerContext> {
+const MEMBER_FIELDS = ['$id', '$revision', 'display', 'status', 'user'];
+
+async function loadContext(env: Env, apps: LedgerApps, input: LedgerInput): Promise<LedgerContext> {
+  const { propertyName } = input;
   const today = todayJst();
   const propertyOwnerships = await fetchAllRecords<LedgerOwnership>(
     env,
@@ -271,13 +274,20 @@ async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Pr
   )
     .map((m) => m.display?.value ?? '')
     .filter((d) => d.startsWith(propertyName));
+  // 名義変更では、新しいログイン名の M_組合員がすでにあるかを読む（取り消したものは使い直す。ログイン名は形を確かめたもの）
+  const loginMembers =
+    input.type === '名義変更'
+      ? await fetchAllRecords<LedgerMember>(env, apps.member, MEMBER_FIELDS, `user in ("${input.newLogin}")`)
+      : [];
   const userCode = owned.length === 1 ? owned[0].user.value[0]?.code : undefined;
   if (!userCode || !/^[A-Za-z0-9._@-]{1,64}$/.test(userCode)) {
-    return { today, propertyOwnerships, member: null, memberOwnerships: [], memberParkings: [], takenDisplays };
+    return { today, propertyOwnerships, member: null, memberOwnerships: [], memberParkings: [], takenDisplays, loginMembers };
   }
+  // 同じログイン名の M_組合員が複数あっても（取り消したものなど）、所有状況の「組合員」と表示が同じものだけを使う
+  const ownerDisplay = owned[0].member.value;
   const byUser = `user in ("${userCode}")`;
   const [members, memberOwnerships, memberParkings] = await Promise.all([
-    fetchAllRecords<LedgerMember>(env, apps.member, ['$id', '$revision', 'display', 'status', 'user'], byUser),
+    fetchAllRecords<LedgerMember>(env, apps.member, MEMBER_FIELDS, byUser),
     fetchAllRecords<LedgerOwnership>(env, apps.ownership, OWNERSHIP_FIELDS, byUser),
     apps.parking
       ? fetchAllRecords<LedgerParking>(
@@ -288,13 +298,15 @@ async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Pr
         )
       : Promise.resolve([] as LedgerParking[]),
   ]);
+  const matched = members.filter((m) => m.display.value === ownerDisplay);
   return {
     today,
     propertyOwnerships,
-    member: members.length === 1 ? members[0] : null,
-    memberOwnerships,
-    memberParkings,
+    member: matched.length === 1 ? matched[0] : null,
+    memberOwnerships: memberOwnerships.filter((o) => o.member.value === ownerDisplay),
+    memberParkings: memberParkings.filter((p) => p.member.value === ownerDisplay),
     takenDisplays,
+    loginMembers,
   };
 }
 
@@ -337,7 +349,7 @@ function rejectedMessage(error: KintoneError, input?: LedgerInput): string {
 async function handlePreview(request: Request, env: Env, apps: LedgerApps, payload: JWTPayload, origin?: string) {
   const parsed = parseLedgerInput(await readJsonBody(request));
   if (!parsed.ok) return invalid(parsed.errors, origin);
-  const planned = plan(parsed.value, await loadContext(env, apps, parsed.value.propertyName), apps, payload);
+  const planned = plan(parsed.value, await loadContext(env, apps, parsed.value), apps, payload);
   if (!planned.ok) return invalid(planned.errors, origin);
   const { summary, warnings, notices, proration } = planned.value;
   return jsonResponse({ summary, warnings, notices, proration }, 200, origin);
@@ -354,7 +366,7 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
     return jsonResponse({ logId: recordId(existing[0].$id?.value), duplicate: true }, 200, origin);
   }
 
-  const planned = plan(input, await loadContext(env, apps, input.propertyName), apps, payload);
+  const planned = plan(input, await loadContext(env, apps, input), apps, payload);
   if (!planned.ok) return invalid(planned.errors, origin);
   const { requests, logRecord, summary, notices } = planned.value;
   const all: BulkRequest[] = [
@@ -379,7 +391,12 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
   // 名義変更は、取り消しに使うため、作った組合員と所有状況の番号を記録に足す（失敗しても台帳の更新は済んでいる）
   if (input.type === '名義変更') {
     const after = JSON.parse(logRecord.after.value) as Record<string, unknown>;
-    after.ids = { member: String(results[2]?.id ?? ''), ownership: String(results[3]?.id ?? '') };
+    // 使い直した組合員は、計画のときに番号が分かっている（書き換えの結果には id が返らない）
+    const planned = (after.ids ?? {}) as { member?: string };
+    after.ids = {
+      member: planned.member ?? String(results[2]?.id ?? ''),
+      ownership: String(results[3]?.id ?? ''),
+    };
     try {
       await kintoneSend(env, 'PUT', '/k/v1/record.json', apps.log, {
         app: apps.log,
