@@ -391,11 +391,11 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
   // 名義変更は、取り消しに使うため、作った組合員と所有状況の番号を記録に足す（失敗しても台帳の更新は済んでいる）
   if (input.type === '名義変更') {
     const after = JSON.parse(logRecord.after.value) as Record<string, unknown>;
-    // 使い直した組合員は、計画のときに番号が分かっている（書き換えの結果には id が返らない）
-    const planned = (after.ids ?? {}) as { member?: string };
+    // 使い直した組合員・所有状況は、計画のときに番号が分かっている（書き換えの結果には id が返らない）
+    const planned = (after.ids ?? {}) as { member?: string; ownership?: string };
     after.ids = {
       member: planned.member ?? String(results[2]?.id ?? ''),
-      ownership: String(results[3]?.id ?? ''),
+      ownership: planned.ownership ?? String(results[3]?.id ?? ''),
     };
     try {
       await kintoneSend(env, 'PUT', '/k/v1/record.json', apps.log, {
