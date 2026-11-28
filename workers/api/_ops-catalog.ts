@@ -265,6 +265,7 @@ const JWT_WORKERS = [
   'circulars',
   'events',
   'greenwellness',
+  'koho',
   'minutes',
   'office',
   'ops',

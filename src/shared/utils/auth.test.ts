@@ -10,6 +10,7 @@ import {
   getToken,
   handleAuthCallback,
   hasValidToken,
+  isKohoMember,
   isOfficeClerk,
   isOpsAdmin,
 } from './auth';
@@ -139,5 +140,30 @@ describe('isOfficeClerk（事務員専用ページの表示の切り替え）', 
     expect(isOfficeClerk()).toBe(false);
     localStorage.setItem('auth_token', 'not-a-jwt');
     expect(isOfficeClerk()).toBe(false);
+  });
+});
+
+describe('isKohoMember（広報ページの表示の切り替え）', () => {
+  it('koho が true のときだけ広報委員とみなす', () => {
+    localStorage.setItem(
+      'auth_token',
+      fakeJwt({ name: '広報 花子', koho: true, exp: now() + 3600 })
+    );
+    expect(isKohoMember()).toBe(true);
+    expect(isOfficeClerk()).toBe(false);
+    localStorage.setItem(
+      'auth_token',
+      fakeJwt({ name: '事務 佐藤', clerk: true, exp: now() + 3600 })
+    );
+    expect(isKohoMember()).toBe(false);
+  });
+
+  it('期限切れ・トークンなしなら false', () => {
+    expect(isKohoMember()).toBe(false);
+    localStorage.setItem(
+      'auth_token',
+      fakeJwt({ koho: true, exp: now() - 60 })
+    );
+    expect(isKohoMember()).toBe(false);
   });
 });
