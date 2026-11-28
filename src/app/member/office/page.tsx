@@ -10,7 +10,7 @@ export default function OfficePage() {
       <div className="min-h-screen bg-gray-50">
         <MemberPageHeader
           title="事務員専用ページ"
-          description="窓口で受け付けた申請の入力と承認をします（事務員だけ）"
+          description="届を受け取ったら、台帳（組合員・所有状況）を更新します（事務員だけ）"
           gradientFrom="from-blue-700"
           gradientTo="to-blue-900"
           textColor="text-blue-100"

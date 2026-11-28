@@ -3,7 +3,7 @@
 組合員が組合員専用ページから申請し（紙の申請は事務員が代わりに入力する）、事務員が事務員専用ページで承認すると、kintone の台帳に自動で反映されるしくみの設計です。
 > **2026-11 方針変更（この文書の多くは、作り変える前の設計）**: 名義変更届の住所・電話番号・転出先など、今は kintone に載せていない個人情報を扱うことになるため、組合員からの申請を受けて承認するしくみは、総会で承認を得るまで止める。代わりに、作ったもの（事務員の判定・事務員専用ページ・office Worker）を、**事務員が台帳（M_組合員・所有状況・駐車場契約）を登録・更新する入口**に作り変えて使う。kintone に新しく載せるのは、今と同じ範囲（部屋番号・氏名・日付・駐車場の契約の中身）だけにし、住所・電話番号・転出先は扱わない。kintone の「組合員申請」アプリは削除する。作り変えの設計は、この文書を書き直して進める。
 
-**一部を作りました**（事務員の判定、事務員専用ページの骨組み、office Worker）。
+**作り変えた形（0 章）を作りました**（事務員の判定、事務員専用ページ、office Worker の台帳の更新・取り消し）。台帳の更新記録アプリと API トークン・secrets（0-6）を用意すれば使える。本番で使い始める前に、本番の M_物件（133）の設定の変更（0-4）と、個人情報の扱いの確認（管理規約・細則）が要る。
 
 - 組合員の申請画面: `/member/applications`（今の「届出・申請書」のページ。「届出・申請書提出（準備中）」の欄をここに置き換える）
 - 事務員専用ページ: `/member/office`（事務員にだけ、組合員専用ページのトップにリンクを出す）
@@ -81,6 +81,34 @@ kintone の変更履歴には API トークンの名前しか残らないので�
 - 入力は今の作りのまま（1 画面に 1 つの質問、戻っても消えない、確認画面、二重に登録されない）。住所・電話・転出先・入居日の欄は外す
 - 確認画面では、台帳のどこがどう変わるかを文章で見せる（例:「01-101 山田 太郎 様の所有を 2026年11月30日 で終え、佐藤 次郎 様（ログイン名 01101sato）の所有を 2026年12月1日 から始めます」）
 - 新規申し込みリスト・承認の画面は作らない（申請を受けないため）
+- **作ったもの（2026-11）**: トップは「台帳を更新する」（名義変更・氏名の変更を選ぶ）「今日の更新（N 件）」「住戸と組合員を見る」の 3 枚のカード。確認画面の文章・注意（旧組合員の駐車場の契約が続いているなど）・知らせること（管理者・会計担当へ。日割りの参考の金額も）は Worker が作り、反映したあとの画面にも出して「まとめてコピーする」で写せる。取り消しは「今日の更新」で「取り消す」→「本当に取り消す」の 2 回押す
+- 画面: `src/components/member/office/`（`OfficeHome.tsx`・`OfficeLedgerForm.tsx`・`OfficeLedgerLogList.tsx`・`officeLedger.ts`）。テストは同じフォルダの `*.test.ts(x)`
+- 練習用の起動（`npm run office:practice`）でも、架空の住戸で名義変更・氏名の変更・取り消しを試せる（`scripts/office-practice.mjs`。止めると消える）
+
+### 0-6. Worker の API と、使い始める準備
+
+| API | すること |
+|---|---|
+| `GET /office/me` | ログインしている事務員 |
+| `GET /office/units` | 住戸と、いま所有している組合員 |
+| `POST /office/ledger/preview` | 書き込まずに、台帳がどう変わるか・注意・知らせることを返す |
+| `POST /office/ledger` | 台帳に反映し、台帳の更新記録を残す（送信キーで二重の反映を防ぐ。kintone が断ったら 409 と理由） |
+| `GET /office/ledger/logs?date=` | その日（日本時間。省くと今日）の更新記録 |
+| `POST /office/ledger/logs/:id/cancel` | 今日の、反映済みの更新を取り消す |
+
+コードは `workers/api/office.ts`（API）と `workers/api/_office-ledger.ts`（書き込みの組み立て・取り消し）、テストは `workers/test/office-ledger.test.ts`。
+
+使い始める準備（管理者の PC で）:
+
+1. 台帳の更新記録アプリを作る: `node workers/scripts/create-kintone-apps.mjs --domain <ドメイン> --clerk-group <事務員のグループ> --admin-group <管理者のグループ> --space 20`（パスワードは環境変数で渡す。まず開発用で `--dry-run`）
+2. 0-4 の API トークン（事務処理専用）を作り、カンマでつないで `KINTONE_API_TOKEN_OFFICE` に入れる
+3. secrets を入れる（`workers/` で）:
+   ```bash
+   npx wrangler secret put KINTONE_API_TOKEN_OFFICE   --config wrangler.office.toml
+   npx wrangler secret put KINTONE_APP_ID_MEMBER      --config wrangler.office.toml  # M_組合員
+   npx wrangler secret put KINTONE_APP_ID_LEDGER_LOG  --config wrangler.office.toml  # 台帳の更新記録
+   npx wrangler secret put KINTONE_APP_ID_PARKING     --config wrangler.office.toml  # 駐車場契約（なくても動く。氏名の変更で写し直さない）
+   ```
 
 ## 目次
 
