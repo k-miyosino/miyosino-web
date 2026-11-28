@@ -5,7 +5,7 @@
  * 本物の Worker・kintone の代わりに、架空のデータを返す練習用のサーバー（http://localhost:8787）を立て、
  * 画面の開発用サーバー（http://localhost:3000）をそこにつないで起動する。
  * ログインも練習用のサーバーが「事務員・広報委員としてログインした」ことにするので、kintone にはつながず、
- * 本物のデータにも触れない。入力した申請は、このサーバーを止めると消える。
+ * 本物のデータにも触れない。台帳への反映・取り消しは、このサーバーを止めると消える。
  *
  * 使い方（リポジトリのいちばん上のフォルダで）:
  *   npm run office:practice
@@ -76,63 +76,107 @@ for (const building of ['1', '2', '3']) {
   }
 }
 
-const EMPTY_APPLICATION = {
-  status: '申請中',
-  method: '紙（代理入力）',
-  applicantKind: '組合員',
-  agent: '',
-  newName: '',
-  transferDate: '',
-  switchDate: '',
-  newAddress: '',
-  newPhone: '',
-  moveInDate: '',
-  oldAddress: '',
-  oldPhone: '',
-  newLogin: '',
-  enteredBy: '練習 事務員（practice-clerk）',
-  approvedBy: '',
-  approvedAt: '',
-  returnReason: '',
-};
-
-const applications = [
-  {
-    ...EMPTY_APPLICATION,
-    id: '1',
-    type: '名義変更',
-    submittedDate: '2026-11-20',
-    propertyName: '01-101',
-    memberDisplay: '01-101 山田 太郎',
-    newName: '佐藤 次郎',
-    transferDate: '2026-11-16',
-    switchDate: '2026-12-01',
-    oldAddress: '東京都練馬区（架空の住所）',
-    newPhone: '049-000-0000',
-    summary: '01-101 の名義を 01-101 山田 太郎 から 佐藤 次郎 様に変更（2026年12月1日から新組合員の負担）',
-  },
-];
+/** 台帳の更新記録（練習用。止めると消える） */
+const logs = [];
 const submitKeys = new Map();
+const MONTHLY_FEE = 15000;
 
 function formatJapaneseDate(value) {
   const [y, m, d] = value.split('-').map(Number);
   return `${y}年${m}月${d}日`;
 }
 
-/** 本物の Worker（workers/api/_office-applications.ts）の確認のうち、主なものだけをまねる */
-function checkProxyInput(input) {
-  const errors = [];
-  if (!['名義変更', '情報変更'].includes(input.type)) errors.push('申請の種類を選んでください');
-  if (!input.propertyName) errors.push('お部屋を選んでください');
-  if (!input.newName?.trim()) errors.push(input.type === '名義変更' ? '新しい組合員の氏名を入れてください' : '変更後の氏名を入れてください');
-  if (input.applicantKind === '代理人' && !input.agent?.trim()) errors.push('代理人の氏名と続柄（または会社名）を入れてください');
-  if (input.type === '名義変更') {
-    if (!input.transferDate) errors.push('名義変更日を入れてください');
-    if (!input.switchDate) errors.push('新しい組合員の負担となる日を入れてください');
-  }
-  return errors;
+function previousDay(value) {
+  const time = Date.parse(`${value}T00:00:00Z`) - 24 * 60 * 60 * 1000;
+  return new Date(time).toISOString().slice(0, 10);
 }
 
+/** ISO の日時の、日本時間の日付（'YYYY-MM-DD'） */
+function jstDateOf(iso) {
+  return new Date(Date.parse(iso) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** 日本時間の今日 */
+function todayJst() {
+  return jstDateOf(new Date().toISOString());
+}
+
+/** 本物の Worker（workers/api/_office-ledger.ts）の確認のうち、主なものだけをまねる */
+function checkLedgerInput(input) {
+  const errors = [];
+  if (!['名義変更', '氏名の変更'].includes(input.type)) errors.push('手続きを選んでください');
+  const unit = UNITS.find((u) => u.name === input.propertyName);
+  if (!unit) errors.push('お部屋を選んでください');
+  else if (!unit.owner) errors.push('このお部屋には、いま所有している組合員が登録されていません。管理者に台帳の確認を頼んでください');
+  if (!input.newName?.trim()) errors.push('氏名を入れてください');
+  if (input.type === '名義変更') {
+    const code = String(input.propertyName ?? '').replace('-', '');
+    if (!/^[A-Za-z0-9._@-]{1,64}$/.test(input.newLogin ?? '') || !input.newLogin.startsWith(code)) {
+      errors.push(`ログイン名は、お部屋の番号（${code}）で始まる半角の英数字です`);
+    }
+    if (!input.switchDate) errors.push('新しい組合員の負担となる日を入れてください');
+    if (!input.transferDate) errors.push('名義変更日を入れてください');
+  }
+  if (input.type === '氏名の変更' && unit?.owner && `${unit.name} ${input.newName.trim()}` === unit.owner.display) {
+    errors.push('変更後の氏名が、いまの登録と同じです');
+  }
+  return { errors, unit };
+}
+
+/** 確認画面に出す「台帳がこう変わります」（本物と同じことばに近づける） */
+function planLedger(input, unit) {
+  const oldDisplay = unit.owner.display;
+  const newDisplay = `${unit.name} ${input.newName.trim()}`;
+  if (input.type === '氏名の変更') {
+    return {
+      summary: [
+        `組合員の表示を「${oldDisplay}」から「${newDisplay}」に変えます`,
+        '所有状況の「組合員」を、新しい表示に写し直します（1 件）',
+      ],
+      warnings: [],
+      notices: [],
+      proration: null,
+    };
+  }
+  const day = Number(input.switchDate.slice(8, 10));
+  const [y, m] = input.switchDate.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const proration =
+    day === 1
+      ? null
+      : {
+          daysInMonth,
+          oldDays: day - 1,
+          newDays: daysInMonth - day + 1,
+          monthlyFee: MONTHLY_FEE,
+          oldAmount: Math.floor((MONTHLY_FEE * (day - 1)) / daysInMonth),
+          newAmount: Math.floor((MONTHLY_FEE * (daysInMonth - day + 1)) / daysInMonth),
+        };
+  const notices = [
+    `管理者へ: ${formatJapaneseDate(input.switchDate)} に、旧組合員のアカウント（${unit.owner.userCode}）を止めてください`,
+    `会計担当へ: 新しい組合員（${newDisplay} 様、ログイン名 ${input.newLogin}）の口座振替の登録をお願いします（口座振替の依頼書は紙で回します）`,
+  ];
+  if (proration) {
+    notices.push(
+      `会計担当へ: ${y}年${m}月分の管理費・修繕積立費を日割りに直してください（旧組合員 ${proration.oldDays} 日・新しい組合員 ${proration.newDays} 日、参考の金額 ${proration.oldAmount} 円・${proration.newAmount} 円。月額 ${MONTHLY_FEE} 円をその月の ${daysInMonth} 日で割り、円未満を切り捨て）`
+    );
+  }
+  return {
+    summary: [
+      `${oldDisplay} 様の所有を ${formatJapaneseDate(previousDay(input.switchDate))} で終えます（譲渡済）`,
+      `${oldDisplay} 様の組合員の登録を「無効」にします`,
+      `新しい組合員「${newDisplay}」（ログイン名 ${input.newLogin}）を登録します`,
+      `${newDisplay} 様の所有を ${formatJapaneseDate(input.switchDate)} から始めます`,
+    ],
+    // 練習用: 01-101 には駐車場の契約がある、ことにする
+    warnings:
+      unit.name === '01-101'
+        ? [`${oldDisplay} 様には、続いている駐車場の契約が 1 件あります。駐車場の契約は、この手続きでは変わりません`]
+        : [],
+    notices,
+    proration,
+  };
+}
 // ---- 練習用のサーバー ----
 
 function send(res, status, body, extraHeaders = {}) {
@@ -222,32 +266,62 @@ function handleKoho(req, res, path) {
   return true;
 }
 
-/** 紙の申請の代理入力（POST /office/applications/proxy） */
-async function handleProxy(req, res) {
+/** 台帳を更新する（POST /office/ledger/preview と POST /office/ledger） */
+async function handleLedger(req, res, apply) {
   const input = (await readBody(req)) ?? {};
-  if (submitKeys.has(input.submitKey)) {
-    return send(res, 200, { id: submitKeys.get(input.submitKey), duplicate: true });
+  if (apply && submitKeys.has(input.submitKey)) {
+    return send(res, 200, { logId: submitKeys.get(input.submitKey), duplicate: true });
   }
-  const errors = checkProxyInput(input);
+  const { errors, unit } = checkLedgerInput(input);
   if (errors.length > 0) return send(res, 400, { error: 'invalid', messages: errors });
-  const unit = UNITS.find((u) => u.name === input.propertyName);
-  if (!unit?.owner) {
-    return send(res, 400, { error: 'invalid', messages: ['このお部屋には、いま所有している組合員が登録されていません。管理者に台帳の確認を頼んでください'] });
-  }
-  const id = String(applications.length + 1);
-  applications.push({
-    ...EMPTY_APPLICATION,
-    ...input,
+  const plan = planLedger(input, unit);
+  if (!apply) return send(res, 200, plan);
+
+  const id = String(logs.length + 1);
+  const oldOwner = unit.owner;
+  const newDisplay = `${unit.name} ${input.newName.trim()}`;
+  logs.push({
     id,
-    memberDisplay: unit.owner.display,
-    summary:
-      input.type === '名義変更'
-        ? `${input.propertyName} の名義を ${unit.owner.display} から ${input.newName} 様に変更（${formatJapaneseDate(input.switchDate)}から新組合員の負担）`
-        : `${unit.owner.display} の氏名を「${input.newName}」に変更`,
+    type: input.type,
+    status: '反映済み',
+    propertyName: unit.name,
+    oldMember: oldOwner.display,
+    newName: input.newName.trim(),
+    newLogin: input.newLogin ?? '',
+    switchDate: input.switchDate ?? '',
+    transferDate: input.transferDate ?? '',
+    enteredBy: '練習 事務員（practice-clerk）',
+    enteredAt: new Date().toISOString(),
+    canceledBy: '',
+    canceledAt: '',
+    restore: { unit: unit.name, owner: oldOwner },
   });
+  unit.owner =
+    input.type === '名義変更'
+      ? { display: newDisplay, userCode: input.newLogin, startDate: input.switchDate }
+      : { ...oldOwner, display: newDisplay };
   submitKeys.set(input.submitKey, id);
-  console.log(`[練習] 申請番号 ${id} を登録しました（${input.type}・${input.propertyName}）`);
-  return send(res, 201, { id, duplicate: false });
+  console.log(`[練習] 記録番号 ${id}: ${input.type}を台帳に反映しました（${unit.name}）`);
+  return send(res, 201, { logId: id, duplicate: false, summary: plan.summary, notices: plan.notices });
+}
+
+/** 取り消し（POST /office/ledger/logs/:id/cancel）。本物と同じく、今日・反映済みのものだけ */
+function handleCancel(res, id) {
+  const log = logs.find((l) => l.id === id);
+  if (!log) return send(res, 404, { error: 'Not found' });
+  if (log.status !== '反映済み') {
+    return send(res, 400, { error: 'invalid', messages: ['この更新は、もう取り消されています'] });
+  }
+  if (jstDateOf(log.enteredAt) !== todayJst()) {
+    return send(res, 400, { error: 'invalid', messages: ['取り消せるのは、今日の更新だけです。管理者に頼んでください'] });
+  }
+  const unit = UNITS.find((u) => u.name === log.restore.unit);
+  unit.owner = log.restore.owner;
+  log.status = '取り消し';
+  log.canceledBy = '練習 事務員（practice-clerk）';
+  log.canceledAt = new Date().toISOString();
+  console.log(`[練習] 記録番号 ${id} を取り消しました`);
+  return send(res, 200, { ok: true });
 }
 
 /** 事務員専用ページの API（workers/api/office.ts と同じ形）。扱ったら true */
@@ -257,23 +331,23 @@ async function handleOffice(req, res, url, path) {
     return true;
   }
   if (path === '/office/units') {
-    send(res, 200, { date: new Date().toISOString().slice(0, 10), units: UNITS });
+    send(res, 200, { date: todayJst(), units: UNITS });
     return true;
   }
-  if (path === '/office/applications' && req.method === 'GET') {
-    const status = url.searchParams.get('status') ?? '申請中';
-    send(res, 200, { status, applications: applications.filter((a) => a.status === status) });
+  if ((path === '/office/ledger/preview' || path === '/office/ledger') && req.method === 'POST') {
+    await handleLedger(req, res, path === '/office/ledger');
     return true;
   }
-  if (path === '/office/applications/proxy' && req.method === 'POST') {
-    await handleProxy(req, res);
+  if (path === '/office/ledger/logs' && req.method === 'GET') {
+    const date = url.searchParams.get('date') ?? todayJst();
+    // restore は練習用の中身なので返さない
+    const view = logs.filter((l) => jstDateOf(l.enteredAt) === date).map(({ restore, ...rest }) => rest);
+    send(res, 200, { date, logs: view.reverse() });
     return true;
   }
-  const match = /^\/office\/applications\/(\d+)$/.exec(path);
-  if (match && req.method === 'GET') {
-    const application = applications.find((a) => a.id === match[1]);
-    if (application) send(res, 200, { application });
-    else send(res, 404, { error: 'Not found' });
+  const match = /^\/office\/ledger\/logs\/(\d+)\/cancel$/.exec(path);
+  if (match && req.method === 'POST') {
+    handleCancel(res, match[1]);
     return true;
   }
   return false;

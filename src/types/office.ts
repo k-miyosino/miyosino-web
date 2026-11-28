@@ -29,3 +29,58 @@ export interface OfficeUnits {
   date: string;
   units: OfficeUnit[];
 }
+
+export type OfficeLedgerType = '名義変更' | '氏名の変更';
+
+/** 台帳の更新で送る内容（workers/api/_office-ledger.ts の parseLedgerInput が受け取る形） */
+export interface OfficeLedgerInput {
+  type: OfficeLedgerType;
+  submitKey: string;
+  propertyName: string;
+  newName: string;
+  newLogin?: string;
+  switchDate?: string;
+  transferDate?: string;
+}
+
+export interface OfficeLedgerProration {
+  daysInMonth: number;
+  oldDays: number;
+  newDays: number;
+  monthlyFee: number;
+  oldAmount: number;
+  newAmount: number;
+}
+
+/** 確認画面に出す「台帳がこう変わります」（POST /office/ledger/preview） */
+export interface OfficeLedgerPreview {
+  summary: string[];
+  warnings: string[];
+  notices: string[];
+  proration: OfficeLedgerProration | null;
+}
+
+/** 台帳に反映したあとの結果（POST /office/ledger） */
+export interface OfficeLedgerResult {
+  logId: string;
+  duplicate: boolean;
+  summary?: string[];
+  notices?: string[];
+}
+
+/** 台帳の更新記録（workers/api/_office-ledger.ts の LogView と合わせる） */
+export interface OfficeLedgerLog {
+  id: string;
+  type: string;
+  status: string;
+  propertyName: string;
+  oldMember: string;
+  newName: string;
+  newLogin: string;
+  switchDate: string;
+  transferDate: string;
+  enteredBy: string;
+  enteredAt: string;
+  canceledBy: string;
+  canceledAt: string;
+}

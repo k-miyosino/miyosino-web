@@ -180,7 +180,7 @@ npx wrangler secret put JWT_SECRET --config wrangler.applications.toml
 
 **事務員専用ページ用Worker（miyosino-office）:**
 
-事務員だけが使う事務員専用ページ（`/member/office`）の API です。kintone の設定とシークレットの手順は [OFFICE.md](./OFFICE.md) の 3 章を参照してください。
+事務員だけが使う事務員専用ページ（`/member/office`）の API です。kintone の設定とシークレットの手順は [OFFICE.md](./OFFICE.md) の 0-6 と 3 章を参照してください。
 
 **広報ページ用Worker（miyosino-koho）:**
 

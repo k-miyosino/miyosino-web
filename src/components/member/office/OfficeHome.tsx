@@ -4,22 +4,26 @@ import { useEffect, useState } from 'react';
 import { isOfficeClerk } from '@/shared/utils/auth';
 import {
   OfficeForbiddenError,
+  fetchOfficeLedgerLogs,
   fetchOfficeMe,
 } from '@/repositories/office/officeRepository';
 import { OfficeMe } from '@/types/office';
+import OfficeLedgerForm from './OfficeLedgerForm';
+import OfficeLedgerLogList from './OfficeLedgerLogList';
 import OfficeUnitsSection from './OfficeUnitsSection';
 
-type View = 'home' | 'units';
+type View = 'home' | 'units' | 'logs' | 'ledger';
 
 /**
- * 事務員専用ページのトップ（OFFICE.md 7-3）。
- * 事務員が IT に慣れていない前提で、文字とボタンを大きくし、やることをカードで並べる。
- * 申請の一覧・代理入力は次の段階で足す（今は「準備中」と出す）
+ * 事務員専用ページのトップ（OFFICE.md 0-5）。
+ * 事務員が IT に慣れていない前提で、文字とボタンを大きくし、やることをカードで並べる
  */
 export default function OfficeHome() {
   const [me, setMe] = useState<OfficeMe | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('home');
+  // 今日の更新の数（読めなければ null のまま。トップの表示だけに使う）
+  const [todayCount, setTodayCount] = useState<number | null>(null);
 
   useEffect(() => {
     // 事務員のトークンでなければ、Worker に問い合わせずに「事務員だけ」と出す
@@ -38,6 +42,23 @@ export default function OfficeHome() {
       });
   }, []);
 
+  // トップを出すたびに、今日の更新の数を読み直す（更新・取り消しから戻ったときに古い数を出さない）
+  useEffect(() => {
+    if (!me || view !== 'home') return;
+    let cancelled = false;
+    fetchOfficeLedgerLogs()
+      .then((logs) => {
+        if (!cancelled)
+          setTodayCount(logs.filter((l) => l.status === '反映済み').length);
+      })
+      .catch(() => {
+        if (!cancelled) setTodayCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [me, view]);
+
   if (error) {
     return (
       <p className="bg-yellow-50 border border-yellow-300 text-yellow-900 rounded-lg p-6 text-lg">
@@ -50,7 +71,11 @@ export default function OfficeHome() {
     return <p className="text-lg text-gray-600">読み込み中...</p>;
   }
 
-  if (view === 'units') {
+  if (view === 'ledger') {
+    return <OfficeLedgerForm onDone={() => setView('home')} />;
+  }
+
+  if (view === 'units' || view === 'logs') {
     return (
       <div className="flex flex-col gap-6">
         <button
@@ -60,7 +85,7 @@ export default function OfficeHome() {
         >
           ← トップに戻る
         </button>
-        <OfficeUnitsSection />
+        {view === 'units' ? <OfficeUnitsSection /> : <OfficeLedgerLogList />}
       </div>
     );
   }
@@ -70,26 +95,39 @@ export default function OfficeHome() {
       <p className="text-lg text-gray-600">{me.name} さん（事務員）</p>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-2xl font-bold">今日やること</h2>
-        <div className="flex flex-wrap items-center justify-between gap-6 bg-white border-2 border-gray-300 rounded-2xl p-6 sm:p-8">
-          <div className="flex flex-col gap-1">
-            <span className="text-2xl font-bold">新規申し込みリスト</span>
+        <h2 className="text-2xl font-bold">届を受け取ったら</h2>
+        <button
+          type="button"
+          onClick={() => setView('ledger')}
+          className="text-left flex flex-wrap items-center justify-between gap-6 bg-white border-[3px] border-blue-700 hover:bg-blue-50 rounded-2xl p-6 sm:p-8 transition-colors"
+        >
+          <span className="flex flex-col gap-1">
+            <span className="text-2xl font-bold">台帳を更新する</span>
             <span className="text-lg text-gray-600">
-              準備中です。次の更新で、承認を待っている申請がここに並びます。
+              名義変更（組合員名義変更届）・氏名の変更を、台帳に反映します
             </span>
-          </div>
-        </div>
+          </span>
+          <span className="text-xl font-bold text-white bg-blue-700 rounded-xl px-6 py-4">
+            入力する →
+          </span>
+        </button>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-bold text-gray-600">そのほかの仕事</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="bg-white border border-gray-300 rounded-2xl p-6 flex flex-col gap-2 min-h-36">
-            <span className="text-xl font-bold">紙の申請を入力する</span>
-            <span className="text-base text-gray-600">
-              準備中です。窓口に出された申請書（名義変更届など）を、代わりに入力できるようになります。
+          <button
+            type="button"
+            onClick={() => setView('logs')}
+            className="text-left bg-white border-2 border-blue-700 hover:bg-blue-50 rounded-2xl p-6 flex flex-col gap-2 min-h-36 transition-colors"
+          >
+            <span className="text-xl font-bold text-blue-800">
+              今日の更新{todayCount === null ? '' : `（${todayCount} 件）`} →
             </span>
-          </div>
+            <span className="text-base text-gray-600">
+              今日、台帳に反映したものを見ます。まちがえたものは、ここから取り消せます
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setView('units')}
