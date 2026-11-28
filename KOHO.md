@@ -78,8 +78,9 @@
 | 会議情報（議事録） | 会議情報（48） | `minutes` |
 | 各種申請（届出・申請書のダウンロード） | 申請書（56） | `applications` |
 | 団地の歴史 | 歴史（ID は `KINTONE_APP_ID_HISTORY`） | `history` |
-| 周辺施設 | 周辺施設（ID は `KINTONE_APP_ID_PLACES`。Sync Places で毎月同期） | `places` |
+| 周辺施設（**出さない**） | 周辺施設（ID は `KINTONE_APP_ID_PLACES`） | `places` |
 
+- **周辺施設はリンク集に出さない**（決定済み）。周辺施設のアプリは、GitHub Actions のスケジュール（Sync Places）が Google の Places API の情報で毎月自動で入れるもので、広報委員が手で書くことはない。手で直しても次の同期で書き換わることがあり、リンクがあるとまぎらわしい。koho Worker に `KINTONE_APP_ID_PLACES` を入れなければ出ない（コードはそのまま。説明を直したい・閉店した施設を隠したいなど、手で直す使い方が出てきたら、ID を入れればリンクが出る）
 - 1 つのアプリにつき「新しく書く（レコードの追加）」と「一覧を開く」のボタンを並べ、その情報がホームページのどこに出るかを一文で書く（例:「組合員専用ページのトップの『お知らせ』に、公開日の新しい順に出ます」）
 - 公開・非公開の切り替え（`published` など）があるアプリは、その使い方も書く
 - **リンクの一覧はページのコードに書かず、`miyosino-koho` が広報委員にだけ返す**（ページの HTML はだれでも取得できるため。運用ダッシュボードのリンク集と同じ）。kintone のドメイン・アプリ ID は Worker のシークレットと定義から作る
@@ -104,7 +105,7 @@
    npx wrangler secret put JWT_SECRET --config wrangler.koho.toml             # ほかの Worker と同じ値
    npx wrangler secret put KINTONE_DOMAIN --config wrangler.koho.toml
    npx wrangler secret put KINTONE_APP_ID_HISTORY --config wrangler.koho.toml # 任意。団地の歴史のアプリ ID
-   npx wrangler secret put KINTONE_APP_ID_PLACES --config wrangler.koho.toml  # 任意。周辺施設のアプリ ID
+   # KINTONE_APP_ID_PLACES（周辺施設）は入れない（4-1。リンク集に出さない）
    npx wrangler deploy --config wrangler.koho.toml
    ```
 
@@ -183,3 +184,4 @@
 | 2026-11 | kintone のグループは「広報」（コード `PublicRelations`）。広報用のスペース（ID 21）を作り、判定に使う「広報委員判定」アプリ（ID 145）を置いた。判定に API トークンは要らない | 3 章 |
 | 2026-11 | 判定用のアプリの名前を「広報委員判定」「事務員判定」にする（コードはアプリ ID だけを見るので、名前を変えても動きは変わらない） | 3 章 |
 | 2026-11 | 「広報」グループには、リンク集の kintone のアプリ（お知らせなど）の追加・編集の権限がある | 4-1 |
+| 2026-11 | 周辺施設はリンク集に出さない（Places API で毎月自動で入れるので、広報委員は手で書かない）。koho Worker に `KINTONE_APP_ID_PLACES` を入れない | 4-1 |
