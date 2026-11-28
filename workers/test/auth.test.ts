@@ -54,7 +54,7 @@ function callback(
  * kintone の応答を差し替える。
  * - トークンの取得は成功させる
  * - 「ログイン記録」アプリにレコードを足すと、作成者が user-a のレコードを返す
- * - 「運用管理者」アプリが読めるかは opsAdminStatus（200 なら管理者、403 なら管理者でない）
+ * - 「システム管理者判定」アプリが読めるかは opsAdminStatus（200 なら管理者、403 なら管理者でない）
  * - 「事務員判定」アプリが読めるかは clerkStatus（200 なら事務員、403 なら事務員でない）
  */
 function stubKintone(opsAdminStatus: number, clerkStatus = 403) {
@@ -159,7 +159,7 @@ describe('ログインの戻り（/callback）', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('「運用管理者」アプリが読める人は、JWT に admin が入る', async () => {
+  it('「システム管理者判定」アプリが読める人は、JWT に admin が入る', async () => {
     stubKintone(200);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),
@@ -173,7 +173,7 @@ describe('ログインの戻り（/callback）', () => {
     expect(payload?.admin).toBe(true);
   });
 
-  it('「運用管理者」アプリが読めない（403）人は、admin が入らない', async () => {
+  it('「システム管理者判定」アプリが読めない（403）人は、admin が入らない', async () => {
     stubKintone(403);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),
