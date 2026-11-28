@@ -10,6 +10,7 @@
  * 段階 1 では kintone・microCMS には問い合わせない（リンクを作って返すだけ）。
  */
 
+import { corsHeaders, jsonResponse } from './_cors';
 import { JWTPayload, verifyJWT } from './_jwt';
 import {
   KOHO_GUIDE,
@@ -24,36 +25,6 @@ interface Env extends KohoCatalogEnv {
 
 // 利用者を識別できなかったときの sub（auth.ts と同じ）
 const UNIDENTIFIED_USER_ID = 'kintone-user';
-
-// CORS とログイン後の画面として許可するオリジン（auth.ts と同じ）
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'https://k-miyosino.github.io',
-  'https://k-miyosino.com',
-  'https://www.k-miyosino.com',
-];
-
-function corsHeaders(origin?: string): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin':
-      origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[1],
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-    Vary: 'Origin',
-  };
-}
-
-function jsonResponse(body: unknown, status: number, origin?: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-      ...corsHeaders(origin),
-    },
-  });
-}
 
 /** 広報委員の JWT か確かめる。だめなら返す Response */
 async function authenticateKoho(

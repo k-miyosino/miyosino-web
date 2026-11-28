@@ -15,6 +15,10 @@
  * 個人情報を含むので、応答はキャッシュしない。
  */
 
+import {
+  corsHeaders as sharedCorsHeaders,
+  jsonResponse as sharedJsonResponse,
+} from './_cors';
 import { JWTPayload, verifyJWT } from './_jwt';
 import {
   OwnershipRecord,
@@ -48,34 +52,14 @@ const UNIDENTIFIED_USER_ID = 'kintone-user';
 const PAGE_SIZE = 500;
 const MAX_BODY_BYTES = 16 * 1024;
 
-// CORS とログイン後の画面として許可するオリジン（auth.ts と同じ）
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'https://k-miyosino.github.io',
-  'https://k-miyosino.com',
-  'https://www.k-miyosino.com',
-];
+const METHODS = 'GET, POST, OPTIONS';
 
 function corsHeaders(origin?: string): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin':
-      origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[1],
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Max-Age': '86400',
-    Vary: 'Origin',
-  };
+  return sharedCorsHeaders(origin, METHODS);
 }
 
 function jsonResponse(body: unknown, status: number, origin?: string): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-      ...corsHeaders(origin),
-    },
-  });
+  return sharedJsonResponse(body, status, origin, METHODS);
 }
 
 /** 事務員の JWT か確かめる。だめなら返す Response */
