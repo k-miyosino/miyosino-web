@@ -61,50 +61,58 @@ export function propertyCode(propertyName: string): string {
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const LOGIN_PATTERN = /^[A-Za-z0-9._@-]{1,64}$/;
 
+function checkUnit(draft: LedgerDraft): string[] {
+  if (!draft.propertyName) return ['お部屋を選んでください'];
+  if (!draft.ownerDisplay)
+    return [
+      'このお部屋には、いま所有している組合員が登録されていません。管理者に台帳の確認を頼んでください',
+    ];
+  return [];
+}
+
+function checkNewName(draft: LedgerDraft): string[] {
+  if (draft.newName.trim()) return [];
+  return [
+    draft.type === '名義変更'
+      ? '新しい組合員の氏名を入れてください'
+      : '変更後の氏名を入れてください',
+  ];
+}
+
+function checkNewLogin(draft: LedgerDraft): string[] {
+  const login = draft.newLogin.trim();
+  if (!LOGIN_PATTERN.test(login))
+    return ['管理者から伝えられたログイン名を入れてください（半角の英数字）'];
+  const code = propertyCode(draft.propertyName);
+  if (!login.startsWith(code))
+    return [
+      `ログイン名は、お部屋の番号（${code}）で始まります。管理者に伝えられたログイン名を確かめてください`,
+    ];
+  return [];
+}
+
+function checkDates(draft: LedgerDraft): string[] {
+  const errors: string[] = [];
+  if (!DATE_PATTERN.test(draft.switchDate))
+    errors.push('新しい組合員の負担となる日を入れてください');
+  if (!DATE_PATTERN.test(draft.transferDate))
+    errors.push('名義変更日を入れてください');
+  return errors;
+}
+
+const STEP_CHECKS: Partial<
+  Record<LedgerStep, (draft: LedgerDraft) => string[]>
+> = {
+  type: (draft) => (draft.type ? [] : ['手続きを選んでください']),
+  unit: checkUnit,
+  newName: checkNewName,
+  newLogin: checkNewLogin,
+  dates: checkDates,
+};
+
 /** その手順で先に進めるか。進めないときは、画面に出す理由を返す */
 export function validateStep(draft: LedgerDraft, step: LedgerStep): string[] {
-  const errors: string[] = [];
-  switch (step) {
-    case 'type':
-      if (!draft.type) errors.push('手続きを選んでください');
-      break;
-    case 'unit':
-      if (!draft.propertyName) errors.push('お部屋を選んでください');
-      else if (!draft.ownerDisplay)
-        errors.push(
-          'このお部屋には、いま所有している組合員が登録されていません。管理者に台帳の確認を頼んでください'
-        );
-      break;
-    case 'newName':
-      if (!draft.newName.trim())
-        errors.push(
-          draft.type === '名義変更'
-            ? '新しい組合員の氏名を入れてください'
-            : '変更後の氏名を入れてください'
-        );
-      break;
-    case 'newLogin': {
-      const login = draft.newLogin.trim();
-      if (!LOGIN_PATTERN.test(login))
-        errors.push(
-          '管理者から伝えられたログイン名を入れてください（半角の英数字）'
-        );
-      else if (!login.startsWith(propertyCode(draft.propertyName)))
-        errors.push(
-          `ログイン名は、お部屋の番号（${propertyCode(draft.propertyName)}）で始まります。管理者に伝えられたログイン名を確かめてください`
-        );
-      break;
-    }
-    case 'dates':
-      if (!DATE_PATTERN.test(draft.switchDate))
-        errors.push('新しい組合員の負担となる日を入れてください');
-      if (!DATE_PATTERN.test(draft.transferDate))
-        errors.push('名義変更日を入れてください');
-      break;
-    default:
-      break;
-  }
-  return errors;
+  return STEP_CHECKS[step]?.(draft) ?? [];
 }
 
 /** Worker に送る内容 */

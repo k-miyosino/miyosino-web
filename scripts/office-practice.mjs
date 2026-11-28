@@ -117,7 +117,7 @@ function checkLedgerInput(input) {
     if (!input.switchDate) errors.push('新しい組合員の負担となる日を入れてください');
     if (!input.transferDate) errors.push('名義変更日を入れてください');
   }
-  if (input.type === '氏名の変更' && unit?.owner && `${unit.name} ${input.newName.trim()}` === unit.owner.display) {
+  if (input.type === '氏名の変更' && unit?.owner?.display === `${input.propertyName} ${input.newName?.trim()}`) {
     errors.push('変更後の氏名が、いまの登録と同じです');
   }
   return { errors, unit };
@@ -342,7 +342,7 @@ async function handleOffice(req, res, url, path) {
     const date = url.searchParams.get('date') ?? todayJst();
     // restore は練習用の中身なので返さない
     const view = logs.filter((l) => jstDateOf(l.enteredAt) === date).map(({ restore, ...rest }) => rest);
-    send(res, 200, { date, logs: view.reverse() });
+    send(res, 200, { date, logs: view.toReversed() });
     return true;
   }
   const match = /^\/office\/ledger\/logs\/(\d+)\/cancel$/.exec(path);

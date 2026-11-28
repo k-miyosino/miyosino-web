@@ -45,7 +45,7 @@ function errorMessages(e: unknown, fallback: string): string[] {
  * 1 画面に 1 つの質問で進め、確認画面で「台帳がこう変わります」を見せてから反映する。戻っても入力は消えない。
  * 名義変更は、管理者が先に新しい組合員の Kintone ユーザーを作っておく（0-2）
  */
-export default function OfficeLedgerForm({ onDone }: Props) {
+export default function OfficeLedgerForm({ onDone }: Readonly<Props>) {
   const [draft, setDraft] = useState<LedgerDraft>(() => emptyDraft());
   // 送り直しても同じキーを使い、二重に反映されないようにする
   const [submitKey] = useState(() => newSubmitKey());
@@ -164,8 +164,10 @@ export default function OfficeLedgerForm({ onDone }: Props) {
               ユーザーを作ります。まだなら、管理者に頼んでから入力してください。
             </p>
             <label className={LABEL_CLASS}>
-              管理者から伝えられたログイン名（{propertyCode(draft.propertyName)}
-              で始まります）
+              <span>
+                管理者から伝えられたログイン名（
+                {propertyCode(draft.propertyName)}で始まります）
+              </span>
               <input
                 type="text"
                 inputMode="url"
@@ -182,7 +184,9 @@ export default function OfficeLedgerForm({ onDone }: Props) {
         {step === 'dates' && (
           <>
             <label className={LABEL_CLASS}>
-              新しい組合員の負担となる日（組合費・修繕積立金の支払いが切り替わる日）
+              <span>
+                新しい組合員の負担となる日（組合費・修繕積立金の支払いが切り替わる日）
+              </span>
               <input
                 type="date"
                 value={draft.switchDate}
@@ -191,7 +195,7 @@ export default function OfficeLedgerForm({ onDone }: Props) {
               />
             </label>
             <label className={LABEL_CLASS}>
-              所有名義変更月日（記録として残すだけ）
+              <span>所有名義変更月日（記録として残すだけ）</span>
               <input
                 type="date"
                 value={draft.transferDate}
@@ -250,7 +254,7 @@ export default function OfficeLedgerForm({ onDone }: Props) {
   );
 }
 
-function ConfirmStep({ preview }: { preview: OfficeLedgerPreview }) {
+function ConfirmStep({ preview }: Readonly<{ preview: OfficeLedgerPreview }>) {
   return (
     <>
       <p className="text-lg">
@@ -277,11 +281,11 @@ function LedgerDone({
   result,
   notices,
   onDone,
-}: {
+}: Readonly<{
   result: OfficeLedgerResult;
   notices: string[];
   onDone: () => void;
-}) {
+}>) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -334,11 +338,11 @@ function ChoiceButton({
   selected,
   onClick,
   children,
-}: {
+}: Readonly<{
   selected: boolean;
   onClick: () => void;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -372,10 +376,10 @@ const TYPE_CHOICES: { type: OfficeLedgerType; title: string; note: string }[] =
 function TypeStep({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: OfficeLedgerType | null;
   onChange: (type: OfficeLedgerType) => void;
-}) {
+}>) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {TYPE_CHOICES.map((choice) => {
@@ -407,10 +411,10 @@ function TypeStep({
 function UnitStep({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: string;
   onChange: (unit: OfficeUnit) => void;
-}) {
+}>) {
   const [units, setUnits] = useState<OfficeUnit[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [building, setBuilding] = useState<string | null>(null);
