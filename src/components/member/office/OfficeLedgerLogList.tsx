@@ -114,8 +114,8 @@ export default function OfficeLedgerLogList() {
                   </span>
                   <span className="text-lg">
                     {log.type === '名義変更'
-                      ? `${log.oldMember} → ${log.propertyName} ${log.newName}（${formatJapaneseDate(log.switchDate)}から）`
-                      : `${log.oldMember} → ${log.propertyName} ${log.newName}`}
+                      ? `${log.oldMember} → ${log.propertyName}${log.newName}（${formatJapaneseDate(log.switchDate)}から）`
+                      : `${log.oldMember} → ${log.propertyName}${log.newName}`}
                   </span>
                   <span className="text-base text-gray-600">
                     記録番号 {log.id} ・ {timeJst(log.enteredAt)} ・{' '}

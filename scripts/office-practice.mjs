@@ -69,7 +69,7 @@ for (const building of ['1', '2', '3']) {
       building,
       room,
       owner: OWNERS[name]
-        ? { display: `${name} ${OWNERS[name]}`, userCode: `${name.replace('-', '')}practice`, startDate: '2015-04-01' }
+        ? { display: `${name}${OWNERS[name]}`, userCode: `${name.replace('-', '')}practice`, startDate: '2015-04-01' }
         : null,
       ownerConflict: false,
     });
@@ -117,16 +117,27 @@ function checkLedgerInput(input) {
     if (!input.switchDate) errors.push('新しい組合員の負担となる日を入れてください');
     if (!input.transferDate) errors.push('名義変更日を入れてください');
   }
-  if (input.type === '氏名の変更' && unit?.owner?.display === `${input.propertyName} ${input.newName?.trim()}`) {
+  if (input.type === '氏名の変更' && unit?.owner?.display === `${input.propertyName}${practiceName(input.newName)}`) {
     errors.push('変更後の氏名が、いまの登録と同じです');
   }
   return { errors, unit };
 }
 
+/** 氏名の空白をそろえる（本物の normalizeName と同じ。間の空白は半角 1 つ） */
+function practiceName(name) {
+  return String(name ?? '').trim().replace(/\s+/gu, ' ');
+}
+
+/** 新しい「表示」（本物と同じく、物件名と空けずにつなぐ。名義変更で旧組合員と重なれば (2) を付ける） */
+function practiceDisplay(unit, input) {
+  const base = `${unit.name}${practiceName(input.newName)}`;
+  return input.type === '名義変更' && base === unit.owner.display ? `${base}(2)` : base;
+}
+
 /** 確認画面に出す「台帳がこう変わります」（本物と同じことばに近づける） */
 function planLedger(input, unit) {
   const oldDisplay = unit.owner.display;
-  const newDisplay = `${unit.name} ${input.newName.trim()}`;
+  const newDisplay = practiceDisplay(unit, input);
   if (input.type === '氏名の変更') {
     return {
       summary: [
@@ -279,14 +290,14 @@ async function handleLedger(req, res, apply) {
 
   const id = String(logs.length + 1);
   const oldOwner = unit.owner;
-  const newDisplay = `${unit.name} ${input.newName.trim()}`;
+  const newDisplay = practiceDisplay(unit, input);
   logs.push({
     id,
     type: input.type,
     status: '反映済み',
     propertyName: unit.name,
     oldMember: oldOwner.display,
-    newName: input.newName.trim(),
+    newName: practiceName(input.newName),
     newLogin: input.newLogin ?? '',
     switchDate: input.switchDate ?? '',
     transferDate: input.transferDate ?? '',
