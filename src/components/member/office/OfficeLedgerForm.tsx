@@ -17,6 +17,7 @@ import { groupUnitsByBuilding, ownerName } from './officeUnits';
 import {
   LedgerDraft,
   STEP_TITLES,
+  displayPreview,
   emptyDraft,
   newSubmitKey,
   propertyCode,
@@ -143,26 +144,7 @@ export default function OfficeLedgerForm({ onDone }: Readonly<Props>) {
             }
           />
         )}
-        {step === 'newName' && (
-          <label className={LABEL_CLASS}>
-            <span>
-              {draft.type === '名義変更'
-                ? '新しい組合員の氏名（姓と名。名義変更届の「新」の氏名）'
-                : `変更後の氏名（姓と名。いまの登録: ${draft.ownerDisplay}）`}
-            </span>
-            <input
-              type="text"
-              value={draft.newName}
-              maxLength={50}
-              onChange={(e) => update({ newName: e.target.value })}
-              className={INPUT_CLASS}
-            />
-            <span className="text-base font-normal text-gray-600">
-              姓と名の間は、空けても空けなくてもかまいません。台帳には「
-              {draft.propertyName}田中太郎」のように、空けずに入ります。
-            </span>
-          </label>
-        )}
+        {step === 'newName' && <NameStep draft={draft} onChange={update} />}
         {step === 'newLogin' && (
           <>
             <p className="text-base text-gray-700 bg-amber-50 rounded-lg px-4 py-3">
@@ -378,6 +360,81 @@ const TYPE_CHOICES: { type: OfficeLedgerType; title: string; note: string }[] =
       note: '組合員の氏名が変わったとき',
     },
   ];
+
+/**
+ * 氏名の入力。ふつうは姓と名を分けて入れ、プログラムが半角の空白でつなぐ（空白の種類で迷わないように）。
+ * 外国籍の方・ミドルネームがあるなど、姓と名に分けられないときは 1 つの欄に、名義変更届のとおり入れる
+ */
+function NameStep({
+  draft,
+  onChange,
+}: Readonly<{
+  draft: LedgerDraft;
+  onChange: (patch: Partial<LedgerDraft>) => void;
+}>) {
+  const transfer = draft.type === '名義変更';
+  const preview = displayPreview(draft);
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-base text-gray-700">
+        {transfer
+          ? '名義変更届の「新」の氏名を入れてください。'
+          : `変更後の氏名を入れてください（いまの登録: ${draft.ownerDisplay}）。`}
+      </p>
+      {draft.nameMode === 'split' ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className={LABEL_CLASS}>
+            <span>姓</span>
+            <input
+              type="text"
+              value={draft.familyName}
+              maxLength={25}
+              onChange={(e) => onChange({ familyName: e.target.value })}
+              className={INPUT_CLASS}
+            />
+          </label>
+          <label className={LABEL_CLASS}>
+            <span>名</span>
+            <input
+              type="text"
+              value={draft.givenName}
+              maxLength={25}
+              onChange={(e) => onChange({ givenName: e.target.value })}
+              className={INPUT_CLASS}
+            />
+          </label>
+        </div>
+      ) : (
+        <label className={LABEL_CLASS}>
+          <span>氏名（名義変更届のとおり。空白も含めて）</span>
+          <input
+            type="text"
+            value={draft.newName}
+            maxLength={50}
+            onChange={(e) => onChange({ newName: e.target.value })}
+            className={INPUT_CLASS}
+          />
+        </label>
+      )}
+      <label className="flex items-center gap-3 text-lg min-h-11">
+        <input
+          type="checkbox"
+          checked={draft.nameMode === 'single'}
+          onChange={(e) =>
+            onChange({ nameMode: e.target.checked ? 'single' : 'split' })
+          }
+          className="w-6 h-6"
+        />
+        <span>姓と名に分けられない（外国籍の方・ミドルネームがあるなど）</span>
+      </label>
+      {preview !== draft.propertyName && (
+        <p className="text-base text-gray-700 bg-gray-50 rounded-lg px-4 py-3">
+          台帳の表示: <span className="font-bold">{preview}</span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 function TypeStep({
   value,

@@ -69,7 +69,7 @@ for (const building of ['1', '2', '3']) {
       building,
       room,
       owner: OWNERS[name]
-        ? { display: `${name}${OWNERS[name].replace(/\s+/gu, '')}`, userCode: `${name.replace('-', '')}practice`, startDate: '2015-04-01' }
+        ? { display: `${name}${OWNERS[name]}`, userCode: `${name.replace('-', '')}practice`, startDate: '2015-04-01' }
         : null,
       ownerConflict: false,
     });
@@ -117,15 +117,20 @@ function checkLedgerInput(input) {
     if (!input.switchDate) errors.push('新しい組合員の負担となる日を入れてください');
     if (!input.transferDate) errors.push('名義変更日を入れてください');
   }
-  if (input.type === '氏名の変更' && unit?.owner?.display === `${input.propertyName}${String(input.newName ?? '').replace(/\s+/gu, '')}`) {
+  if (input.type === '氏名の変更' && unit?.owner?.display === `${input.propertyName}${practiceName(input.newName)}`) {
     errors.push('変更後の氏名が、いまの登録と同じです');
   }
   return { errors, unit };
 }
 
-/** 新しい「表示」（本物と同じく、空白を取り、物件名と空けずにつなぐ。名義変更で旧組合員と重なれば (2) を付ける） */
+/** 氏名の空白をそろえる（本物の normalizeName と同じ。間の空白は半角 1 つ） */
+function practiceName(name) {
+  return String(name ?? '').trim().replace(/\s+/gu, ' ');
+}
+
+/** 新しい「表示」（本物と同じく、物件名と空けずにつなぐ。名義変更で旧組合員と重なれば (2) を付ける） */
 function practiceDisplay(unit, input) {
-  const base = `${unit.name}${input.newName.replace(/\s+/gu, '')}`;
+  const base = `${unit.name}${practiceName(input.newName)}`;
   return input.type === '名義変更' && base === unit.owner.display ? `${base}(2)` : base;
 }
 
@@ -292,7 +297,7 @@ async function handleLedger(req, res, apply) {
     status: '反映済み',
     propertyName: unit.name,
     oldMember: oldOwner.display,
-    newName: input.newName.replace(/\s+/gu, ''),
+    newName: practiceName(input.newName),
     newLogin: input.newLogin ?? '',
     switchDate: input.switchDate ?? '',
     transferDate: input.transferDate ?? '',

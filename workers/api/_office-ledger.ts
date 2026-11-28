@@ -111,12 +111,15 @@ function text(body: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** 氏名の空白（全角・半角）を取り除く。台帳の「表示」は「01-101田中太郎」のように空白を入れない形にそろえる */
+/**
+ * 氏名の空白をそろえる。前後の空白を取り、間の空白（全角・半角・続いたもの）は半角 1 つにする。
+ * 画面は姓と名を分けて入れ、半角の空白でつないで送る（外国籍の方などは 1 つの欄に、空白も含めて入れる）
+ */
 export function normalizeName(name: string): string {
-  return name.replace(/\s+/gu, '');
+  return name.trim().replace(/\s+/gu, ' ');
 }
 
-/** M_組合員の「表示」（物件名と氏名を空けずにつなぐ。今の台帳の「01-101田中」と同じ形） */
+/** M_組合員の「表示」（物件名と氏名を空けずにつなぐ。今の台帳の「01-101田中」と同じ形。例: 01-101田中 太郎） */
 export function memberDisplay(propertyName: string, name: string): string {
   return `${propertyName}${name}`;
 }

@@ -78,7 +78,7 @@ const rename = {
 describe('parseLedgerInput', () => {
   it('名義変更・氏名の変更の正しい入力を通す（前後の空白は除く）', () => {
     const parsed = parseLedgerInput({ ...transfer, newName: ' 佐藤 次郎 ' });
-    expect(parsed.ok && parsed.value.newName).toBe('佐藤次郎');
+    expect(parsed.ok && parsed.value.newName).toBe('佐藤 次郎');
     expect(parseLedgerInput(rename).ok).toBe(true);
   });
 
@@ -242,11 +242,13 @@ function recordOf(request: BulkRequest): Record<string, unknown> {
 }
 
 describe('台帳の「表示」の形', () => {
-  it('氏名の空白（全角・半角）は取り除き、物件名と空けずにつなぐ（今の台帳の「01-101田中」と同じ形）', () => {
+  it('氏名の間の空白（全角・半角・続いたもの）は半角 1 つにし、物件名とは空けずにつなぐ（今の台帳の「01-101田中」と同じ形）', () => {
     const parsed = parseLedgerInput({ ...transfer, newName: '　田中　 太郎 ' });
-    expect(parsed.ok && parsed.value.newName).toBe('田中太郎');
-    const planned = planTransfer({ ...transfer, newName: '田中太郎' }, context(), apps, 'x', 'y');
-    expect(planned.ok && recordOf(planned.value.requests[2]).display).toEqual({ value: '01-101田中太郎' });
+    expect(parsed.ok && parsed.value.newName).toBe('田中 太郎');
+    const foreign = parseLedgerInput({ ...transfer, newName: 'John　 A  Smith' });
+    expect(foreign.ok && foreign.value.newName).toBe('John A Smith');
+    const planned = planTransfer({ ...transfer, newName: '田中 太郎' }, context(), apps, 'x', 'y');
+    expect(planned.ok && recordOf(planned.value.requests[2]).display).toEqual({ value: '01-101田中 太郎' });
   });
 
   it('名義変更で、同じ表示の組合員（同じ姓名の旧組合員など）がいれば、重ならない番号を付けて知らせる', () => {
