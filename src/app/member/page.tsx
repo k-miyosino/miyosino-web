@@ -167,9 +167,9 @@ export default function MemberPage() {
         {showOpsLink && (
           <Link
             href="/member/ops"
-            className="flex items-center justify-between bg-slate-800 hover:bg-slate-900 text-white rounded-lg px-6 py-4 mb-8 transition-colors"
+            className="flex items-center justify-between bg-slate-800 hover:bg-slate-900 text-white rounded-lg px-6 py-5 mb-8 text-lg transition-colors"
           >
-            <span className="font-medium">運用ダッシュボード（管理者）</span>
+            <span className="font-bold">運用ダッシュボード（管理者）</span>
             <span aria-hidden="true">→</span>
           </Link>
         )}

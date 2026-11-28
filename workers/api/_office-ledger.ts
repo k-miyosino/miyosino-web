@@ -228,6 +228,8 @@ export interface LedgerContext {
   memberParkings: LedgerParking[];
   /** その物件名で始まる M_組合員の「表示」（すべて。新しい表示が重ならないようにする） */
   takenDisplays?: string[];
+  /** 名義変更の新しいログイン名の M_組合員（すでにあれば。取り消したものは使い直す） */
+  loginMembers?: LedgerMember[];
 }
 
 export interface BulkRequest {
@@ -290,6 +292,14 @@ export function computeProration(switchDate: string, monthlyFee: number): Prorat
   };
 }
 
+/** レコード番号のいちばん大きい（新しい）もの */
+function newestRecord<T extends { $id: Field<string> }>(records: T[]): T | undefined {
+  return records.reduce<T | undefined>(
+    (newest, r) => (!newest || Number(r.$id.value) > Number(newest.$id.value) ? r : newest),
+    undefined
+  );
+}
+
 function currentOwnership(ctx: LedgerContext): LedgerOwnership | string {
   const owned = ctx.propertyOwnerships.filter((o) => ownedOn(o, ctx.today));
   if (owned.length === 0) {
@@ -349,8 +359,20 @@ export function planTransfer(
   if (input.newLogin === oldUser) {
     errors.push('新しい組合員のログイン名が、旧組合員と同じです。名義変更では新しいアカウントを作ります');
   }
+  // 新しいログイン名の M_組合員がすでにあれば: 有効なら止め、無効（取り消したものなど）なら新しく作らずに使い直す
+  const loginMembers = ctx.loginMembers ?? [];
+  const active = loginMembers.find((m) => m.status.value === '有効');
+  if (active) {
+    errors.push(
+      `ログイン名 ${input.newLogin} は、ほかの組合員（${active.display.value}）がいま使っています。管理者に相談してください`
+    );
+  }
+  const reused = active ? undefined : newestRecord(loginMembers);
   const baseDisplay = memberDisplay(input.propertyName, input.newName);
-  const newDisplay = uniqueDisplay(baseDisplay, ctx.takenDisplays ?? []);
+  const newDisplay = uniqueDisplay(
+    baseDisplay,
+    (ctx.takenDisplays ?? []).filter((d) => d !== reused?.display.value)
+  );
   if (errors.length > 0 || !ctx.member) return { ok: false, errors };
 
   const lastDay = previousDay(input.switchDate);
@@ -365,11 +387,16 @@ export function planTransfer(
       status: value('譲渡済'),
     }),
     put(apps.member, ctx.member.$id.value, ctx.member.$revision.value, { status: value('無効') }),
-    post(apps.member, {
-      display: value(newDisplay),
-      user: { value: [{ code: input.newLogin }] },
-      status: value('有効'),
-    }),
+    reused
+      ? put(apps.member, reused.$id.value, reused.$revision.value, {
+          display: value(newDisplay),
+          status: value('有効'),
+        })
+      : post(apps.member, {
+          display: value(newDisplay),
+          user: { value: [{ code: input.newLogin }] },
+          status: value('有効'),
+        }),
     post(apps.ownership, {
       member: value(newDisplay),
       property: value(input.propertyName),
@@ -380,8 +407,16 @@ export function planTransfer(
   const before = {
     oldOwnership: { id: owner.$id.value, end_date: owner.end_date.value ?? '', status: owner.status.value },
     oldMember: { id: ctx.member.$id.value, status: ctx.member.status.value },
+    // 使い直した組合員の、使い直す前の状態（取り消したら、この状態に戻す）
+    ...(reused && {
+      reusedMember: { id: reused.$id.value, display: reused.display.value, status: reused.status.value },
+    }),
   };
-  const after = { newMember: { display: newDisplay }, newOwnership: { start_date: input.switchDate } };
+  const after = {
+    newMember: { display: newDisplay },
+    newOwnership: { start_date: input.switchDate },
+    ...(reused && { ids: { member: reused.$id.value } }),
+  };
   const logRecord = {
     ...baseLog(input, oldDisplay, enteredBy, enteredAt, before, after),
     new_login: value(input.newLogin),
@@ -392,7 +427,9 @@ export function planTransfer(
   const summary = [
     `${oldDisplay} 様の所有を ${formatJapaneseDate(lastDay)} で終えます（譲渡済）`,
     `${oldDisplay} 様の組合員の登録を「無効」にします`,
-    `新しい組合員「${newDisplay}」（ログイン名 ${input.newLogin}）を登録します`,
+    reused
+      ? `前に取り消した組合員の登録（${reused.display.value}）を使い直し、「${newDisplay}」（ログイン名 ${input.newLogin}）として有効に戻します`
+      : `新しい組合員「${newDisplay}」（ログイン名 ${input.newLogin}）を登録します`,
     `${newDisplay} 様の所有を ${formatJapaneseDate(input.switchDate)} から始めます`,
   ];
   const warnings: string[] = [];
@@ -578,14 +615,17 @@ export function planCancel(
   if (str(log, 'type') === '名義変更') {
     const oldOwnership = before.oldOwnership as { id: string; end_date: string; status: string } | undefined;
     const oldMember = before.oldMember as { id: string; status: string } | undefined;
+    const reusedMember = before.reusedMember as { id: string; display: string; status: string } | undefined;
     const ids = after.ids as { member?: string; ownership?: string } | undefined;
     const newMember = after.newMember as { display: string } | undefined;
     const newOwnership = after.newOwnership as { start_date: string } | undefined;
     if (!oldOwnership || !oldMember || !ids?.member || !ids.ownership || !newMember || !newOwnership) {
       return { ok: false, errors: ['取り消しに使う記録が足りません。管理者に直してもらってください'] };
     }
-    // 作った組合員は消さずに「無効」にし、表示は重複の禁止にかからないよう「（取り消し 記録番号）」を付ける
-    const canceledDisplay = `${newMember.display}（取り消し ${logId}）`;
+    // 作った組合員は消さずに「無効」にし、表示は重複の禁止にかからないよう「（取り消し 記録番号）」を付ける。
+    // 前に取り消した組合員を使い直していたら、使い直す前の状態（表示・状況）に戻す
+    const canceledDisplay = reusedMember?.display ?? `${newMember.display}（取り消し ${logId}）`;
+    const canceledStatus = reusedMember?.status ?? '無効';
     return {
       ok: true,
       value: [
@@ -594,7 +634,7 @@ export function planCancel(
           status: value(oldOwnership.status),
         }),
         put(apps.member, oldMember.id, null, { status: value(oldMember.status) }),
-        put(apps.member, ids.member, null, { status: value('無効'), display: value(canceledDisplay) }),
+        put(apps.member, ids.member, null, { status: value(canceledStatus), display: value(canceledDisplay) }),
         put(apps.ownership, ids.ownership, null, {
           member: value(canceledDisplay),
           end_date: value(previousDay(newOwnership.start_date)),
