@@ -100,7 +100,7 @@ kintone の変更履歴には API トークンの名前しか残らないので�
 
 使い始める準備（管理者の PC で）:
 
-1. 台帳の更新記録アプリを作る: `node workers/scripts/create-kintone-apps.mjs --domain <ドメイン> --clerk-group <事務員のグループ> --admin-group <管理者のグループ> --space 20`（パスワードは環境変数で渡す。まず開発用で `--dry-run`）
+1. 台帳の更新記録アプリを作る: `node workers/scripts/create-kintone-apps.mjs --domain <ドメイン> --clerk-group <事務員のグループ> --admin-group <管理者のグループ> --space 20`（パスワードは環境変数で渡す。まず開発用で `--dry-run`）。**作成済み（2026-11）**: 開発用は ID 146（スペースに入れず、ポータルのアプリ一覧）、本番は ID 147（「事務処理」スペース 20）。事務員グループのコードは `OfficeCleak`（Clerk ではなく Cleak の綴り）
 2. 0-4 の API トークン（事務処理専用）を作り、カンマでつないで `KINTONE_API_TOKEN_OFFICE` に入れる
 3. secrets を入れる（`workers/` で）:
    ```bash
@@ -109,6 +109,19 @@ kintone の変更履歴には API トークンの名前しか残らないので�
    npx wrangler secret put KINTONE_APP_ID_LEDGER_LOG  --config wrangler.office.toml  # 台帳の更新記録
    npx wrangler secret put KINTONE_APP_ID_PARKING     --config wrangler.office.toml  # 駐車場契約（なくても動く。氏名の変更で写し直さない）
    ```
+
+   入れる値（まず開発用の台帳で試し、うまくいったら本番に入れ直す。Worker は 1 つなので、どちらか一方をさす）:
+
+   | secret | 開発用 | 本番 |
+   |---|---|---|
+   | `KINTONE_APP_ID_PROPERTY`（M_物件） | 40 | 133 |
+   | `KINTONE_APP_ID_OWNERSHIP`（所有状況） | 44 | 132 |
+   | `KINTONE_APP_ID_MEMBER`（M_組合員） | 96 | 131 |
+   | `KINTONE_APP_ID_LEDGER_LOG`（台帳の更新記録） | 146 | 147 |
+   | `KINTONE_APP_ID_PARKING`（駐車場契約） | （なし） | 136 |
+   | `KINTONE_API_TOKEN_OFFICE` | 開発用のアプリのトークンをカンマでつなぐ | 本番のアプリのトークンをカンマでつなぐ |
+
+   新しい Worker（台帳の更新）は main へのマージでデプロイされるので、secrets はそのときに入れる。本番に入れる前に、本番の M_物件（133）の物件名を「必須」「値の重複を禁止する」にしておく（0-4）
 
 ## 目次
 
