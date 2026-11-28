@@ -1,103 +1,126 @@
 /**
- * 組合員申請アプリの定義（workers/kintone/member-application.json）が、
- * office Worker の使うフィールドコード・選択肢と、OFFICE.md 4-3-2 の表に合っていること。
+ * 台帳の更新記録アプリの定義（workers/kintone/ledger-log.json）が、
+ * office Worker の使うフィールドコード・選択肢と、OFFICE.md 0-3 の表に合っていること。
  * アプリは定義から作る（workers/scripts/create-kintone-apps.mjs）ので、ずれると本番で読み書きに失敗する
  */
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import definition from '../kintone/member-application.json';
+import definition from '../kintone/ledger-log.json';
 import {
-  APPLICANT_KINDS,
-  APPLICATION_FIELDS,
-  APPLICATION_STATUSES,
-  APPLICATION_TYPES,
-  PROXY_METHOD,
-  parseApplicationInput,
-  toKintoneRecord,
-} from '../api/_office-applications';
+  LEDGER_TYPES,
+  LOG_FIELDS,
+  LOG_STATUSES,
+  LedgerContext,
+  planRename,
+  planTransfer,
+} from '../api/_office-ledger';
 
 interface FieldDefinition {
   type: string;
   code: string;
-  required?: boolean;
   unique?: boolean;
   options?: Record<string, { label: string; index: string }>;
-  lookup?: { relatedApp: { app: string }; relatedKeyField: string };
 }
 
 const properties = definition.properties as Record<string, FieldDefinition>;
 const codes = Object.keys(properties);
 
 function optionsOf(code: string): string[] {
-  const options = properties[code].options ?? {};
-  return Object.entries(options)
+  return Object.entries(properties[code].options ?? {})
     .sort(([, a], [, b]) => Number(a.index) - Number(b.index))
     .map(([label]) => label);
 }
 
-describe('組合員申請アプリの定義', () => {
+const apps = { member: '96', ownership: '44', parking: '50', log: '200' };
+const owner = {
+  $id: { value: '10' },
+  $revision: { value: '3' },
+  property: { value: '01-101' },
+  member: { value: '01-101 山田' },
+  start_date: { value: '2010-04-01' },
+  end_date: { value: null },
+  status: { value: '所有中' },
+  user: { value: [{ code: '01101yamada', name: '山田' }] },
+};
+const ctx: LedgerContext = {
+  today: '2026-11-28',
+  propertyOwnerships: [owner],
+  member: {
+    $id: { value: '5' },
+    $revision: { value: '2' },
+    display: { value: '01-101 山田' },
+    status: { value: '有効' },
+    user: owner.user,
+  },
+  memberOwnerships: [owner],
+  memberParkings: [],
+};
+
+describe('台帳の更新記録アプリの定義', () => {
   it('フィールドコードはキーと code が同じ', () => {
-    for (const [key, field] of Object.entries(properties)) {
-      expect(field.code).toBe(key);
-    }
+    for (const [key, field] of Object.entries(properties)) expect(field.code).toBe(key);
   });
 
   it('Worker が読むフィールドがすべてある', () => {
-    for (const code of APPLICATION_FIELDS.filter((c) => c !== '$id')) {
-      expect(codes).toContain(code);
-    }
+    for (const code of LOG_FIELDS.filter((c) => c !== '$id')) expect(codes).toContain(code);
   });
 
-  it('Worker が書くフィールド（名義変更・情報変更の両方）がすべてある', () => {
-    const today = '2026-11-23';
-    const base = {
-      submitKey: 'key-12345678',
-      submittedDate: today,
-      applicantKind: '組合員',
-      propertyName: '01-101',
-      newName: '新しい 名前',
-    };
-    for (const body of [
-      { ...base, type: '名義変更', transferDate: today, switchDate: today },
-      { ...base, type: '情報変更' },
-    ]) {
-      const parsed = parseApplicationInput(body, today);
-      if (!parsed.ok) throw new Error(parsed.errors.join(' / '));
-      for (const code of Object.keys(toKintoneRecord(parsed.value, '01-101 旧', 'x'))) {
-        expect(codes).toContain(code);
-      }
+  it('Worker が書くフィールド（名義変更・氏名の変更の両方）がすべてある', () => {
+    const transfer = planTransfer(
+      {
+        type: '名義変更',
+        submitKey: 'key-12345678',
+        propertyName: '01-101',
+        newName: '佐藤 次郎',
+        newLogin: '01101sato',
+        switchDate: '2026-12-01',
+        transferDate: '2026-11-16',
+      },
+      ctx,
+      apps,
+      'x',
+      '2026-11-28T00:00:00Z'
+    );
+    const rename = planRename(
+      { type: '氏名の変更', submitKey: 'key-abcdefgh', propertyName: '01-101', newName: '山田 花子' },
+      ctx,
+      apps,
+      'x',
+      '2026-11-28T00:00:00Z'
+    );
+    for (const result of [transfer, rename]) {
+      if (!result.ok) throw new Error(result.errors.join(' / '));
+      for (const code of Object.keys(result.value.logRecord)) expect(codes).toContain(code);
     }
   });
 
   it('ドロップダウンの選択肢が Worker と同じ（順番も）', () => {
-    expect(optionsOf('type')).toEqual([...APPLICATION_TYPES]);
-    expect(optionsOf('status')).toEqual([...APPLICATION_STATUSES]);
-    expect(optionsOf('applicant_kind')).toEqual([...APPLICANT_KINDS]);
-    expect(optionsOf('method')).toContain(PROXY_METHOD);
+    expect(optionsOf('type')).toEqual([...LEDGER_TYPES]);
+    expect(optionsOf('status')).toEqual([...LOG_STATUSES]);
   });
 
   it('送信キーは値の重複を禁止する（二重の登録を防ぐ）', () => {
     expect(properties.submit_key.unique).toBe(true);
   });
 
-  it('物件・組合員は、作るときにアプリ ID を入れるルックアップ', () => {
-    expect(properties.property.lookup?.relatedApp.app).toBe('{{PROPERTY_APP_ID}}');
-    expect(properties.property.lookup?.relatedKeyField).toBe('property_name');
-    expect(properties.member.lookup?.relatedApp.app).toBe('{{MEMBER_APP_ID}}');
-    expect(properties.member.lookup?.relatedKeyField).toBe('display');
+  it('住所・電話番号など、扱わない個人情報のフィールドがない', () => {
+    for (const code of codes) expect(code).not.toMatch(/address|phone|move_in/);
   });
 
-  it('事務員にも管理者にも、レコードの削除の権限を付けない', () => {
-    expect(definition.rights.clerkGroup.recordDeletable).toBe(false);
-    expect(definition.rights.adminGroup.recordDeletable).toBe(false);
+  it('人が kintone の画面で書き換えたり消したりできない（Worker だけが書く）', () => {
+    for (const group of [definition.rights.clerkGroup, definition.rights.adminGroup]) {
+      expect(group.recordAddable).toBe(false);
+      expect(group.recordEditable).toBe(false);
+      expect(group.recordDeletable).toBe(false);
+    }
   });
 
-  it('OFFICE.md 4-3-2 の表のフィールドコードと同じ', () => {
+  it('OFFICE.md 0-3 の表のフィールドコードと同じ', () => {
     const doc = readFileSync(join(__dirname, '..', '..', 'OFFICE.md'), 'utf8');
-    const start = doc.indexOf('#### 4-3-2.');
-    const end = doc.indexOf('\n#', start + 1);
+    const start = doc.indexOf('### 0-3.');
+    const end = doc.indexOf('\n### ', start + 1);
     const section = doc.slice(start, end);
     const documented = [...section.matchAll(/^\| [^|]+ \| `([a-z_]+)` \|/gm)].map((m) => m[1]);
     expect(documented.sort()).toEqual([...codes].sort());

@@ -2,17 +2,18 @@
  * Cloudflare Workers - 事務員専用ページ（/member/office）の API
  *
  * 事務員（JWT の clerk。auth.ts が kintone の「事務員判定」アプリのアクセス権で判定）にだけ答える。
- * 設計と設定の手順は OFFICE.md。
+ * 設計と設定の手順は OFFICE.md（0 章が今の設計）。
  *
  * エンドポイント（すべて Authorization: Bearer <JWT> が必要）:
- * - GET /office/me     ログイン中の事務員（画面の表示の確認用）
- * - GET /office/units  住戸の一覧と、今日の時点で所有中の組合員（M_物件・M_組合員物件所有状況を読む）
- * - POST /office/applications/proxy  紙の組合員申請（名義変更・情報変更）を代理入力する
- * - GET  /office/applications?status=申請中  組合員申請の一覧（既定は申請中。新規申し込みリスト）
- * - GET  /office/applications/:id    組合員申請の詳細
+ * - GET  /office/me                       ログイン中の事務員（画面の表示の確認用）
+ * - GET  /office/units                    住戸の一覧と、今日の時点で所有中の組合員
+ * - POST /office/ledger/preview           名義変更・氏名の変更で、台帳がどう変わるか（書き込まない。確認画面用）
+ * - POST /office/ledger                   名義変更・氏名の変更を台帳に反映する（1 回の bulkRequest。更新記録も残す）
+ * - GET  /office/ledger/logs?date=        その日（既定は今日）の台帳の更新記録
+ * - POST /office/ledger/logs/:id/cancel   その日の更新を取り消す
  *
- * kintone へは API トークン（KINTONE_API_TOKEN_OFFICE。アプリごとのトークンをカンマでつないだもの）で読む。
- * 個人情報を含むので、応答はキャッシュしない。
+ * kintone へは API トークン（KINTONE_API_TOKEN_OFFICE。アプリごとのトークンをカンマでつないだもの）で読み書きする。
+ * 個人情報を含むので、応答はキャッシュしない。kintone のエラーの本文はログにも画面にも出さない。
  */
 
 import {
@@ -20,38 +21,44 @@ import {
   jsonResponse as sharedJsonResponse,
 } from './_cors';
 import { JWTPayload, verifyJWT } from './_jwt';
+import { OwnershipRecord, PropertyRecord, buildUnits, todayJst } from './_office';
 import {
-  OwnershipRecord,
-  PropertyRecord,
-  buildUnits,
-  isOwnedOn,
-  todayJst,
-} from './_office';
-import {
-  APPLICATION_FIELDS,
-  APPLICATION_STATUSES,
-  ApplicationRecord,
-  fromKintoneRecord,
-  parseApplicationInput,
-  toKintoneRecord,
-} from './_office-applications';
+  BulkRequest,
+  LOG_FIELDS,
+  LedgerApps,
+  LedgerContext,
+  LedgerInput,
+  LedgerMember,
+  LedgerOwnership,
+  LedgerParking,
+  LedgerPlan,
+  LogRecord,
+  Parsed,
+  isValidDate,
+  parseLedgerInput,
+  planCancel,
+  planRename,
+  planTransfer,
+  toLogView,
+} from './_office-ledger';
 
 interface Env {
   JWT_SECRET: string;
   KINTONE_DOMAIN: string;
-  // アプリごとの API トークンをカンマでつないだもの（閲覧だけ: M_物件・M_組合員物件所有状況。ルックアップの参照先の分も要る）
+  // アプリごとの API トークンをカンマでつないだもの（OFFICE.md 0-4）
   KINTONE_API_TOKEN_OFFICE: string;
   KINTONE_APP_ID_PROPERTY: string; // M_物件
   KINTONE_APP_ID_OWNERSHIP: string; // M_組合員物件所有状況
-  // 組合員申請（OFFICE.md 4-3-2）。未設定なら申請の API は 500 を返す（住戸の一覧は使える）
-  KINTONE_APP_ID_MEMBER_APPLICATION?: string;
+  // 台帳の更新（OFFICE.md 0 章）。どれかが未設定なら、台帳の更新の API は 500 を返す（住戸の一覧は使える）
+  KINTONE_APP_ID_MEMBER?: string; // M_組合員
+  KINTONE_APP_ID_LEDGER_LOG?: string; // 台帳の更新記録
+  KINTONE_APP_ID_PARKING?: string; // M_組合員駐車場契約（任意。無ければ駐車場の契約を見ない・写し直さない）
 }
 
 // 利用者を識別できなかったときの sub（auth.ts と同じ）。だれが操作したかを残せないので受けない
 const UNIDENTIFIED_USER_ID = 'kintone-user';
 const PAGE_SIZE = 500;
 const MAX_BODY_BYTES = 16 * 1024;
-
 const METHODS = 'GET, POST, OPTIONS';
 
 function corsHeaders(origin?: string): Record<string, string> {
@@ -82,7 +89,28 @@ async function authenticateClerk(
   return payload;
 }
 
-/** アプリのレコードをすべて読む（キャッシュしない） */
+class KintoneError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    appId: string
+  ) {
+    super(`kintone ${status} ${code} (app ${appId})`);
+  }
+}
+
+async function kintoneFailure(response: Response, appId: string): Promise<KintoneError> {
+  // 本文には個人情報が入りうるので、エラーコードだけを取り出す（bulkRequest は results の中にある）
+  const data = (await response.json().catch(() => ({}))) as {
+    code?: unknown;
+    results?: { code?: unknown }[];
+  };
+  const failed = Array.isArray(data.results) ? data.results.find((r) => r?.code) : undefined;
+  const code = String(failed?.code ?? data.code ?? '');
+  return new KintoneError(response.status, /^[A-Z0-9_]{1,40}$/.test(code) ? code : '', appId);
+}
+
+/** アプリのレコードを条件に合うだけ読む（キャッシュしない） */
 async function fetchAllRecords<T>(
   env: Env,
   appId: string,
@@ -101,13 +129,41 @@ async function fetchAllRecords<T>(
     const response = await fetch(url.toString(), {
       headers: { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_OFFICE },
     });
-    if (!response.ok) {
-      // 応答の本文には個人情報が入りうるので、ログには状態コードとアプリ ID だけを出す
-      throw new Error(`kintone ${response.status} (app ${appId})`);
-    }
+    if (!response.ok) throw await kintoneFailure(response, appId);
     const data = (await response.json()) as { records: T[] };
     all.push(...data.records);
     if (data.records.length < PAGE_SIZE) return all;
+  }
+}
+
+async function kintoneSend<T>(
+  env: Env,
+  method: 'GET' | 'POST' | 'PUT',
+  path: string,
+  appId: string,
+  body?: unknown,
+  params: Record<string, string> = {}
+): Promise<T> {
+  const url = new URL(`https://${env.KINTONE_DOMAIN}${path}`);
+  const headers: Record<string, string> = { 'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_OFFICE };
+  for (const [key, v] of Object.entries(params)) url.searchParams.set(key, v);
+  if (method !== 'GET') headers['Content-Type'] = 'application/json';
+  const response = await fetch(url.toString(), {
+    method,
+    headers,
+    body: method === 'GET' ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) throw await kintoneFailure(response, appId);
+  return (await response.json()) as T;
+}
+
+async function readJsonBody(request: Request): Promise<unknown> {
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }
 
@@ -129,185 +185,197 @@ async function handleUnits(env: Env, origin?: string): Promise<Response> {
     ]),
   ]);
   const date = todayJst();
-  return jsonResponse(
-    { date, units: buildUnits(properties, ownerships, date) },
-    200,
-    origin
-  );
+  return jsonResponse({ date, units: buildUnits(properties, ownerships, date) }, 200, origin);
 }
 
-/** kintone の 1 件の取得・追加。失敗したら状態コードとアプリ ID だけのエラーを投げる */
-async function kintoneRequest<T>(
-  env: Env,
-  method: 'GET' | 'POST',
-  path: string,
-  appId: string,
-  body?: unknown,
-  params: Record<string, string> = {}
-): Promise<T> {
-  const url = new URL(`https://${env.KINTONE_DOMAIN}${path}`);
-  const headers: Record<string, string> = {
-    'X-Cybozu-API-Token': env.KINTONE_API_TOKEN_OFFICE,
-  };
-  if (method === 'GET') {
-    url.searchParams.set('app', appId);
-    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  } else {
-    headers['Content-Type'] = 'application/json';
-  }
-  const response = await fetch(url.toString(), {
-    method,
-    headers,
-    body: method === 'POST' ? JSON.stringify({ app: appId, ...(body as object) }) : undefined,
-  });
-  if (!response.ok) {
-    throw new KintoneError(response.status, appId);
-  }
-  return (await response.json()) as T;
-}
+const OWNERSHIP_FIELDS = [
+  '$id',
+  '$revision',
+  'property',
+  'member',
+  'start_date',
+  'end_date',
+  'status',
+  'user',
+  'management_fee',
+  'repair_reserve_fee',
+];
 
-class KintoneError extends Error {
-  constructor(
-    readonly status: number,
-    appId: string
-  ) {
-    super(`kintone ${status} (app ${appId})`);
-  }
-}
-
-/** 物件を今日所有中の組合員の表示。いない・2 件以上なら、画面に出すエラーを返す */
-async function findCurrentOwner(
-  env: Env,
-  propertyName: string
-): Promise<{ display: string } | { error: string }> {
-  // propertyName は parseApplicationInput が「00-000」の形だけを通すので、クエリにそのまま入れてよい
-  const ownerships = await fetchAllRecords<OwnershipRecord>(
+/** 物件の今の台帳の状態を読む（物件名・ログイン名は parseLedgerInput が形を確かめたものだけをクエリに入れる） */
+async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Promise<LedgerContext> {
+  const today = todayJst();
+  const propertyOwnerships = await fetchAllRecords<LedgerOwnership>(
     env,
-    env.KINTONE_APP_ID_OWNERSHIP,
-    ['$id', 'property', 'member', 'start_date', 'end_date', 'user'],
+    apps.ownership,
+    OWNERSHIP_FIELDS,
     `property = "${propertyName}"`
   );
-  const owned = ownerships.filter((o) => isOwnedOn(o, todayJst()));
-  if (owned.length === 0) {
-    return { error: 'このお部屋には、いま所有している組合員が登録されていません。管理者に台帳の確認を頼んでください' };
+  const owned = propertyOwnerships.filter((o) => {
+    const start = o.start_date.value;
+    const end = o.end_date.value;
+    return (!start || start <= today) && (!end || today <= end);
+  });
+  const userCode = owned.length === 1 ? owned[0].user.value[0]?.code : undefined;
+  if (!userCode || !/^[A-Za-z0-9._@-]{1,64}$/.test(userCode)) {
+    return { today, propertyOwnerships, member: null, memberOwnerships: [], memberParkings: [] };
   }
-  if (owned.length > 1) {
-    return { error: 'このお部屋は所有の記録が重なっています。管理者に台帳の確認を頼んでください' };
-  }
-  return { display: owned[0].member.value };
+  const byUser = `user in ("${userCode}")`;
+  const [members, memberOwnerships, memberParkings] = await Promise.all([
+    fetchAllRecords<LedgerMember>(env, apps.member, ['$id', '$revision', 'display', 'status', 'user'], byUser),
+    fetchAllRecords<LedgerOwnership>(env, apps.ownership, OWNERSHIP_FIELDS, byUser),
+    apps.parking
+      ? fetchAllRecords<LedgerParking>(
+          env,
+          apps.parking,
+          ['$id', '$revision', 'member', 'start_date', 'end_date'],
+          byUser
+        )
+      : Promise.resolve([] as LedgerParking[]),
+  ]);
+  return {
+    today,
+    propertyOwnerships,
+    member: members.length === 1 ? members[0] : null,
+    memberOwnerships,
+    memberParkings,
+  };
 }
 
-async function readJsonBody(request: Request): Promise<unknown> {
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+function plan(
+  input: LedgerInput,
+  ctx: LedgerContext,
+  apps: LedgerApps,
+  payload: JWTPayload
+): Parsed<LedgerPlan> {
+  const enteredBy = `${payload.name}（${payload.sub}）`;
+  const enteredAt = new Date().toISOString();
+  return input.type === '名義変更'
+    ? planTransfer(input, ctx, apps, enteredBy, enteredAt)
+    : planRename(input, ctx, apps, enteredBy, enteredAt);
 }
 
-async function handleProxyApplication(
-  request: Request,
-  env: Env,
-  appId: string,
-  payload: JWTPayload,
-  origin?: string
-): Promise<Response> {
-  const parsed = parseApplicationInput(await readJsonBody(request), todayJst());
-  if (!parsed.ok) {
-    return jsonResponse({ error: 'invalid', messages: parsed.errors }, 400, origin);
+function invalid(messages: string[], origin?: string): Response {
+  return jsonResponse({ error: 'invalid', messages }, 400, origin);
+}
+
+/** kintone が書き込みを断ったときに、画面に出すことば */
+function rejectedMessage(error: KintoneError): string {
+  if (error.code === 'GAIA_CO02' || error.code === 'GAIA_CO04') {
+    return 'ほかの人が先に台帳を変えました。画面を開き直して、もう一度入力してください';
   }
+  if (error.code.startsWith('GAIA_LO')) {
+    return '台帳のつながり（ルックアップ）が合わず、更新できませんでした。管理者に台帳の確認を頼んでください';
+  }
+  return '台帳を更新できませんでした。ログイン名のユーザーが cybozu.com にあるか、氏名が同じ組合員がいないかを確かめて、管理者に相談してください';
+}
+
+async function handlePreview(request: Request, env: Env, apps: LedgerApps, payload: JWTPayload, origin?: string) {
+  const parsed = parseLedgerInput(await readJsonBody(request));
+  if (!parsed.ok) return invalid(parsed.errors, origin);
+  const planned = plan(parsed.value, await loadContext(env, apps, parsed.value.propertyName), apps, payload);
+  if (!planned.ok) return invalid(planned.errors, origin);
+  const { summary, warnings, notices, proration } = planned.value;
+  return jsonResponse({ summary, warnings, notices, proration }, 200, origin);
+}
+
+async function handleApply(request: Request, env: Env, apps: LedgerApps, payload: JWTPayload, origin?: string) {
+  const parsed = parseLedgerInput(await readJsonBody(request));
+  if (!parsed.ok) return invalid(parsed.errors, origin);
   const input = parsed.value;
 
-  // 同じ送信キーの申請がすでにあれば、新しく作らずにその番号を返す（ボタンの二度押し・通信のやり直し）
-  const existing = await fetchAllRecords<ApplicationRecord>(
-    env,
-    appId,
-    ['$id'],
-    `submit_key = "${input.submitKey}"`
-  );
+  // 同じ送信キーの記録がすでにあれば、新しく書き込まずにその番号を返す（ボタンの二度押し・通信のやり直し）
+  const existing = await fetchAllRecords<LogRecord>(env, apps.log, ['$id'], `submit_key = "${input.submitKey}"`);
   if (existing.length > 0) {
-    return jsonResponse(
-      { id: String(existing[0].$id?.value ?? ''), duplicate: true },
-      200,
-      origin
-    );
+    return jsonResponse({ logId: String(existing[0].$id?.value ?? ''), duplicate: true }, 200, origin);
   }
 
-  const owner = await findCurrentOwner(env, input.propertyName);
-  if ('error' in owner) {
-    return jsonResponse({ error: 'invalid', messages: [owner.error] }, 400, origin);
-  }
-
-  const enteredBy = `${payload.name}（${payload.sub}）`;
+  const planned = plan(input, await loadContext(env, apps, input.propertyName), apps, payload);
+  if (!planned.ok) return invalid(planned.errors, origin);
+  const { requests, logRecord, summary, notices } = planned.value;
+  const all: BulkRequest[] = [
+    ...requests,
+    { method: 'POST', api: '/k/v1/record.json', payload: { app: apps.log, record: logRecord } },
+  ];
+  let results: { id?: string }[];
   try {
-    const created = await kintoneRequest<{ id: string }>(
-      env,
-      'POST',
-      '/k/v1/record.json',
-      appId,
-      { record: toKintoneRecord(input, owner.display, enteredBy) }
-    );
-    return jsonResponse({ id: created.id, duplicate: false }, 201, origin);
+    const data = await kintoneSend<{ results: { id?: string }[] }>(env, 'POST', '/k/v1/bulkRequest.json', apps.log, {
+      requests: all,
+    });
+    results = data.results;
   } catch (error) {
     if (error instanceof KintoneError && error.status === 400) {
-      // ルックアップの不一致・重複の禁止など。中身は個人情報を含みうるので返さない
-      return jsonResponse(
-        { error: 'kintone_rejected', messages: ['台帳に登録できませんでした。お部屋と組合員の登録を管理者に確かめてもらってください'] },
-        502,
-        origin
-      );
+      return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error)] }, 409, origin);
     }
     throw error;
   }
-}
+  const logId = String(results[results.length - 1]?.id ?? '');
 
-async function handleListApplications(
-  url: URL,
-  env: Env,
-  appId: string,
-  origin?: string
-): Promise<Response> {
-  const status = url.searchParams.get('status') ?? '申請中';
-  if (!(APPLICATION_STATUSES as readonly string[]).includes(status)) {
-    return jsonResponse({ error: 'invalid status' }, 400, origin);
+  // 名義変更は、取り消しに使うため、作った組合員と所有状況の番号を記録に足す（失敗しても台帳の更新は済んでいる）
+  if (input.type === '名義変更') {
+    const after = JSON.parse(logRecord.after.value) as Record<string, unknown>;
+    after.ids = { member: String(results[2]?.id ?? ''), ownership: String(results[3]?.id ?? '') };
+    try {
+      await kintoneSend(env, 'PUT', '/k/v1/record.json', apps.log, {
+        app: apps.log,
+        id: logId,
+        record: { after: { value: JSON.stringify(after) } },
+      });
+    } catch (error) {
+      console.error('[Office] Failed to save created ids to the log:', error instanceof Error ? error.message : error);
+    }
   }
-  const records = await fetchAllRecords<ApplicationRecord>(
-    env,
-    appId,
-    APPLICATION_FIELDS,
-    `status in ("${status}")`
-  );
-  return jsonResponse(
-    { status, applications: records.map(fromKintoneRecord) },
-    200,
-    origin
-  );
+  return jsonResponse({ logId, duplicate: false, summary, notices }, 201, origin);
 }
 
-async function handleGetApplication(
-  id: string,
-  env: Env,
-  appId: string,
-  origin?: string
-): Promise<Response> {
+async function handleLogs(url: URL, env: Env, apps: LedgerApps, origin?: string): Promise<Response> {
+  const date = url.searchParams.get('date') ?? todayJst();
+  if (!isValidDate(date)) return jsonResponse({ error: 'invalid date' }, 400, origin);
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const records = await fetchAllRecords<LogRecord>(
+    env,
+    apps.log,
+    LOG_FIELDS,
+    `entered_at >= "${date}T00:00:00+09:00" and entered_at < "${next.toISOString().slice(0, 10)}T00:00:00+09:00"`
+  );
+  return jsonResponse({ date, logs: records.map(toLogView) }, 200, origin);
+}
+
+async function handleCancel(id: string, env: Env, apps: LedgerApps, payload: JWTPayload, origin?: string) {
+  let log: LogRecord;
   try {
-    const data = await kintoneRequest<{ record: ApplicationRecord }>(
-      env,
-      'GET',
-      '/k/v1/record.json',
-      appId,
-      undefined,
-      { id }
-    );
-    return jsonResponse({ application: fromKintoneRecord(data.record) }, 200, origin);
+    const data = await kintoneSend<{ record: LogRecord }>(env, 'GET', '/k/v1/record.json', apps.log, undefined, {
+      app: apps.log,
+      id,
+    });
+    log = data.record;
   } catch (error) {
     if (error instanceof KintoneError && (error.status === 404 || error.status === 400)) {
       return jsonResponse({ error: 'Not found' }, 404, origin);
     }
     throw error;
   }
+  const planned = planCancel(log, apps, todayJst(), `${payload.name}（${payload.sub}）`, new Date().toISOString());
+  if (!planned.ok) return invalid(planned.errors, origin);
+  try {
+    await kintoneSend(env, 'POST', '/k/v1/bulkRequest.json', apps.log, { requests: planned.value });
+  } catch (error) {
+    if (error instanceof KintoneError && error.status === 400) {
+      return jsonResponse({ error: 'kintone_rejected', messages: [rejectedMessage(error)] }, 409, origin);
+    }
+    throw error;
+  }
+  return jsonResponse({ ok: true }, 200, origin);
+}
+
+function ledgerApps(env: Env): LedgerApps | null {
+  if (!env.KINTONE_APP_ID_MEMBER || !env.KINTONE_APP_ID_LEDGER_LOG) return null;
+  return {
+    member: env.KINTONE_APP_ID_MEMBER,
+    ownership: env.KINTONE_APP_ID_OWNERSHIP,
+    parking: env.KINTONE_APP_ID_PARKING || undefined,
+    log: env.KINTONE_APP_ID_LEDGER_LOG,
+  };
 }
 
 async function route(
@@ -323,22 +391,26 @@ async function route(
   if (request.method === 'GET' && path === '/office/units') {
     return handleUnits(env, origin);
   }
-  if (path.startsWith('/office/applications')) {
-    const appId = env.KINTONE_APP_ID_MEMBER_APPLICATION;
-    if (!appId) {
-      console.error('[Office] KINTONE_APP_ID_MEMBER_APPLICATION is not set');
-      return jsonResponse({ error: 'Server configuration error' }, 500, origin);
-    }
-    if (request.method === 'POST' && path === '/office/applications/proxy') {
-      return handleProxyApplication(request, env, appId, payload, origin);
-    }
-    if (request.method === 'GET' && path === '/office/applications') {
-      return handleListApplications(new URL(request.url), env, appId, origin);
-    }
-    const match = path.match(/^\/office\/applications\/(\d+)$/);
-    if (request.method === 'GET' && match) {
-      return handleGetApplication(match[1], env, appId, origin);
-    }
+  if (!path.startsWith('/office/ledger')) {
+    return jsonResponse({ error: 'Not found' }, 404, origin);
+  }
+  const apps = ledgerApps(env);
+  if (!apps) {
+    console.error('[Office] KINTONE_APP_ID_MEMBER or KINTONE_APP_ID_LEDGER_LOG is not set');
+    return jsonResponse({ error: 'Server configuration error' }, 500, origin);
+  }
+  if (request.method === 'POST' && path === '/office/ledger/preview') {
+    return handlePreview(request, env, apps, payload, origin);
+  }
+  if (request.method === 'POST' && path === '/office/ledger') {
+    return handleApply(request, env, apps, payload, origin);
+  }
+  if (request.method === 'GET' && path === '/office/ledger/logs') {
+    return handleLogs(new URL(request.url), env, apps, origin);
+  }
+  const match = /^\/office\/ledger\/logs\/(\d{1,10})\/cancel$/.exec(path);
+  if (request.method === 'POST' && match) {
+    return handleCancel(match[1], env, apps, payload, origin);
   }
   return jsonResponse({ error: 'Not found' }, 404, origin);
 }
