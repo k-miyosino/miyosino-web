@@ -231,6 +231,76 @@ describe('planTransfer（名義変更）', () => {
     expect(planned.value.summary[2]).toContain('前に取り消した組合員の登録（01-101佐藤次朗（取り消し 9））を使い直し');
   });
 
+  it('使い直す組合員を指す、取り消した所有状況（期間が空）があれば、それも新しく作らずに書き換える', () => {
+    const canceledOwnership = ownership({
+      $id: { value: '400' },
+      $revision: { value: '6' },
+      member: { value: '01-101佐藤次朗（取り消し 9）' },
+      start_date: { value: '2026-12-01' },
+      end_date: { value: '2026-11-30' },
+      status: { value: '所有前' },
+    });
+    // 別の組合員を指す期間の空の所有状況は使わない
+    const other = ownership({
+      $id: { value: '401' },
+      member: { value: '01-101鈴木（取り消し 3）' },
+      start_date: { value: '2026-12-01' },
+      end_date: { value: '2026-11-30' },
+    });
+    const planned = planTransfer(
+      transfer,
+      context({
+        loginMembers: [canceledMember()],
+        propertyOwnerships: [ownership(), canceledOwnership, other],
+      }),
+      apps,
+      'x',
+      '2026-11-28T01:00:00.000Z'
+    );
+    if (!planned.ok) throw new Error(planned.errors.join(' / '));
+    expect(planned.value.requests[3]).toEqual({
+      method: 'PUT',
+      api: '/k/v1/record.json',
+      payload: {
+        app: '44',
+        id: '400',
+        revision: '6',
+        record: {
+          member: { value: '01-101佐藤次郎' },
+          start_date: { value: '2026-12-01' },
+          end_date: { value: '' },
+          status: { value: '所有中' },
+        },
+      },
+    });
+    expect(JSON.parse(planned.value.logRecord.before.value).reusedOwnership).toEqual({
+      id: '400',
+      member: '01-101佐藤次朗（取り消し 9）',
+      start_date: '2026-12-01',
+      end_date: '2026-11-30',
+      status: '所有前',
+    });
+    expect(JSON.parse(planned.value.logRecord.after.value).ids).toEqual({ member: '300', ownership: '400' });
+    expect(planned.value.summary[3]).toContain('前に取り消した所有状況の記録を使い直します');
+
+    // 取り消すと、組合員も所有状況も使い直す前の状態に戻す
+    const log = { $id: { value: '13' }, ...planned.value.logRecord };
+    const cancel = planCancel(log, apps, TODAY, 'x', 'now');
+    if (!cancel.ok) throw new Error(cancel.errors.join(' / '));
+    expect(cancel.value.slice(2, 4).map((r) => [r.payload.id, r.payload.record])).toEqual([
+      ['300', { status: { value: '無効' }, display: { value: '01-101佐藤次朗（取り消し 9）' } }],
+      [
+        '400',
+        {
+          member: { value: '01-101佐藤次朗（取り消し 9）' },
+          start_date: { value: '2026-12-01' },
+          end_date: { value: '2026-11-30' },
+          status: { value: '所有前' },
+        },
+      ],
+    ]);
+  });
+
   it('取り消した組合員が複数あれば、いちばん新しいものを使い直す', () => {
     const planned = planTransfer(
       transfer,
