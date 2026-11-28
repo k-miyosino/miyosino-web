@@ -59,7 +59,7 @@ beforeEach(() => {
   previewMock.mockResolvedValue({
     summary: [
       '01-101 山田 様の所有を 2026年11月30日 で終えます（譲渡済）',
-      '新しい組合員「01-101 佐藤 次郎」を登録します',
+      '新しい組合員「01-101佐藤 次郎」を登録します',
     ],
     warnings: ['01-101 山田 様には、続いている駐車場の契約が 1 件あります。'],
     notices: [
@@ -89,9 +89,13 @@ describe('台帳を更新する', () => {
     click('次へ →');
     await chooseRoom();
     click('次へ →');
-    fireEvent.change(screen.getByLabelText(/新しい組合員の氏名/), {
-      target: { value: '佐藤 次郎' },
+    fireEvent.change(screen.getByLabelText('姓'), {
+      target: { value: '佐藤' },
     });
+    fireEvent.change(screen.getByLabelText('名'), {
+      target: { value: '次郎' },
+    });
+    expect(screen.getByText('01-101佐藤 次郎')).toBeTruthy();
     click('次へ →');
 
     // ログイン名はお部屋の番号で始まる
@@ -149,8 +153,11 @@ describe('台帳を更新する', () => {
     await chooseRoom();
     click('次へ →');
     expect(screen.getByText(/いま 3 \/ 4/)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText(/変更後の氏名/), {
-      target: { value: '山田 花子' },
+    fireEvent.change(screen.getByLabelText('姓'), {
+      target: { value: '山田' },
+    });
+    fireEvent.change(screen.getByLabelText('名'), {
+      target: { value: '花子' },
     });
     click('次へ →');
     await screen.findByText('台帳がこう変わります（確認）');
@@ -171,8 +178,11 @@ describe('台帳を更新する', () => {
     click('次へ →');
     await chooseRoom();
     click('次へ →');
-    fireEvent.change(screen.getByLabelText(/変更後の氏名/), {
-      target: { value: '山田 花子' },
+    fireEvent.change(screen.getByLabelText('姓'), {
+      target: { value: '山田' },
+    });
+    fireEvent.change(screen.getByLabelText('名'), {
+      target: { value: '花子' },
     });
     click('次へ →');
     await waitFor(() =>
@@ -194,8 +204,11 @@ describe('台帳を更新する', () => {
     click('次へ →');
     await chooseRoom();
     click('次へ →');
-    fireEvent.change(screen.getByLabelText(/変更後の氏名/), {
-      target: { value: '山田 花子' },
+    fireEvent.change(screen.getByLabelText('姓'), {
+      target: { value: '山田' },
+    });
+    fireEvent.change(screen.getByLabelText('名'), {
+      target: { value: '花子' },
     });
     click('次へ →');
     await screen.findByText('台帳がこう変わります（確認）');

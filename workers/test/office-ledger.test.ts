@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import office from '../api/office';
 import {
+  BulkRequest,
   LedgerContext,
   LedgerOwnership,
   computeProration,
@@ -14,6 +15,7 @@ import {
   planRename,
   planTransfer,
   previousDay,
+  uniqueDisplay,
 } from '../api/_office-ledger';
 import { todayJst } from '../api/_office';
 import { TEST_SECRET, json, makeToken, silenceConsole, stubFetch } from './helpers';
@@ -28,7 +30,7 @@ function ownership(overrides: Partial<Record<keyof LedgerOwnership, unknown>> = 
     $id: { value: '10' },
     $revision: { value: '3' },
     property: { value: '01-101' },
-    member: { value: '01-101 山田' },
+    member: { value: '01-101山田' },
     start_date: { value: '2010-04-01' },
     end_date: { value: null },
     status: { value: '所有中' },
@@ -47,7 +49,7 @@ function context(overrides: Partial<LedgerContext> = {}): LedgerContext {
     member: {
       $id: { value: '5' },
       $revision: { value: '2' },
-      display: { value: '01-101 山田' },
+      display: { value: '01-101山田' },
       status: { value: '有効' },
       user: owner.user,
     },
@@ -61,7 +63,7 @@ const transfer = {
   type: '名義変更' as const,
   submitKey: 'key-12345678',
   propertyName: '01-101',
-  newName: '佐藤 次郎',
+  newName: '佐藤次郎',
   newLogin: '01101sato',
   switchDate: '2026-12-01',
   transferDate: '2026-11-16',
@@ -70,7 +72,7 @@ const rename = {
   type: '氏名の変更' as const,
   submitKey: 'key-abcdefgh',
   propertyName: '01-101',
-  newName: '山田 花子',
+  newName: '山田花子',
 };
 
 describe('parseLedgerInput', () => {
@@ -118,7 +120,7 @@ describe('planTransfer（名義変更）', () => {
     expect(newMember.payload).toEqual({
       app: '96',
       record: {
-        display: { value: '01-101 佐藤 次郎' },
+        display: { value: '01-101佐藤次郎' },
         user: { value: [{ code: '01101sato' }] },
         status: { value: '有効' },
       },
@@ -126,14 +128,14 @@ describe('planTransfer（名義変更）', () => {
     expect(newOwnership.payload).toEqual({
       app: '44',
       record: {
-        member: { value: '01-101 佐藤 次郎' },
+        member: { value: '01-101佐藤次郎' },
         property: { value: '01-101' },
         start_date: { value: '2026-12-01' },
         status: { value: '所有中' },
       },
     });
     const log = planned.value.logRecord;
-    expect(log.old_member.value).toBe('01-101 山田');
+    expect(log.old_member.value).toBe('01-101山田');
     expect(log.entered_by.value).toBe('事務 佐藤（clerk）');
     expect(JSON.parse(log.before.value)).toEqual({
       oldOwnership: { id: '10', end_date: '', status: '所有中' },
@@ -162,7 +164,7 @@ describe('planTransfer（名義変更）', () => {
     const parking = {
       $id: { value: '70' },
       $revision: { value: '1' },
-      member: { value: '01-101 山田' },
+      member: { value: '01-101山田' },
       start_date: { value: '2020-01-01' },
       end_date: { value: null },
     };
@@ -193,19 +195,19 @@ describe('planRename（氏名の変更）', () => {
     const parking = {
       $id: { value: '70' },
       $revision: { value: '4' },
-      member: { value: '01-101 山田' },
+      member: { value: '01-101山田' },
       start_date: { value: '2020-01-01' },
       end_date: { value: null },
     };
     const planned = planRename(rename, context({ memberParkings: [parking] }), apps, 'x', 'y');
     if (!planned.ok) throw new Error(planned.errors.join(' / '));
     expect(planned.value.requests.map((r) => [r.payload.app, r.payload.id, r.payload.record])).toEqual([
-      ['96', '5', { display: { value: '01-101 山田 花子' } }],
-      ['44', '10', { member: { value: '01-101 山田 花子' } }],
-      ['50', '70', { member: { value: '01-101 山田 花子' } }],
+      ['96', '5', { display: { value: '01-101山田花子' } }],
+      ['44', '10', { member: { value: '01-101山田花子' } }],
+      ['50', '70', { member: { value: '01-101山田花子' } }],
     ]);
     expect(JSON.parse(planned.value.logRecord.before.value)).toEqual({
-      member: { id: '5', display: '01-101 山田' },
+      member: { id: '5', display: '01-101山田' },
       ownerships: ['10'],
       parkings: ['70'],
     });
@@ -219,6 +221,53 @@ describe('planRename（氏名の変更）', () => {
 
   it('今と同じ氏名なら断る', () => {
     expect(planRename({ ...rename, newName: '山田' }, context(), apps, 'x', 'y').ok).toBe(false);
+  });
+
+  it('ほかの組合員の表示と重なれば番号を付ける（今の自分の表示は数えない）', () => {
+    const planned = planRename(
+      rename,
+      context({ takenDisplays: ['01-101山田', '01-101山田花子'] }),
+      apps,
+      'x',
+      'y'
+    );
+    if (!planned.ok) throw new Error(planned.errors.join(' / '));
+    expect(recordOf(planned.value.requests[0])).toEqual({ display: { value: '01-101山田花子(2)' } });
+    expect(planned.value.warnings[0]).toContain('01-101山田花子(2)');
+  });
+});
+
+function recordOf(request: BulkRequest): Record<string, unknown> {
+  return request.payload.record as Record<string, unknown>;
+}
+
+describe('台帳の「表示」の形', () => {
+  it('氏名の間の空白（全角・半角・続いたもの）は半角 1 つにし、物件名とは空けずにつなぐ（今の台帳の「01-101田中」と同じ形）', () => {
+    const parsed = parseLedgerInput({ ...transfer, newName: '　田中　 太郎 ' });
+    expect(parsed.ok && parsed.value.newName).toBe('田中 太郎');
+    const foreign = parseLedgerInput({ ...transfer, newName: 'John　 A  Smith' });
+    expect(foreign.ok && foreign.value.newName).toBe('John A Smith');
+    const planned = planTransfer({ ...transfer, newName: '田中 太郎' }, context(), apps, 'x', 'y');
+    expect(planned.ok && recordOf(planned.value.requests[2]).display).toEqual({ value: '01-101田中 太郎' });
+  });
+
+  it('名義変更で、同じ表示の組合員（同じ姓名の旧組合員など）がいれば、重ならない番号を付けて知らせる', () => {
+    const planned = planTransfer(
+      { ...transfer, newName: '山田' },
+      context({ takenDisplays: ['01-101山田', '01-101山田(2)'] }),
+      apps,
+      'x',
+      'y'
+    );
+    if (!planned.ok) throw new Error(planned.errors.join(' / '));
+    expect(recordOf(planned.value.requests[2]).display).toEqual({ value: '01-101山田(3)' });
+    expect(recordOf(planned.value.requests[3]).member).toEqual({ value: '01-101山田(3)' });
+    expect(planned.value.warnings[0]).toContain('「01-101山田(3)」で登録します');
+  });
+
+  it('uniqueDisplay は重ならなければそのまま、重なれば (2) から順に空いている番号', () => {
+    expect(uniqueDisplay('01-101田中', [])).toBe('01-101田中');
+    expect(uniqueDisplay('01-101田中', ['01-101田中', '01-101田中(3)'])).toBe('01-101田中(2)');
   });
 });
 
@@ -240,8 +289,8 @@ describe('planCancel（その日の取り消し）', () => {
     expect(planned.value.map((r) => [r.payload.app, r.payload.id, r.payload.record])).toEqual([
       ['44', '10', { end_date: { value: '' }, status: { value: '所有中' } }],
       ['96', '5', { status: { value: '有効' } }],
-      ['96', '300', { status: { value: '無効' }, display: { value: '01-101 佐藤 次郎（取り消し 9）' } }],
-      ['44', '400', { member: { value: '01-101 佐藤 次郎（取り消し 9）' }, end_date: { value: '2026-11-30' }, status: { value: '所有前' } }],
+      ['96', '300', { status: { value: '無効' }, display: { value: '01-101佐藤次郎（取り消し 9）' } }],
+      ['44', '400', { member: { value: '01-101佐藤次郎（取り消し 9）' }, end_date: { value: '2026-11-30' }, status: { value: '所有前' } }],
       ['200', '9', { status: { value: '取り消し' }, canceled_by: { value: '事務 佐藤（clerk）' }, canceled_at: { value: 'now' } }],
     ]);
   });
@@ -253,8 +302,8 @@ describe('planCancel（その日の取り消し）', () => {
     const cancel = planCancel(log, apps, TODAY, 'y', 'now');
     if (!cancel.ok) throw new Error(cancel.errors.join(' / '));
     expect(cancel.value.map((r) => [r.payload.id, r.payload.record])).toEqual([
-      ['5', { display: { value: '01-101 山田' } }],
-      ['10', { member: { value: '01-101 山田' } }],
+      ['5', { display: { value: '01-101山田' } }],
+      ['10', { member: { value: '01-101山田' } }],
       ['8', { status: { value: '取り消し' }, canceled_by: { value: 'y' }, canceled_at: { value: 'now' } }],
     ]);
   });
@@ -315,7 +364,7 @@ function stubKintone(options: { existing?: unknown[]; bulkStatus?: number; bulkC
     }
     if (url.pathname === '/k/v1/bulkRequest.json') {
       if (options.bulkStatus) {
-        return json({ results: [{}, { code: options.bulkCode ?? 'GAIA_XX', message: '01-101 山田 の個人情報' }] }, options.bulkStatus);
+        return json({ results: [{}, { code: options.bulkCode ?? 'GAIA_XX', message: '01-101山田 の個人情報' }] }, options.bulkStatus);
       }
       const body = JSON.parse(String(init?.body)) as { requests: unknown[] };
       return json({ results: body.requests.map((_, i) => ({ id: String(100 + i), revision: '1' })) });
@@ -349,6 +398,8 @@ describe('POST /office/ledger/preview', () => {
     const queries = calls.map((c) => c.url.searchParams.get('query') ?? '');
     expect(queries.some((q) => q.startsWith('property = "01-101"'))).toBe(true);
     expect(queries.some((q) => q.startsWith('user in ("01101yamada")'))).toBe(true);
+    // 新しい表示が重ならないよう、物件名を含む組合員の表示も読む
+    expect(queries.some((q) => q.startsWith('display like "01-101"'))).toBe(true);
   });
 
   it('入力の誤りは 400 と画面に出すエラー', async () => {

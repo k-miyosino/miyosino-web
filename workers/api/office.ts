@@ -221,9 +221,15 @@ async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Pr
     const end = o.end_date.value;
     return (!start || start <= today) && (!end || today <= end);
   });
+  // 新しい「表示」が重ならないよう、その物件名を含む M_組合員の表示を読む（like は部分一致なので、先頭で絞り直す）
+  const takenDisplays = (
+    await fetchAllRecords<{ display: { value: string } }>(env, apps.member, ['display'], `display like "${propertyName}"`)
+  )
+    .map((m) => m.display?.value ?? '')
+    .filter((d) => d.startsWith(propertyName));
   const userCode = owned.length === 1 ? owned[0].user.value[0]?.code : undefined;
   if (!userCode || !/^[A-Za-z0-9._@-]{1,64}$/.test(userCode)) {
-    return { today, propertyOwnerships, member: null, memberOwnerships: [], memberParkings: [] };
+    return { today, propertyOwnerships, member: null, memberOwnerships: [], memberParkings: [], takenDisplays };
   }
   const byUser = `user in ("${userCode}")`;
   const [members, memberOwnerships, memberParkings] = await Promise.all([
@@ -244,6 +250,7 @@ async function loadContext(env: Env, apps: LedgerApps, propertyName: string): Pr
     member: members.length === 1 ? members[0] : null,
     memberOwnerships,
     memberParkings,
+    takenDisplays,
   };
 }
 

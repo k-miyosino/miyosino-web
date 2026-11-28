@@ -13,6 +13,11 @@ export interface LedgerDraft {
   propertyName: string;
   /** 今所有中の組合員の表示（画面に出すだけ。Worker が改めて調べる） */
   ownerDisplay: string;
+  /** 姓と名に分けて入れる（ふつう）か、1 つの欄にまとめて入れる（外国籍の方・ミドルネームがあるなど）か */
+  nameMode: 'split' | 'single';
+  familyName: string;
+  givenName: string;
+  /** 1 つの欄にまとめて入れるときの氏名（空白も含めて名義変更届のとおり） */
   newName: string;
   newLogin: string;
   switchDate: string;
@@ -46,11 +51,31 @@ export function emptyDraft(): LedgerDraft {
     type: null,
     propertyName: '',
     ownerDisplay: '',
+    nameMode: 'split',
+    familyName: '',
+    givenName: '',
     newName: '',
     newLogin: '',
     switchDate: '',
     transferDate: '',
   };
+}
+
+/** 空白をそろえる（前後を取り、間の全角・半角・続いた空白は半角 1 つ）。Worker の normalizeName と同じ */
+export function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/gu, ' ');
+}
+
+/** 台帳に入る氏名。姓と名は半角の空白 1 つでつなぐ */
+export function composedName(draft: LedgerDraft): string {
+  return draft.nameMode === 'single'
+    ? normalizeName(draft.newName)
+    : normalizeName(`${draft.familyName} ${draft.givenName}`);
+}
+
+/** M_組合員の「表示」の見本（物件名と氏名を空けずにつなぐ。重なったときの番号は Worker が付ける） */
+export function displayPreview(draft: LedgerDraft): string {
+  return `${draft.propertyName}${composedName(draft)}`;
 }
 
 /** 物件名（'01-101'）から、ログイン名の先頭の棟部屋コード（'01101'）を作る */
@@ -71,12 +96,16 @@ function checkUnit(draft: LedgerDraft): string[] {
 }
 
 function checkNewName(draft: LedgerDraft): string[] {
-  if (draft.newName.trim()) return [];
-  return [
-    draft.type === '名義変更'
-      ? '新しい組合員の氏名を入れてください'
-      : '変更後の氏名を入れてください',
-  ];
+  const who = draft.type === '名義変更' ? '新しい組合員' : '変更後';
+  if (draft.nameMode === 'single') {
+    return normalizeName(draft.newName) ? [] : [`${who}の氏名を入れてください`];
+  }
+  const errors: string[] = [];
+  if (!normalizeName(draft.familyName))
+    errors.push(`${who}の姓を入れてください`);
+  if (!normalizeName(draft.givenName))
+    errors.push(`${who}の名を入れてください`);
+  return errors;
 }
 
 function checkNewLogin(draft: LedgerDraft): string[] {
@@ -125,7 +154,7 @@ export function toLedgerInput(
     type: draft.type,
     submitKey,
     propertyName: draft.propertyName,
-    newName: draft.newName.trim(),
+    newName: composedName(draft),
   };
   if (draft.type === '氏名の変更') return common;
   return {
