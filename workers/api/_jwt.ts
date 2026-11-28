@@ -8,7 +8,7 @@ export interface JWTPayload {
   sub: string; // ユーザーID（kintone のユーザーコード。識別できなかったときは 'kintone-user'）
   name: string; // ユーザー名
   email: string;
-  // 運用ダッシュボードの管理者（kintone の「運用管理者」アプリを閲覧できる人＝「システム管理」グループ）。管理者でなければ付けない
+  // 運用ダッシュボードの管理者（kintone の「システム管理者判定」アプリを閲覧できる人＝「システム管理」グループ）。管理者でなければ付けない
   admin?: true;
   // 事務員専用ページの事務員（kintone の「事務員判定」アプリを閲覧できる人＝「事務員」グループ）。事務員でなければ付けない
   clerk?: true;

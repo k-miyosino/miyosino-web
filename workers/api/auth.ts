@@ -18,7 +18,7 @@
  * 識別できなかったときは sub を UNIDENTIFIED_USER_ID にする（ログイン自体は通す）。
  *
  * 運用ダッシュボードの管理者の判定:
- * kintone の OAuth では所属グループを読めないため、「運用管理者」アプリ（KINTONE_OPS_ADMIN_APP_ID）を
+ * kintone の OAuth では所属グループを読めないため、「システム管理者判定」アプリ（KINTONE_OPS_ADMIN_APP_ID）を
  * 本人のトークンで読めるかどうかで判定する。アプリのアクセス権を「システム管理」グループ
  * （グループコード Administrators）だけに絞っておけば、そのグループの人だけが管理者になる（OPS.md）。
  * 結果は JWT の admin に入れる。
@@ -38,7 +38,7 @@ interface Env {
   JWT_SECRET: string;
   // 「ログイン記録」アプリのID。未設定なら利用者を識別しない
   KINTONE_LOGIN_LOG_APP_ID?: string;
-  // 「運用管理者」アプリのID。未設定ならだれも管理者にしない
+  // 「システム管理者判定」アプリのID。未設定ならだれも管理者にしない
   KINTONE_OPS_ADMIN_APP_ID?: string;
   // 「事務員判定」アプリのID。未設定ならだれも事務員にしない
   KINTONE_OFFICE_CLERK_APP_ID?: string;
@@ -736,7 +736,7 @@ async function identifyKintoneUser(
 
 /**
  * 運用ダッシュボードの管理者かどうか。
- * 「運用管理者」アプリのレコードを本人のトークンで読めれば管理者（読めなければ kintone が 403 を返す）。
+ * 「システム管理者判定」アプリのレコードを本人のトークンで読めれば管理者（読めなければ kintone が 403 を返す）。
  * 判定に失敗したときは管理者にしない。
  */
 function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
