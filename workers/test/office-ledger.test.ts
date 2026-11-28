@@ -59,6 +59,18 @@ function context(overrides: Partial<LedgerContext> = {}): LedgerContext {
   };
 }
 
+/** 前に取り消した組合員（同じログイン名で作り直すときに使い直す） */
+function canceledMember(overrides: Record<string, unknown> = {}) {
+  return {
+    $id: { value: '300' },
+    $revision: { value: '7' },
+    display: { value: '01-101佐藤次朗（取り消し 9）' },
+    status: { value: '無効' },
+    user: { value: [{ code: '01101sato', name: '佐藤' }] },
+    ...overrides,
+  } as LedgerContext['member'] & object;
+}
+
 const transfer = {
   type: '名義変更' as const,
   submitKey: 'key-12345678',
@@ -188,6 +200,59 @@ describe('planTransfer（名義変更）', () => {
   it('旧組合員の M_組合員が見つからなければ断る', () => {
     expect(planTransfer(transfer, context({ member: null }), apps, 'x', 'y').ok).toBe(false);
   });
+
+  it('新しいログイン名の取り消した組合員があれば、新しく作らずに使い直す（表示を直して有効に戻す）', () => {
+    const reused = canceledMember();
+    const planned = planTransfer(
+      transfer,
+      context({ loginMembers: [reused], takenDisplays: ['01-101山田', reused.display.value] }),
+      apps,
+      'x',
+      'y'
+    );
+    if (!planned.ok) throw new Error(planned.errors.join(' / '));
+    expect(planned.value.requests[2]).toEqual({
+      method: 'PUT',
+      api: '/k/v1/record.json',
+      payload: {
+        app: '96',
+        id: '300',
+        revision: '7',
+        record: { display: { value: '01-101佐藤次郎' }, status: { value: '有効' } },
+      },
+    });
+    expect(planned.value.requests[3].payload.record).toMatchObject({ member: { value: '01-101佐藤次郎' } });
+    expect(JSON.parse(planned.value.logRecord.before.value).reusedMember).toEqual({
+      id: '300',
+      display: '01-101佐藤次朗（取り消し 9）',
+      status: '無効',
+    });
+    expect(JSON.parse(planned.value.logRecord.after.value).ids).toEqual({ member: '300' });
+    expect(planned.value.summary[2]).toContain('前に取り消した組合員の登録（01-101佐藤次朗（取り消し 9））を使い直し');
+  });
+
+  it('取り消した組合員が複数あれば、いちばん新しいものを使い直す', () => {
+    const planned = planTransfer(
+      transfer,
+      context({ loginMembers: [canceledMember(), canceledMember({ $id: { value: '310' } })] }),
+      apps,
+      'x',
+      'y'
+    );
+    expect(planned.ok && planned.value.requests[2].payload.id).toBe('310');
+  });
+
+  it('新しいログイン名の組合員が有効なら（ほかの組合員がいま使っている）断る', () => {
+    const planned = planTransfer(
+      transfer,
+      context({ loginMembers: [canceledMember({ status: { value: '有効' }, display: { value: '02-202佐藤' } })] }),
+      apps,
+      'x',
+      'y'
+    );
+    expect(planned.ok).toBe(false);
+    expect(!planned.ok && planned.errors.join()).toContain('ほかの組合員（02-202佐藤）がいま使っています');
+  });
 });
 
 describe('planRename（氏名の変更）', () => {
@@ -295,6 +360,20 @@ describe('planCancel（その日の取り消し）', () => {
     ]);
   });
 
+  it('使い直した組合員の名義変更を戻すと、使い直す前の状態（取り消したときの表示・無効）に戻す', () => {
+    const planned = planTransfer(transfer, context({ loginMembers: [canceledMember()] }), apps, 'x', '2026-11-28T01:00:00.000Z');
+    if (!planned.ok) throw new Error(planned.errors.join(' / '));
+    const after = JSON.parse(planned.value.logRecord.after.value);
+    after.ids = { member: '300', ownership: '410' };
+    const log = { $id: { value: '12' }, ...planned.value.logRecord, after: { value: JSON.stringify(after) } };
+    const cancel = planCancel(log, apps, TODAY, 'x', 'now');
+    if (!cancel.ok) throw new Error(cancel.errors.join(' / '));
+    expect(cancel.value.slice(2, 4).map((r) => [r.payload.app, r.payload.id, r.payload.record])).toEqual([
+      ['96', '300', { status: { value: '無効' }, display: { value: '01-101佐藤次朗（取り消し 9）' } }],
+      ['44', '410', { member: { value: '01-101佐藤次朗（取り消し 9）' }, end_date: { value: '2026-11-30' }, status: { value: '所有前' } }],
+    ]);
+  });
+
   it('氏名の変更を戻す: 表示を戻し、写し直した記録も戻す', () => {
     const planned = planRename(rename, context(), apps, 'x', '2026-11-28T01:00:00.000Z');
     if (!planned.ok) throw new Error('not ok');
@@ -350,7 +429,15 @@ const env = {
 };
 
 /** kintone の差し替え。台帳の読み込み・bulkRequest・記録の更新を記録する */
-function stubKintone(options: { existing?: unknown[]; bulkStatus?: number; bulkCode?: string; logs?: unknown[]; log?: unknown }) {
+function stubKintone(options: {
+  existing?: unknown[];
+  bulkStatus?: number;
+  bulkCode?: string;
+  logs?: unknown[];
+  log?: unknown;
+  loginMembers?: unknown[];
+  members?: unknown[];
+}) {
   const owner = ownership({ start_date: { value: '2010-04-01' } });
   return stubFetch((url, init) => {
     if (url.host !== KINTONE_DOMAIN) return undefined;
@@ -359,7 +446,11 @@ function stubKintone(options: { existing?: unknown[]; bulkStatus?: number; bulkC
     if (url.pathname === '/k/v1/records.json') {
       if (app === '200') return json({ records: query.startsWith('submit_key') ? (options.existing ?? []) : (options.logs ?? []) });
       if (app === '44') return json({ records: [owner] });
-      if (app === '96') return json({ records: [context().member] });
+      if (app === '96') {
+        // 新しいログイン名の組合員は、指定がなければまだない
+        if (query.startsWith(`user in ("${transfer.newLogin}")`)) return json({ records: options.loginMembers ?? [] });
+        return json({ records: options.members ?? [context().member] });
+      }
       if (app === '50') return json({ records: [] });
     }
     if (url.pathname === '/k/v1/bulkRequest.json') {
@@ -435,6 +526,24 @@ describe('POST /office/ledger', () => {
     const after = JSON.parse(JSON.parse(String(saved?.init?.body)).record.after.value);
     expect(after.ids).toEqual({ member: '102', ownership: '103' });
     expect(body.notices.length).toBeGreaterThan(0);
+  });
+
+  it('取り消した組合員を使い直したときは、その番号を記録に残す（書き換えの結果には id が返らない）', async () => {
+    const calls = stubKintone({ loginMembers: [canceledMember()] });
+    const response = await office.fetch(await clerkRequest('/office/ledger', futureTransfer), env);
+    expect(response.status).toBe(201);
+    const bulk = calls.find((c) => c.url.pathname === '/k/v1/bulkRequest.json');
+    const sent = JSON.parse(String(bulk?.init?.body)) as { requests: { method: string }[] };
+    expect(sent.requests.map((r) => r.method)).toEqual(['PUT', 'PUT', 'PUT', 'POST', 'POST']);
+    const saved = calls.find((c) => c.init?.method === 'PUT');
+    const after = JSON.parse(JSON.parse(String(saved?.init?.body)).record.after.value);
+    expect(after.ids).toEqual({ member: '300', ownership: '103' });
+  });
+
+  it('今の所有者と同じログイン名の組合員が複数あっても（取り消したものなど）、所有状況と表示が同じものを使う', async () => {
+    stubKintone({ members: [canceledMember({ user: { value: [{ code: '01101yamada', name: '山田' }] } }), context().member] });
+    const response = await office.fetch(await clerkRequest('/office/ledger/preview', futureTransfer), env);
+    expect(response.status).toBe(200);
   });
 
   it('同じ送信キーの記録があれば、書き込まずにその番号を返す', async () => {
