@@ -3,23 +3,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   OfficeInputError,
+  applyOfficeLedger,
   fetchOfficeUnits,
-  submitOfficeProxyApplication,
+  previewOfficeLedger,
 } from '@/repositories/office/officeRepository';
-import { OfficeApplicationType, OfficeUnit } from '@/types/office';
+import {
+  OfficeLedgerPreview,
+  OfficeLedgerResult,
+  OfficeLedgerType,
+  OfficeUnit,
+} from '@/types/office';
 import { groupUnitsByBuilding, ownerName } from './officeUnits';
 import {
-  ProxyDraft,
+  LedgerDraft,
   STEP_TITLES,
-  applicantKindsFor,
-  confirmRows,
   emptyDraft,
   newSubmitKey,
+  propertyCode,
   stepsFor,
-  toProxyInput,
-  todayLocal,
+  toLedgerInput,
   validateStep,
-} from './officeProxy';
+} from './officeLedger';
 
 interface Props {
   /** トップに戻る */
@@ -29,32 +33,58 @@ interface Props {
 const INPUT_CLASS =
   'w-full text-lg border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-700 focus:outline-none';
 const LABEL_CLASS = 'flex flex-col gap-2 text-lg font-medium';
+const PRIMARY_BUTTON =
+  'text-xl font-bold min-h-14 px-10 rounded-xl bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-50';
+
+function errorMessages(e: unknown, fallback: string): string[] {
+  return e instanceof OfficeInputError ? e.messages : [fallback];
+}
 
 /**
- * 紙の申請を入力する（事務員専用ページ。OFFICE.md 7-3）。
- * 1 画面に 1 つの質問で進め、最後に確認画面を出してから送る。戻っても入力は消えない。
- * 名義変更は紙の「組合員名義変更届」の順番に並べる
+ * 台帳を更新する（事務員専用ページ。OFFICE.md 0-5）。
+ * 1 画面に 1 つの質問で進め、確認画面で「台帳がこう変わります」を見せてから反映する。戻っても入力は消えない。
+ * 名義変更は、管理者が先に新しい組合員の Kintone ユーザーを作っておく（0-2）
  */
-export default function OfficeProxyForm({ onDone }: Props) {
-  const today = useMemo(() => todayLocal(), []);
-  const [draft, setDraft] = useState<ProxyDraft>(() => emptyDraft(today));
-  // 送り直しても同じキーを使い、二重に登録されないようにする
+export default function OfficeLedgerForm({ onDone }: Props) {
+  const [draft, setDraft] = useState<LedgerDraft>(() => emptyDraft());
+  // 送り直しても同じキーを使い、二重に反映されないようにする
   const [submitKey] = useState(() => newSubmitKey());
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [preview, setPreview] = useState<OfficeLedgerPreview | null>(null);
   const [sending, setSending] = useState(false);
-  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [result, setResult] = useState<OfficeLedgerResult | null>(null);
 
   const steps = stepsFor(draft.type);
   const step = steps[stepIndex];
-  const update = (patch: Partial<ProxyDraft>) =>
+  const update = (patch: Partial<LedgerDraft>) =>
     setDraft((current) => ({ ...current, ...patch }));
 
-  const goNext = () => {
-    const problems = validateStep(draft, step, today);
+  const goNext = async () => {
+    const problems = validateStep(draft, step);
     setErrors(problems);
-    if (problems.length === 0) setStepIndex((i) => i + 1);
+    if (problems.length > 0) return;
+    if (steps[stepIndex + 1] !== 'confirm') {
+      setStepIndex((i) => i + 1);
+      return;
+    }
+    // 確認画面の前に、台帳がどう変わるかを Worker に確かめる（書き込まない）
+    setSending(true);
+    try {
+      setPreview(await previewOfficeLedger(toLedgerInput(draft, submitKey)));
+      setStepIndex((i) => i + 1);
+    } catch (e) {
+      setErrors(
+        errorMessages(
+          e,
+          '台帳の確認ができませんでした。時間をおいて、もう一度「次へ」を押してください。'
+        )
+      );
+    } finally {
+      setSending(false);
+    }
   };
+
   const goBack = () => {
     setErrors([]);
     if (stepIndex === 0) onDone();
@@ -65,43 +95,26 @@ export default function OfficeProxyForm({ onDone }: Props) {
     setSending(true);
     setErrors([]);
     try {
-      const result = await submitOfficeProxyApplication(
-        toProxyInput(draft, submitKey)
-      );
-      setCreatedId(result.id);
+      setResult(await applyOfficeLedger(toLedgerInput(draft, submitKey)));
     } catch (e) {
       setErrors(
-        e instanceof OfficeInputError
-          ? e.messages
-          : [
-              '登録できませんでした。通信の状態を確かめて、もう一度「登録する」を押してください（二重には登録されません）。',
-            ]
+        errorMessages(
+          e,
+          '台帳に反映できませんでした。通信の状態を確かめて、もう一度「台帳に反映する」を押してください（二重には反映されません）。'
+        )
       );
     } finally {
       setSending(false);
     }
   };
 
-  if (createdId) {
+  if (result) {
     return (
-      <section className="flex flex-col gap-6 text-gray-900">
-        <div className="bg-green-50 border-2 border-green-700 rounded-2xl p-6 sm:p-8 flex flex-col gap-3">
-          <h2 className="text-2xl font-bold">登録しました</h2>
-          <p className="text-xl">
-            申請番号 <span className="text-3xl font-bold">{createdId}</span>
-          </p>
-          <p className="text-lg">
-            紙の申請書の上の余白に、この申請番号を書いて保管してください。申請は「新規申し込みリスト」に入りました。
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDone}
-          className="self-start text-xl font-bold min-h-14 px-8 rounded-xl bg-blue-700 text-white hover:bg-blue-800"
-        >
-          トップに戻る
-        </button>
-      </section>
+      <LedgerDone
+        result={result}
+        notices={result.notices ?? preview?.notices ?? []}
+        onDone={onDone}
+      />
     );
   }
 
@@ -109,20 +122,14 @@ export default function OfficeProxyForm({ onDone }: Props) {
     <section className="flex flex-col gap-6 text-gray-900">
       <div className="flex flex-col gap-1">
         <p className="text-base text-gray-600">
-          紙の申請を入力する ・ いま {stepIndex + 1} / {steps.length}
+          台帳を更新する ・ いま {stepIndex + 1} / {steps.length}
         </p>
         <h2 className="text-2xl font-bold">{STEP_TITLES[step]}</h2>
       </div>
 
       <div className="bg-white border border-gray-300 rounded-2xl p-6 sm:p-8 flex flex-col gap-6">
         {step === 'type' && (
-          <TypeStep
-            value={draft.type}
-            onChange={(type) =>
-              // 種類を変えたら、種類で変わる「申請した人」の選び方を空に戻す
-              update({ type, applicantKind: null })
-            }
-          />
+          <TypeStep value={draft.type} onChange={(type) => update({ type })} />
         )}
         {step === 'unit' && (
           <UnitStep
@@ -136,59 +143,10 @@ export default function OfficeProxyForm({ onDone }: Props) {
             }
           />
         )}
-        {step === 'applicant' && (
-          <>
-            <label className={LABEL_CLASS}>
-              届出日（申請書のいちばん上の日付）
-              <input
-                type="date"
-                value={draft.submittedDate}
-                max={today}
-                onChange={(e) => update({ submittedDate: e.target.value })}
-                className={`${INPUT_CLASS} max-w-xs`}
-              />
-            </label>
-            <fieldset className="flex flex-col gap-3">
-              <legend className="text-lg font-medium mb-2">
-                窓口に来て申請した人
-              </legend>
-              <div className="flex flex-wrap gap-3">
-                {applicantKindsFor(draft.type).map((kind) => (
-                  <ChoiceButton
-                    key={kind}
-                    selected={draft.applicantKind === kind}
-                    onClick={() => update({ applicantKind: kind })}
-                  >
-                    {kind === '組合員'
-                      ? draft.type === '名義変更'
-                        ? '旧組合員本人'
-                        : '組合員本人'
-                      : kind === '購入者'
-                        ? '新しい組合員（購入者など）'
-                        : '代理人'}
-                  </ChoiceButton>
-                ))}
-              </div>
-            </fieldset>
-            {draft.applicantKind === '代理人' && (
-              <label className={LABEL_CLASS}>
-                代理人の氏名と続柄（または会社名）
-                <input
-                  type="text"
-                  value={draft.agent}
-                  maxLength={100}
-                  placeholder="例: 山田 一郎（長男）"
-                  onChange={(e) => update({ agent: e.target.value })}
-                  className={INPUT_CLASS}
-                />
-              </label>
-            )}
-          </>
-        )}
         {step === 'newName' && (
           <label className={LABEL_CLASS}>
             {draft.type === '名義変更'
-              ? '新しい組合員の氏名'
+              ? '新しい組合員の氏名（名義変更届の「新」の氏名）'
               : `変更後の氏名（いまの登録: ${draft.ownerDisplay}）`}
             <input
               type="text"
@@ -198,6 +156,28 @@ export default function OfficeProxyForm({ onDone }: Props) {
               className={INPUT_CLASS}
             />
           </label>
+        )}
+        {step === 'newLogin' && (
+          <>
+            <p className="text-base text-gray-700 bg-amber-50 rounded-lg px-4 py-3">
+              名義変更では、先に管理者が新しい組合員の Kintone
+              ユーザーを作ります。まだなら、管理者に頼んでから入力してください。
+            </p>
+            <label className={LABEL_CLASS}>
+              管理者から伝えられたログイン名（{propertyCode(draft.propertyName)}
+              で始まります）
+              <input
+                type="text"
+                inputMode="url"
+                autoCapitalize="off"
+                autoComplete="off"
+                value={draft.newLogin}
+                maxLength={64}
+                onChange={(e) => update({ newLogin: e.target.value })}
+                className={`${INPUT_CLASS} max-w-md font-mono`}
+              />
+            </label>
+          </>
         )}
         {step === 'dates' && (
           <>
@@ -211,7 +191,7 @@ export default function OfficeProxyForm({ onDone }: Props) {
               />
             </label>
             <label className={LABEL_CLASS}>
-              所有名義変更月日
+              所有名義変更月日（記録として残すだけ）
               <input
                 type="date"
                 value={draft.transferDate}
@@ -219,48 +199,9 @@ export default function OfficeProxyForm({ onDone }: Props) {
                 className={`${INPUT_CLASS} max-w-xs`}
               />
             </label>
-            <label className={LABEL_CLASS}>
-              新しい組合員の入居（予定）日（書いていなければ空のまま）
-              <input
-                type="date"
-                value={draft.moveInDate}
-                onChange={(e) => update({ moveInDate: e.target.value })}
-                className={`${INPUT_CLASS} max-w-xs`}
-              />
-            </label>
           </>
         )}
-        {step === 'oldContact' && (
-          <ContactFields
-            address={draft.oldAddress}
-            phone={draft.oldPhone}
-            onAddress={(oldAddress) => update({ oldAddress })}
-            onPhone={(oldPhone) => update({ oldPhone })}
-          />
-        )}
-        {step === 'newContact' && (
-          <ContactFields
-            address={draft.newAddress}
-            phone={draft.newPhone}
-            onAddress={(newAddress) => update({ newAddress })}
-            onPhone={(newPhone) => update({ newPhone })}
-          />
-        )}
-        {step === 'confirm' && (
-          <>
-            <p className="text-lg">
-              紙の申請書と見比べて、まちがいがなければ「登録する」を押してください。
-            </p>
-            <dl className="grid grid-cols-1 sm:grid-cols-[16em_1fr] gap-x-6 gap-y-3 text-lg">
-              {confirmRows(draft).map(([label, value]) => (
-                <div key={label} className="contents">
-                  <dt className="text-gray-600">{label}</dt>
-                  <dd className="font-medium break-words">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </>
-        )}
+        {step === 'confirm' && preview && <ConfirmStep preview={preview} />}
       </div>
 
       {errors.length > 0 && (
@@ -290,20 +231,101 @@ export default function OfficeProxyForm({ onDone }: Props) {
             type="button"
             onClick={send}
             disabled={sending}
-            className="text-xl font-bold min-h-14 px-10 rounded-xl bg-blue-700 text-white hover:bg-blue-800 disabled:opacity-50"
+            className={PRIMARY_BUTTON}
           >
-            {sending ? '登録しています...' : '登録する'}
+            {sending ? '反映しています...' : '台帳に反映する'}
           </button>
         ) : (
           <button
             type="button"
             onClick={goNext}
-            className="text-xl font-bold min-h-14 px-10 rounded-xl bg-blue-700 text-white hover:bg-blue-800"
+            disabled={sending}
+            className={PRIMARY_BUTTON}
           >
-            次へ →
+            {sending ? '確かめています...' : '次へ →'}
           </button>
         )}
       </div>
+    </section>
+  );
+}
+
+function ConfirmStep({ preview }: { preview: OfficeLedgerPreview }) {
+  return (
+    <>
+      <p className="text-lg">
+        紙の届と見比べて、まちがいがなければ「台帳に反映する」を押してください。反映したあとも、今日のうちなら取り消せます。
+      </p>
+      <ol className="list-decimal pl-7 flex flex-col gap-2 text-lg">
+        {preview.summary.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ol>
+      {preview.warnings.map((warning) => (
+        <p
+          key={warning}
+          className="text-base text-amber-900 bg-amber-50 rounded-lg px-4 py-3"
+        >
+          {warning}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function LedgerDone({
+  result,
+  notices,
+  onDone,
+}: {
+  result: OfficeLedgerResult;
+  notices: string[];
+  onDone: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(notices.join('\n'));
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <section className="flex flex-col gap-6 text-gray-900">
+      <div className="bg-green-50 border-2 border-green-700 rounded-2xl p-6 sm:p-8 flex flex-col gap-3">
+        <h2 className="text-2xl font-bold">台帳に反映しました</h2>
+        <p className="text-xl">
+          記録番号 <span className="text-3xl font-bold">{result.logId}</span>
+        </p>
+        <p className="text-lg">
+          紙の届の上の余白に、この記録番号を書いて保管してください。まちがえたときは、今日のうちなら「今日の更新」から取り消せます。
+        </p>
+      </div>
+      {notices.length > 0 && (
+        <div className="bg-white border border-gray-300 rounded-2xl p-6 flex flex-col gap-3">
+          <h3 className="text-xl font-bold">知らせること</h3>
+          <ul className="list-disc pl-6 flex flex-col gap-2 text-lg">
+            {notices.map((notice) => (
+              <li key={notice}>{notice}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={copy}
+            className="self-start text-lg font-bold min-h-12 px-5 rounded-xl border-2 border-blue-700 text-blue-800 hover:bg-blue-50"
+          >
+            {copied ? 'コピーしました' : 'まとめてコピーする'}
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onDone}
+        className="self-start text-xl font-bold min-h-14 px-8 rounded-xl bg-blue-700 text-white hover:bg-blue-800"
+      >
+        トップに戻る
+      </button>
     </section>
   );
 }
@@ -333,29 +355,26 @@ function ChoiceButton({
   );
 }
 
-const TYPE_CHOICES: {
-  type: OfficeApplicationType;
-  title: string;
-  note: string;
-}[] = [
-  {
-    type: '名義変更',
-    title: '組合員名義変更届',
-    note: 'お部屋を売った・譲った・相続したとき（旧組合員と新しい組合員の連名）',
-  },
-  {
-    type: '情報変更',
-    title: '氏名の変更',
-    note: '組合員の氏名が変わったとき',
-  },
-];
+const TYPE_CHOICES: { type: OfficeLedgerType; title: string; note: string }[] =
+  [
+    {
+      type: '名義変更',
+      title: '名義変更',
+      note: '組合員名義変更届を受け取ったとき（お部屋を売った・譲った・相続した）',
+    },
+    {
+      type: '氏名の変更',
+      title: '氏名の変更',
+      note: '組合員の氏名が変わったとき',
+    },
+  ];
 
 function TypeStep({
   value,
   onChange,
 }: {
-  value: OfficeApplicationType | null;
-  onChange: (type: OfficeApplicationType) => void;
+  value: OfficeLedgerType | null;
+  onChange: (type: OfficeLedgerType) => void;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -463,45 +482,5 @@ function UnitStep({
         </p>
       )}
     </div>
-  );
-}
-
-function ContactFields({
-  address,
-  phone,
-  onAddress,
-  onPhone,
-}: {
-  address: string;
-  phone: string;
-  onAddress: (value: string) => void;
-  onPhone: (value: string) => void;
-}) {
-  return (
-    <>
-      <p className="text-base text-gray-600">
-        申請書に書いていなければ、空のまま「次へ」を押してください。
-      </p>
-      <label className={LABEL_CLASS}>
-        住所
-        <textarea
-          value={address}
-          maxLength={200}
-          rows={3}
-          onChange={(e) => onAddress(e.target.value)}
-          className={INPUT_CLASS}
-        />
-      </label>
-      <label className={LABEL_CLASS}>
-        電話番号
-        <input
-          type="tel"
-          value={phone}
-          maxLength={20}
-          onChange={(e) => onPhone(e.target.value)}
-          className={`${INPUT_CLASS} max-w-xs`}
-        />
-      </label>
-    </>
   );
 }

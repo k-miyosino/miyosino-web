@@ -30,60 +30,57 @@ export interface OfficeUnits {
   units: OfficeUnit[];
 }
 
-export type OfficeApplicationType = '名義変更' | '情報変更';
-export type OfficeApplicantKind = '組合員' | '購入者' | '代理人';
+export type OfficeLedgerType = '名義変更' | '氏名の変更';
 
-/** 組合員申請（workers/api/_office-applications.ts の ApplicationView と合わせる） */
-export interface OfficeApplication {
+/** 台帳の更新で送る内容（workers/api/_office-ledger.ts の parseLedgerInput が受け取る形） */
+export interface OfficeLedgerInput {
+  type: OfficeLedgerType;
+  submitKey: string;
+  propertyName: string;
+  newName: string;
+  newLogin?: string;
+  switchDate?: string;
+  transferDate?: string;
+}
+
+export interface OfficeLedgerProration {
+  daysInMonth: number;
+  oldDays: number;
+  newDays: number;
+  monthlyFee: number;
+  oldAmount: number;
+  newAmount: number;
+}
+
+/** 確認画面に出す「台帳がこう変わります」（POST /office/ledger/preview） */
+export interface OfficeLedgerPreview {
+  summary: string[];
+  warnings: string[];
+  notices: string[];
+  proration: OfficeLedgerProration | null;
+}
+
+/** 台帳に反映したあとの結果（POST /office/ledger） */
+export interface OfficeLedgerResult {
+  logId: string;
+  duplicate: boolean;
+  summary?: string[];
+  notices?: string[];
+}
+
+/** 台帳の更新記録（workers/api/_office-ledger.ts の LogView と合わせる） */
+export interface OfficeLedgerLog {
   id: string;
   type: string;
   status: string;
-  submittedDate: string;
-  method: string;
-  applicantKind: string;
-  agent: string;
   propertyName: string;
-  memberDisplay: string;
-  summary: string;
+  oldMember: string;
   newName: string;
-  transferDate: string;
-  switchDate: string;
-  newAddress: string;
-  newPhone: string;
-  moveInDate: string;
-  oldAddress: string;
-  oldPhone: string;
   newLogin: string;
+  switchDate: string;
+  transferDate: string;
   enteredBy: string;
-  approvedBy: string;
-  approvedAt: string;
-  returnReason: string;
-}
-
-export interface OfficeApplicationList {
-  status: string;
-  applications: OfficeApplication[];
-}
-
-/** 代理入力で送る内容（workers/api/_office-applications.ts の parseApplicationInput が受け取る形） */
-export interface OfficeProxyInput {
-  type: OfficeApplicationType;
-  submitKey: string;
-  submittedDate: string;
-  applicantKind: OfficeApplicantKind;
-  agent: string;
-  propertyName: string;
-  newName: string;
-  transferDate?: string;
-  switchDate?: string;
-  newAddress?: string;
-  newPhone?: string;
-  moveInDate?: string;
-  oldAddress?: string;
-  oldPhone?: string;
-}
-
-export interface OfficeProxyResult {
-  id: string;
-  duplicate: boolean;
+  enteredAt: string;
+  canceledBy: string;
+  canceledAt: string;
 }
