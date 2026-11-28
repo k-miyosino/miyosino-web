@@ -123,7 +123,7 @@ kintone の変更履歴には API トークンの名前しか残らないので�
 
    新しい Worker（台帳の更新）は main へのマージでデプロイされるので、secrets はそのときに入れる。本番の M_物件（133）の物件名は「必須」「値の重複を禁止する」に変更済み（0-4）。事務処理専用の API トークンも作成済み（2026-11）
 
-**台帳に反映できなかったとき**: 画面には事務員向けの文言だけが出る。原因は、`workers/` で `npx wrangler tail --config wrangler.office.toml` を動かしたまま操作すると、`[Office] kintone rejected` の行で分かる。残すのは、エラーコード（例: `CB_VA01`）・断られた書き込みの番号（bulkRequest の何番目か）とアプリ ID・フィールドのキー（例: `record.user.value` ならログイン名のユーザーがない、`record.display.value` なら表示が重なる）だけ。kintone のメッセージや値は個人情報を含みうるので残さない。書き込みは 1 回の bulkRequest なので、断られたときは台帳も更新記録も何も変わっていない
+**台帳に反映できなかったとき**: 画面には事務員向けの文言だけが出る。原因は、`workers/` で `npx wrangler tail --config wrangler.office.toml` を動かしたまま操作すると、`[Office] kintone rejected` の行で分かる。残すのは、エラーコード（例: `CB_VA01`）・断られた書き込みの番号（bulkRequest の何番目か）とアプリ ID・フィールドのキーだけ。例: `{"code":"CB_VA01","request":2,"app":"96","fields":["record.user.values.value"]}` は、3 つ目（0 から数える）の書き込み＝新しい M_組合員を作るところで、「Kintoneユーザ」に入れたログイン名のユーザーがない（2026-11 に本番の kintone で確かめた。このときは画面にも「ログイン名 ○○ のユーザーが cybozu.com にありません」と出す）。kintone のメッセージや値は個人情報を含みうるので残さない。書き込みは 1 回の bulkRequest なので、断られたときは台帳も更新記録も何も変わっていない
 
 ## 目次
 
