@@ -32,6 +32,14 @@ describe('SITE_PAGES', () => {
   it('運用ダッシュボード（/member/ops）は一覧に入れない（チャットに案内させない）', () => {
     expect(findSitePage('/member/ops')).toBeUndefined();
   });
+
+  it('事務員専用ページ（/member/office）は一覧に入れない（チャットに案内させない）', () => {
+    expect(findSitePage('/member/office')).toBeUndefined();
+  });
+
+  it('広報ページ（/member/koho）は一覧に入れない（チャットに案内させない）', () => {
+    expect(findSitePage('/member/koho')).toBeUndefined();
+  });
 });
 
 describe('findSitePage', () => {

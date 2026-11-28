@@ -1,5 +1,5 @@
 /**
- * 認証 Worker（auth.ts）: ログイン後の行き先の検証と、管理者の判定
+ * 認証 Worker（auth.ts）: ログイン後の行き先の検証と、管理者・事務員の判定
  */
 
 import { describe, expect, it } from 'vitest';
@@ -20,6 +20,8 @@ const env = {
   JWT_SECRET: TEST_SECRET,
   KINTONE_LOGIN_LOG_APP_ID: '200',
   KINTONE_OPS_ADMIN_APP_ID: '141',
+  KINTONE_OFFICE_CLERK_APP_ID: '142',
+  KINTONE_KOHO_APP_ID: '145',
 };
 
 function login(redirectUri: string): Promise<Response> {
@@ -53,9 +55,11 @@ function callback(
  * kintone の応答を差し替える。
  * - トークンの取得は成功させる
  * - 「ログイン記録」アプリにレコードを足すと、作成者が user-a のレコードを返す
- * - 「運用管理者」アプリが読めるかは opsAdminStatus（200 なら管理者、403 なら管理者でない）
+ * - 「システム管理者判定」アプリが読めるかは opsAdminStatus（200 なら管理者、403 なら管理者でない）
+ * - 「事務員判定」アプリが読めるかは clerkStatus（200 なら事務員、403 なら事務員でない）
+ * - 「広報委員判定」アプリが読めるかは kohoStatus（200 なら広報委員、403 なら広報委員でない）
  */
-function stubKintone(opsAdminStatus: number) {
+function stubKintone(opsAdminStatus: number, clerkStatus = 403, kohoStatus = 403) {
   return stubFetch((url, init) => {
     if (url.host !== KINTONE_DOMAIN) return undefined;
     if (url.pathname === '/oauth2/token') {
@@ -81,7 +85,12 @@ function stubKintone(opsAdminStatus: number) {
       });
     }
     if (url.pathname === '/k/v1/records.json') {
-      return url.searchParams.get('app') === '141' && opsAdminStatus === 200
+      const app = url.searchParams.get('app');
+      const readable =
+        (app === '141' && opsAdminStatus === 200) ||
+        (app === '142' && clerkStatus === 200) ||
+        (app === '145' && kohoStatus === 200);
+      return readable
         ? json({ records: [] })
         : json({ message: 'no permission' }, 403);
     }
@@ -153,7 +162,7 @@ describe('ログインの戻り（/callback）', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('「運用管理者」アプリが読める人は、JWT に admin が入る', async () => {
+  it('「システム管理者判定」アプリが読める人は、JWT に admin が入る', async () => {
     stubKintone(200);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),
@@ -167,7 +176,7 @@ describe('ログインの戻り（/callback）', () => {
     expect(payload?.admin).toBe(true);
   });
 
-  it('「運用管理者」アプリが読めない（403）人は、admin が入らない', async () => {
+  it('「システム管理者判定」アプリが読めない（403）人は、admin が入らない', async () => {
     stubKintone(403);
     const response = await callback(
       makeState('nonce-1', `${SITE}/member/`),
@@ -202,6 +211,132 @@ describe('ログインの戻り（/callback）', () => {
   });
 });
 
+describe('事務員の判定（/callback）', () => {
+  const SEVEN_DAYS = 60 * 60 * 24 * 7;
+  const TWELVE_HOURS = 60 * 60 * 12;
+
+  it('「事務員判定」アプリが読める人は、JWT に clerk が入り、有効期限が12時間になる', async () => {
+    stubKintone(403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.sub).toBe('user-a');
+    expect(payload?.clerk).toBe(true);
+    expect(payload?.admin).toBeUndefined();
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(TWELVE_HOURS);
+  });
+
+  it('「事務員判定」アプリが読めない（403）人は、clerk が入らず、有効期限は7日のまま', async () => {
+    stubKintone(403, 403);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.clerk).toBeUndefined();
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(SEVEN_DAYS);
+  });
+
+  it('管理者と事務員の両方のアプリが読める人は、admin と clerk の両方が入る（有効期限は事務員の12時間）', async () => {
+    stubKintone(200, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.admin).toBe(true);
+    expect(payload?.clerk).toBe(true);
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(TWELVE_HOURS);
+  });
+
+  it('KINTONE_OFFICE_CLERK_APP_ID が無ければ、だれも事務員にしない', async () => {
+    stubKintone(403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1',
+      { ...env, KINTONE_OFFICE_CLERK_APP_ID: undefined } as unknown as typeof env
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.clerk).toBeUndefined();
+  });
+
+  it('利用者を識別できなかった人は、アプリが読めても事務員にしない', async () => {
+    stubKintone(403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1',
+      { ...env, KINTONE_LOGIN_LOG_APP_ID: undefined } as unknown as typeof env
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.sub).toBe('kintone-user');
+    expect(payload?.clerk).toBeUndefined();
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(SEVEN_DAYS);
+  });
+});
+
+describe('広報委員の判定（/callback）', () => {
+  const SEVEN_DAYS = 60 * 60 * 24 * 7;
+
+  it('「広報委員判定」アプリが読める人は、JWT に koho が入る（有効期限は 7 日のまま）', async () => {
+    stubKintone(403, 403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.koho).toBe(true);
+    expect(payload?.clerk).toBeUndefined();
+    expect(payload?.admin).toBeUndefined();
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(SEVEN_DAYS);
+  });
+
+  it('「広報委員判定」アプリが読めない（403）人は、koho が入らない', async () => {
+    stubKintone(403, 403, 403);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.koho).toBeUndefined();
+  });
+
+  it('KINTONE_KOHO_APP_ID が無ければ、だれも広報委員にしない', async () => {
+    stubKintone(403, 403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1',
+      { ...env, KINTONE_KOHO_APP_ID: undefined } as unknown as typeof env
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.koho).toBeUndefined();
+  });
+
+  it('利用者を識別できなかった人は、アプリが読めても広報委員にしない', async () => {
+    stubKintone(403, 403, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1',
+      { ...env, KINTONE_LOGIN_LOG_APP_ID: undefined } as unknown as typeof env
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.koho).toBeUndefined();
+  });
+
+  it('事務員で広報委員でもある人は、両方が入り、有効期限は事務員の 12 時間', async () => {
+    stubKintone(403, 200, 200);
+    const response = await callback(
+      makeState('nonce-1', `${SITE}/member/`),
+      'nonce-1'
+    );
+    const { payload } = await tokenFromRedirect(response);
+    expect(payload?.clerk).toBe(true);
+    expect(payload?.koho).toBe(true);
+    expect((payload?.exp ?? 0) - (payload?.iat ?? 0)).toBe(60 * 60 * 12);
+  });
+});
+
 describe('トークンの更新（/refresh）', () => {
   it('更新のたびに管理者を判定し直す（外された人は admin が消える）', async () => {
     stubKintone(403);
@@ -214,5 +349,38 @@ describe('トークンの更新（/refresh）', () => {
     const payload = await verifyJWT(body.token, TEST_SECRET);
     expect(payload?.sub).toBe('user-a');
     expect(payload?.admin).toBeUndefined();
+  });
+
+  it('更新のたびに事務員を判定し直す（外された人は clerk が消える）', async () => {
+    stubKintone(403, 403);
+    const response = await auth.fetch(
+      new Request(`${WORKER}/refresh?refresh_token=refresh-token`),
+      env
+    );
+    const body = (await response.json()) as { token: string };
+    const payload = await verifyJWT(body.token, TEST_SECRET);
+    expect(payload?.clerk).toBeUndefined();
+  });
+
+  it('更新でも、事務員なら clerk が入る', async () => {
+    stubKintone(403, 200);
+    const response = await auth.fetch(
+      new Request(`${WORKER}/refresh?refresh_token=refresh-token`),
+      env
+    );
+    const body = (await response.json()) as { token: string };
+    const payload = await verifyJWT(body.token, TEST_SECRET);
+    expect(payload?.clerk).toBe(true);
+  });
+
+  it('更新のたびに広報委員を判定し直す（外された人は koho が消える）', async () => {
+    stubKintone(403, 403, 403);
+    const response = await auth.fetch(
+      new Request(`${WORKER}/refresh?refresh_token=refresh-token`),
+      env
+    );
+    const body = (await response.json()) as { token: string };
+    const payload = await verifyJWT(body.token, TEST_SECRET);
+    expect(payload?.koho).toBeUndefined();
   });
 });

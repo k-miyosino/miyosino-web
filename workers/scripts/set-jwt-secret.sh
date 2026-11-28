@@ -38,6 +38,8 @@ WORKERS=(
   "wrangler.applications.toml"
   "wrangler.chat.toml"
   "wrangler.ops.toml"
+  "wrangler.office.toml"
+  "wrangler.koho.toml"
 )
 
 cd "$WORKERS_DIR"

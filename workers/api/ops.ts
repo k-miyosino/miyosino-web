@@ -1,7 +1,7 @@
 /**
  * Cloudflare Workers - 運用ダッシュボード（/member/ops）の API
  *
- * 管理者（JWT の admin。auth.ts が kintone の「運用管理者」アプリのアクセス権で判定）にだけ答える。
+ * 管理者（JWT の admin。auth.ts が kintone の「システム管理者判定」アプリのアクセス権で判定）にだけ答える。
  * 設定の手順は OPS.md。
  *
  * エンドポイント（すべて Authorization: Bearer <JWT> が必要）:
