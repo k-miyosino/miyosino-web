@@ -79,14 +79,13 @@ export default function OfficeLedgerLogList() {
       </div>
 
       {messages.length > 0 && (
-        <div
-          role="status"
-          className="bg-blue-50 border border-blue-300 text-blue-900 rounded-lg p-4 text-lg"
-        >
+        <output className="block bg-blue-50 border border-blue-300 text-blue-900 rounded-lg p-4 text-lg">
           {messages.map((m) => (
-            <p key={m}>{m}</p>
+            <span key={m} className="block">
+              {m}
+            </span>
           ))}
-        </div>
+        </output>
       )}
 
       {logs.length === 0 ? (

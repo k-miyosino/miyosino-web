@@ -129,11 +129,7 @@ export function parseLedgerInput(body: unknown): Parsed<LedgerInput> {
   const propertyName = text(data, 'propertyName');
   if (!PROPERTY_PATTERN.test(propertyName)) errors.push('お部屋を選んでください');
   const newName = text(data, 'newName');
-  if (!newName) {
-    errors.push(type === '名義変更' ? '新しい組合員の氏名を入れてください' : '変更後の氏名を入れてください');
-  } else if (newName.length > MAX_NAME) {
-    errors.push(`氏名は ${MAX_NAME} 文字までです`);
-  }
+  errors.push(...checkNewName(newName, type));
   if (type === '氏名の変更') {
     return errors.length > 0
       ? { ok: false, errors }
@@ -141,11 +137,7 @@ export function parseLedgerInput(body: unknown): Parsed<LedgerInput> {
   }
 
   const newLogin = text(data, 'newLogin');
-  if (!LOGIN_PATTERN.test(newLogin)) {
-    errors.push('新しい組合員のログイン名を入れてください（半角の英数字）');
-  } else if (PROPERTY_PATTERN.test(propertyName) && !newLogin.startsWith(propertyCode(propertyName))) {
-    errors.push(`ログイン名は、お部屋の番号（${propertyCode(propertyName)}）で始まります。管理者に伝えられたログイン名を確かめてください`);
-  }
+  errors.push(...checkNewLogin(newLogin, propertyName));
   const switchDate = text(data, 'switchDate');
   if (!isValidDate(switchDate)) errors.push('新しい組合員の負担となる日を入れてください');
   const transferDate = text(data, 'transferDate');
@@ -156,6 +148,25 @@ export function parseLedgerInput(body: unknown): Parsed<LedgerInput> {
         ok: true,
         value: { type: '名義変更', submitKey, propertyName, newName, newLogin, switchDate, transferDate },
       };
+}
+
+function checkNewName(newName: string, type: string): string[] {
+  if (!newName) {
+    return [type === '名義変更' ? '新しい組合員の氏名を入れてください' : '変更後の氏名を入れてください'];
+  }
+  return newName.length > MAX_NAME ? [`氏名は ${MAX_NAME} 文字までです`] : [];
+}
+
+function checkNewLogin(newLogin: string, propertyName: string): string[] {
+  if (!LOGIN_PATTERN.test(newLogin)) {
+    return ['新しい組合員のログイン名を入れてください（半角の英数字）'];
+  }
+  if (PROPERTY_PATTERN.test(propertyName) && !newLogin.startsWith(propertyCode(propertyName))) {
+    return [
+      `ログイン名は、お部屋の番号（${propertyCode(propertyName)}）で始まります。管理者に伝えられたログイン名を確かめてください`,
+    ];
+  }
+  return [];
 }
 
 /** その日に所有中か（開始日 ≤ その日 ≤ 終了日。空ならその側は限りなし） */
@@ -304,7 +315,7 @@ export function planTransfer(
   if (owner.end_date.value) {
     errors.push('旧組合員の所有には、すでに終了日が入っています。管理者に台帳の確認を頼んでください');
   }
-  if (!ctx.member || ctx.member.display.value !== oldDisplay) {
+  if (ctx.member?.display.value !== oldDisplay) {
     errors.push('旧組合員の組合員の登録が見つかりません。管理者に台帳の確認を頼んでください');
   }
   if (input.newLogin === oldUser) {
@@ -387,7 +398,7 @@ export function planRename(
   const owner = currentOwnership(ctx);
   if (typeof owner === 'string') return { ok: false, errors: [owner] };
   const member = ctx.member;
-  if (!member || member.display.value !== owner.member.value) {
+  if (member?.display.value !== owner.member.value) {
     return { ok: false, errors: ['組合員の登録が見つかりません。管理者に台帳の確認を頼んでください'] };
   }
   const oldDisplay = member.display.value;
@@ -413,9 +424,10 @@ export function planRename(
     parkings: parkings.map((p) => p.$id.value),
   };
   const after = { display: newDisplay };
+  const parkingPart = parkings.length > 0 ? `・駐車場の契約 ${parkings.length} 件` : '';
   const summary = [
     `組合員の登録の表示を「${oldDisplay}」から「${newDisplay}」に書き換えます`,
-    `所有状況 ${ownerships.length} 件${parkings.length > 0 ? `・駐車場の契約 ${parkings.length} 件` : ''}の「組合員」も、新しい表示に写し直します`,
+    `所有状況 ${ownerships.length} 件${parkingPart}の「組合員」も、新しい表示に写し直します`,
   ];
   const notices = [
     `管理者へ: ログイン名 ${owner.user.value[0]?.code ?? ''} の Kintone ユーザーの表示名を、新しい氏名（${input.newName}）に変えてください`,

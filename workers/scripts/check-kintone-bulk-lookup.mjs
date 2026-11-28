@@ -106,19 +106,19 @@ async function tryTwoSteps(request, args, display) {
 
 async function cleanUp(request, args, created) {
   console.log('\n[後片付け] 確認用のレコードを消す');
-  const targets = [
-    [args['ownership-app'], created.ownershipId, '所有状況'],
-    [args['member-app'], created.memberId, '組合員'],
-  ];
-  for (const [app, id, label] of targets) {
-    if (!id) continue;
-    try {
-      await request('DELETE', '/k/v1/records.json', { app, ids: [id] });
-      console.log(`  ${label} ${id} を消した`);
-    } catch (error) {
-      if (!(error instanceof KintoneCliError)) throw error;
-      console.log(`  ${label} ${id} を消せなかった。kintone の画面で消してください（アプリ ${app}）: ${error.message}`);
-    }
+  // 所有状況が組合員を参照しているので、所有状況 → 組合員 の順に 1 件ずつ消す
+  await deleteOne(request, args['ownership-app'], created.ownershipId, '所有状況');
+  await deleteOne(request, args['member-app'], created.memberId, '組合員');
+}
+
+async function deleteOne(request, app, id, label) {
+  if (!id) return;
+  try {
+    await request('DELETE', '/k/v1/records.json', { app, ids: [id] });
+    console.log(`  ${label} ${id} を消した`);
+  } catch (error) {
+    if (!(error instanceof KintoneCliError)) throw error;
+    console.log(`  ${label} ${id} を消せなかった。kintone の画面で消してください（アプリ ${app}）: ${error.message}`);
   }
 }
 
@@ -171,7 +171,9 @@ async function main() {
   console.log('この「結果」の行を、そのまま知らせてください。');
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error(`エラー: ${error.message}`);
   process.exit(1);
-});
+}

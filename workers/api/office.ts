@@ -99,6 +99,11 @@ class KintoneError extends Error {
   }
 }
 
+/** kintone のレコード番号（文字列か数）を文字列に。それ以外は空 */
+function recordId(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+}
+
 async function kintoneFailure(response: Response, appId: string): Promise<KintoneError> {
   // 本文には個人情報が入りうるので、エラーコードだけを取り出す（bulkRequest は results の中にある）
   const data = (await response.json().catch(() => ({}))) as {
@@ -106,7 +111,8 @@ async function kintoneFailure(response: Response, appId: string): Promise<Kinton
     results?: { code?: unknown }[];
   };
   const failed = Array.isArray(data.results) ? data.results.find((r) => r?.code) : undefined;
-  const code = String(failed?.code ?? data.code ?? '');
+  const raw = failed?.code ?? data.code;
+  const code = typeof raw === 'string' ? raw : '';
   return new KintoneError(response.status, /^[A-Z0-9_]{1,40}$/.test(code) ? code : '', appId);
 }
 
@@ -286,7 +292,7 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
   // 同じ送信キーの記録がすでにあれば、新しく書き込まずにその番号を返す（ボタンの二度押し・通信のやり直し）
   const existing = await fetchAllRecords<LogRecord>(env, apps.log, ['$id'], `submit_key = "${input.submitKey}"`);
   if (existing.length > 0) {
-    return jsonResponse({ logId: String(existing[0].$id?.value ?? ''), duplicate: true }, 200, origin);
+    return jsonResponse({ logId: recordId(existing[0].$id?.value), duplicate: true }, 200, origin);
   }
 
   const planned = plan(input, await loadContext(env, apps, input.propertyName), apps, payload);
@@ -308,7 +314,7 @@ async function handleApply(request: Request, env: Env, apps: LedgerApps, payload
     }
     throw error;
   }
-  const logId = String(results[results.length - 1]?.id ?? '');
+  const logId = String(results.at(-1)?.id ?? '');
 
   // 名義変更は、取り消しに使うため、作った組合員と所有状況の番号を記録に足す（失敗しても台帳の更新は済んでいる）
   if (input.type === '名義変更') {
