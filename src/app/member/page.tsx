@@ -149,9 +149,7 @@ export default function MemberPage() {
             href="/member/office"
             className="flex items-center justify-between bg-blue-800 hover:bg-blue-900 text-white rounded-lg px-6 py-5 mb-4 text-lg transition-colors"
           >
-            <span className="font-bold">
-              事務員専用ページ（台帳の更新）
-            </span>
+            <span className="font-bold">事務員専用ページ（台帳の更新）</span>
             <span aria-hidden="true">→</span>
           </Link>
         )}
