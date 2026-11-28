@@ -145,9 +145,11 @@ export default function OfficeLedgerForm({ onDone }: Readonly<Props>) {
         )}
         {step === 'newName' && (
           <label className={LABEL_CLASS}>
-            {draft.type === '名義変更'
-              ? '新しい組合員の氏名（名義変更届の「新」の氏名）'
-              : `変更後の氏名（いまの登録: ${draft.ownerDisplay}）`}
+            <span>
+              {draft.type === '名義変更'
+                ? '新しい組合員の氏名（姓と名。名義変更届の「新」の氏名）'
+                : `変更後の氏名（姓と名。いまの登録: ${draft.ownerDisplay}）`}
+            </span>
             <input
               type="text"
               value={draft.newName}
@@ -155,6 +157,10 @@ export default function OfficeLedgerForm({ onDone }: Readonly<Props>) {
               onChange={(e) => update({ newName: e.target.value })}
               className={INPUT_CLASS}
             />
+            <span className="text-base font-normal text-gray-600">
+              姓と名の間は、空けても空けなくてもかまいません。台帳には「
+              {draft.propertyName}田中太郎」のように、空けずに入ります。
+            </span>
           </label>
         )}
         {step === 'newLogin' && (
