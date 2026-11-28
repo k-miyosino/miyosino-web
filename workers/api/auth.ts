@@ -24,7 +24,7 @@
  * 結果は JWT の admin に入れる。
  *
  * 事務員専用ページの事務員の判定:
- * 管理者と同じしくみで、「事務員」アプリ（KINTONE_OFFICE_CLERK_APP_ID）を本人のトークンで読めるかどうかで判定する。
+ * 管理者と同じしくみで、「事務員判定」アプリ（KINTONE_OFFICE_CLERK_APP_ID）を本人のトークンで読めるかどうかで判定する。
  * アプリのアクセス権を「事務員」グループだけに絞っておく（OFFICE.md 3-2）。結果は JWT の clerk に入れる。
  * 事務員の JWT は、窓口の PC をほかの人も使う前提で、有効期限を短くする（CLERK_JWT_LIFETIME_SECONDS）。
  */
@@ -40,7 +40,7 @@ interface Env {
   KINTONE_LOGIN_LOG_APP_ID?: string;
   // 「運用管理者」アプリのID。未設定ならだれも管理者にしない
   KINTONE_OPS_ADMIN_APP_ID?: string;
-  // 「事務員」アプリのID。未設定ならだれも事務員にしない
+  // 「事務員判定」アプリのID。未設定ならだれも事務員にしない
   KINTONE_OFFICE_CLERK_APP_ID?: string;
 }
 
@@ -745,7 +745,7 @@ function isOpsAdmin(accessToken: string, env: Env): Promise<boolean> {
 
 /**
  * 事務員専用ページの事務員かどうか。
- * 「事務員」アプリのレコードを本人のトークンで読めれば事務員。判定に失敗したときは事務員にしない。
+ * 「事務員判定」アプリのレコードを本人のトークンで読めれば事務員。判定に失敗したときは事務員にしない。
  */
 function isOfficeClerk(accessToken: string, env: Env): Promise<boolean> {
   return canReadApp(
