@@ -85,8 +85,12 @@ export function makeClient(args, dryRun = () => ({})) {
     const response = await fetch(url, init);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      // kintone のエラーコードとメッセージだけを出す（認証の情報は出さない）
-      throw new KintoneCliError(method, path, response.status, data.code, data.message);
+      // kintone のエラーコードとメッセージだけを出す（認証の情報は出さない）。
+      // bulkRequest の失敗は results の中の、失敗した書き込みにコードとメッセージが入る
+      const failedIndex = Array.isArray(data.results) ? data.results.findIndex((r) => r?.code) : -1;
+      const failed = failedIndex >= 0 ? data.results[failedIndex] : data;
+      const where = failedIndex >= 0 ? `${failedIndex + 1} 番目の書き込み: ` : '';
+      throw new KintoneCliError(method, path, response.status, failed.code, `${where}${failed.message ?? ''}`);
     }
     return data;
   };
